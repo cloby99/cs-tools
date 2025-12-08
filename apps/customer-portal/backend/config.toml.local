@@ -1,0 +1,21 @@
+[customer_portal.entity]
+    csEntityBaseUrl = ""
+
+[customer_portal.authorization.authorizedRoles]
+    userRole  = ""
+
+# SCIM Service Configuration
+[customer_portal.scim.scimConfig]
+serviceUrl = ""
+orgPath = ""
+tokenUrl = ""
+clientId = ""
+clientSecret = ""
+scopes = []
+
+# SCIM Retry Configuration
+[customer_portal.scim.retryConfig]
+count =
+interval =
+backOffFactor =
+maxWaitInterval =
