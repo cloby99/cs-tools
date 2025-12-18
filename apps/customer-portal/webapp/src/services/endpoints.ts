@@ -16,7 +16,7 @@ export interface MockEndpoint {
   delay?: number;
 }
 
-const BASE_URL = import.meta.env.VITE_APP_BACKEND_BASE_URL;
+const BASE_URL = import.meta.env.CUSTOMER_PORTAL_APP_BACKEND_BASE_URL;
 
 /**
  * A helper function to build a URL with query parameters.
