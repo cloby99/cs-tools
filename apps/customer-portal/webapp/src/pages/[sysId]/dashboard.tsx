@@ -55,7 +55,12 @@ import type { ProjectMetadataResponse } from "../../types/project-metadata.types
 import type { CaseResponse } from "../../types/support.types";
 import { useProject } from "../../context/ProjectContext";
 import { useParams } from "../../router";
-
+import { getSeverityColor } from "../../utils/color";
+import { formatDate } from "../../utils/dateUtils";
+import {
+  getActiveCasesData,
+  getOutstandingIncidentsData,
+} from "../../utils/dashboardUtils";
 
 export default function Dashboard() {
   const { sysId } = useParams("/:sysId/dashboard");
@@ -99,35 +104,7 @@ export default function Dashboard() {
   const statsConfig = projectMetadata ? getStatsConfig(projectMetadata) : [];
 
   // Transform API data for Outstanding Incidents pie chart
-  const outstandingIncidentsData = projectMetadata
-    ? [
-        {
-          name: "Critical (S0)",
-          value: projectMetadata.projectStatistics.incidentCount.s0,
-          color: "#ef4444",
-        },
-        {
-          name: "High (S1)",
-          value: projectMetadata.projectStatistics.incidentCount.s1,
-          color: "#f97316",
-        },
-        {
-          name: "Medium (S2)",
-          value: projectMetadata.projectStatistics.incidentCount.s2,
-          color: "#6366f1",
-        },
-        {
-          name: "Low (S3)",
-          value: projectMetadata.projectStatistics.incidentCount.s3,
-          color: "#22d3ee",
-        },
-        {
-          name: "Minimal (S4)",
-          value: projectMetadata.projectStatistics.incidentCount.s4,
-          color: "#9ca3af",
-        },
-      ]
-    : [];
+  const outstandingIncidentsData = getOutstandingIncidentsData(projectMetadata);
 
   const totalIncidents = outstandingIncidentsData.reduce(
     (sum, item) => sum + item.value,
@@ -135,30 +112,7 @@ export default function Dashboard() {
   );
 
   // Transform API data for Active Cases pie chart
-  const activeCasesData = projectMetadata
-    ? [
-        {
-          name: "Awaiting",
-          value:
-            projectMetadata.projectStatistics.activeCaseCount.awaitingCount,
-          color: "#6366f1",
-        },
-        {
-          name: "Work in Progress",
-          value:
-            projectMetadata.projectStatistics.activeCaseCount
-              .workInProgressCount,
-          color: "#22d3ee",
-        },
-        {
-          name: "Waiting on WSO2",
-          value:
-            projectMetadata.projectStatistics.activeCaseCount
-              .waitingOnWSO2Count,
-          color: "#fb923c",
-        },
-      ]
-    : [];
+  const activeCasesData = getActiveCasesData(projectMetadata);
 
   const totalActiveCases = activeCasesData.reduce(
     (sum, item) => sum + item.value,
@@ -174,31 +128,6 @@ export default function Dashboard() {
     { year: "2024", Issue: 28, Feature: 18, Feedback: 14, Outage: 8 },
     { year: "2025", Issue: 32, Feature: 21, Feedback: 16, Outage: 9 },
   ];
-
-  // Helper function to format date
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
-  // Helper function to get severity color
-  const getSeverityColor = (severity: string) => {
-    const lowerSeverity = severity.toLowerCase();
-    if (lowerSeverity.includes("critical") || lowerSeverity.includes("s0")) {
-      return { bg: "#fef2f2", text: "#b91c1c", border: "#fecaca" };
-    }
-    if (lowerSeverity.includes("high") || lowerSeverity.includes("s1")) {
-      return { bg: "#fef3f2", text: "#c2410c", border: "#fed7aa" };
-    }
-    if (lowerSeverity.includes("medium") || lowerSeverity.includes("s2")) {
-      return { bg: "#eff6ff", text: "#1d4ed8", border: "#bfdbfe" };
-    }
-    return { bg: "#f9fafb", text: "#374151", border: "#e5e7eb" };
-  };
 
   // Get outstanding cases from API
   const outstandingCases = casesData?.cases || [];
