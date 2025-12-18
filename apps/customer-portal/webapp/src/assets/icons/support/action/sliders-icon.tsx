@@ -15,11 +15,19 @@
 // under the License.
 
 import React from "react";
-import { BaseIcon } from "../../BaseIcon";
 import type { IconProps } from "../../../../types/icon.types";
+import { BaseIcon } from "../../BaseIcon";
 
-export const PaperclipIcon: React.FC<IconProps> = (props) => (
+export const SlidersIcon: React.FC<IconProps> = (props) => (
   <BaseIcon {...props}>
-    <path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551" />
+    <path d="M10 5H3"></path>
+    <path d="M12 19H3"></path>
+    <path d="M14 3v4"></path>
+    <path d="M16 17v4"></path>
+    <path d="M21 12h-9"></path>
+    <path d="M21 19h-5"></path>
+    <path d="M21 5h-7"></path>
+    <path d="M8 10v4"></path>
+    <path d="M8 12H3"></path>
   </BaseIcon>
 );

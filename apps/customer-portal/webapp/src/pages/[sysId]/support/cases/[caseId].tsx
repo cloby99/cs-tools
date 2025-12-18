@@ -12,7 +12,13 @@ import type { CaseDetails } from "../../../../types/case.types";
 
 import { Endpoints } from "../../../../services/endpoints";
 import { useGet } from "../../../../services/useApi";
-import { BookOpenIcon, InfoIcon, MessageSquareIcon, PaperclipIcon, PhoneIcon } from "../../../../assets/icons/support/support-icons";
+import {
+  BookOpenIcon,
+  InfoIcon,
+  ChatIcon,
+  AttachmentIcon,
+  PhoneIcon,
+} from "../../../../assets/icons/support/support-icons";
 
 const CaseDetailsPage: React.FC = () => {
   const { sysId, caseId } = useParams<{ sysId: string; caseId: string }>();
@@ -97,7 +103,7 @@ const CaseDetailsPage: React.FC = () => {
             <Tab
               value="activity"
               label="Activity"
-              icon={<MessageSquareIcon width={14} height={14} />}
+              icon={<ChatIcon width={14} height={14} />}
               iconPosition="start"
               sx={{ gap: 0.75 }}
             />
@@ -111,7 +117,7 @@ const CaseDetailsPage: React.FC = () => {
             <Tab
               value="attachments"
               label={`Attachments (${caseData.attachments?.length || 0})`}
-              icon={<PaperclipIcon width={14} height={14} />}
+              icon={<AttachmentIcon width={14} height={14} />}
               iconPosition="start"
               sx={{ gap: 0.75 }}
             />

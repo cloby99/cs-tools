@@ -4,13 +4,11 @@ import {
   InfoIcon,
   CalendarIcon,
   ClockIcon,
-} from "../../assets/icons/support/support-icons";
-import { TagIcon } from "../../assets/icons/case/TagIcon";
-import {
+  TagIcon,
   ServerIcon,
   PackageIcon,
   BuildingIcon,
-} from "../../assets/icons/case/ProjectIcons";
+} from "../../assets/icons/support/support-icons";
 import type { CaseDetails } from "../../types/case.types";
 
 interface CaseInfoProps {

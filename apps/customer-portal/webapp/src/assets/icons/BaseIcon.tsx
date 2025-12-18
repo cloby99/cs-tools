@@ -15,7 +15,7 @@
 // under the License.
 
 import React from "react";
-import type { IconProps } from "../../../types/icon.types";
+import type { IconProps } from "../../types/icon.types";
 
 export type BaseIconProps = IconProps;
 

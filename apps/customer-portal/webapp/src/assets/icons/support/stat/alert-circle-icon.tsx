@@ -15,13 +15,13 @@
 // under the License.
 
 import React from "react";
-import { BaseIcon } from "../../BaseIcon";
 import type { IconProps } from "../../../../types/icon.types";
+import { BaseIcon } from "../../BaseIcon";
 
-export const CircleXIcon: React.FC<IconProps> = (props) => (
+export const AlertCircleIcon: React.FC<IconProps> = (props) => (
   <BaseIcon {...props}>
-    <circle cx="12" cy="12" r="10" />
-    <path d="m15 9-6 6" />
-    <path d="m9 9 6 6" />
+    <circle cx="12" cy="12" r="10"></circle>
+    <line x1="12" x2="12" y1="8" y2="12"></line>
+    <line x1="12" x2="12.01" y1="16" y2="16"></line>
   </BaseIcon>
 );

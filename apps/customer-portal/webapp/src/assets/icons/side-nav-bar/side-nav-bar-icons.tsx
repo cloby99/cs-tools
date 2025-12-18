@@ -24,3 +24,4 @@ export * from "./security-center-icon";
 export * from "./settings-icon";
 export * from "./support-icon";
 export * from "./updates-icon";
+export * from "./wso2-logo";

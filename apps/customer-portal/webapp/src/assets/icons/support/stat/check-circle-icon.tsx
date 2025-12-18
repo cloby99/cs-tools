@@ -15,14 +15,12 @@
 // under the License.
 
 import React from "react";
-import { BaseIcon } from "../../BaseIcon";
 import type { IconProps } from "../../../../types/icon.types";
+import { BaseIcon } from "../../BaseIcon";
 
-export const Maximize2Icon: React.FC<IconProps> = (props) => (
+export const CheckCircleIcon: React.FC<IconProps> = (props) => (
   <BaseIcon {...props}>
-    <path d="M15 3h6v6" />
-    <path d="m21 3-7 7" />
-    <path d="m3 21 7-7" />
-    <path d="M9 21H3v-6" />
+    <circle cx="12" cy="12" r="10"></circle>
+    <path d="m9 12 2 2 4-4"></path>
   </BaseIcon>
 );

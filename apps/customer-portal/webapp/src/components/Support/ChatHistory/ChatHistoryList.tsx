@@ -19,11 +19,11 @@ import React from "react";
 import {
   ArrowRightIcon,
   BotIcon,
-  CircleAlertIcon,
-  CircleCheckIcon,
+  AlertCircleIcon,
+  CheckCircleIcon,
   ClockIcon,
   ExternalLinkIcon,
-  MessageSquareIcon,
+  ChatIcon,
   PlayIcon,
 } from "../../../assets/icons/support/support-icons";
 
@@ -49,7 +49,7 @@ const getStatusConfig = (isResolved: boolean, status: string) => {
       itemBg: "#f0fdf4",
       itemBorder: "#e5e7eb", // gray-200
       hoverBorder: "#d1d5db", // gray-300
-      icon: <CircleCheckIcon width={12} height={12} />,
+      icon: <CheckCircleIcon width={12} height={12} />,
     };
   }
   if (status === "Abandoned") {
@@ -60,7 +60,7 @@ const getStatusConfig = (isResolved: boolean, status: string) => {
       itemBorder: "#93c5fd", // blue-300 (per input styling, specifically for Abandoned item 5 in input)
       // wait, input example item 5 is Abandoned: bg-gray-50 border-blue-300 hover:border-blue-400.
       hoverBorder: "#60a5fa", // blue-400
-      icon: <CircleAlertIcon width={12} height={12} />,
+      icon: <AlertCircleIcon width={12} height={12} />,
     };
   }
   // Still Open
@@ -99,7 +99,7 @@ export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({ chats }) => {
             color: "#2563eb", // blue-600
           }}
         >
-          <MessageSquareIcon width={20} height={20} />
+          <ChatIcon width={20} height={20} />
         </Box>
         <Box>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>

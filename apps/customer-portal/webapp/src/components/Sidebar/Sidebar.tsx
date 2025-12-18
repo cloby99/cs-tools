@@ -15,8 +15,8 @@ import {
   LegalContractsIcon,
   CommunityIcon,
   AnnouncementsIcon,
+  Wso2Logo,
 } from "../../assets/icons/side-nav-bar/side-nav-bar-icons";
-import Wso2Logo from "../../assets/icons/header/logo/wso2-logo";
 import type { SidebarProps } from ".";
 
 const Sidebar: React.FC<SidebarProps> = ({

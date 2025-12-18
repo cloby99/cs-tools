@@ -3,8 +3,8 @@ import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   CalendarIcon,
-  CircleAlertIcon,
-  CircleCheckIcon,
+  AlertCircleIcon,
+  CheckCircleIcon,
   ClockIcon,
   FileTextIcon,
   MessageCircleIcon,
@@ -33,7 +33,7 @@ const statusConfig: Record<
     bg: "#dbeafe",
     text: "#1d4ed8",
     border: "#bfdbfe",
-    icon: CircleAlertIcon,
+    icon: AlertCircleIcon,
   }, // blue-100, blue-700, blue-200
   "in progress": {
     bg: "#ffedd5",
@@ -51,13 +51,13 @@ const statusConfig: Record<
     bg: "#dcfce7",
     text: "#15803d",
     border: "#bbf7d0",
-    icon: CircleCheckIcon,
+    icon: CheckCircleIcon,
   }, // green-100, green-700, green-200
   closed: {
     bg: "#f3f4f6",
     text: "#374151",
     border: "#e5e7eb",
-    icon: CircleCheckIcon,
+    icon: CheckCircleIcon,
   }, // gray-100, gray-700, gray-200
 };
 

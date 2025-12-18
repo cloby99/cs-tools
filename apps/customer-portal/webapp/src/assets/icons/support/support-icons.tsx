@@ -15,40 +15,45 @@
 // under the License.
 
 // Stat Icons
-export * from "./stat/CircleAlertIcon";
-export * from "./stat/CircleCheckIcon";
-export * from "./stat/ClockIcon";
-export * from "./stat/MessageCircleIcon";
-export * from "./stat/FileTextIcon";
+export * from "./stat/alert-circle-icon";
+export * from "./stat/check-circle-icon";
+export * from "./stat/clock-icon";
+export * from "./stat/message-circle-icon";
+export * from "./stat/file-text-icon";
 
 // Navigation Icons
-export * from "./navigation/ArrowLeftIcon";
-export * from "./navigation/ArrowRightIcon";
-export * from "./navigation/ChevronDownIcon";
-export * from "./navigation/ChevronUpIcon";
-export * from "./navigation/ExternalLinkIcon";
+export * from "./navigation/arrow-left-icon";
+export * from "./navigation/arrow-right-icon";
+export * from "./navigation/chevron-down-icon";
+export * from "./navigation/chevron-up-icon";
+export * from "./navigation/external-link-icon";
 
 // Action Icons
-export * from "./action/PaperclipIcon";
-export * from "./action/SendIcon";
-export * from "./action/Maximize2Icon";
-export * from "./action/SearchIcon";
-export * from "./action/SlidersHorizontalIcon";
-export * from "./action/XIcon";
-export * from "./action/PlayIcon";
-export * from "./action/CirclePauseIcon";
-export * from "./action/CirclePlayIcon";
-export * from "./action/CircleXIcon";
+export * from "./action/attachment-icon";
+export * from "./action/send-icon";
+export * from "./action/maximize-icon";
+export * from "./action/search-icon";
+export * from "./action/sliders-icon";
+export * from "./action/close-icon";
+export * from "./action/play-icon";
+export * from "./action/circle-pause-icon";
+export * from "./action/circle-play-icon";
+export * from "./action/circle-close-icon";
+
+// Case Icons
+export * from "./case/package-icon";
+export * from "./case/building-icon";
+export * from "./case/tag-icon";
 
 // Common Icons
-export * from "./common/InfoIcon";
-export * from "./common/UserIcon";
-export * from "./common/CalendarIcon";
-export * from "./common/CalendarDaysIcon";
-export * from "./common/PhoneIcon";
-export * from "./common/PhoneCallIcon";
-export * from "./common/MessageSquareIcon";
-export * from "./common/BookOpenIcon";
-export * from "./common/BotIcon";
-export * from "./common/ServerIcon";
-export * from "./common/TrendingUpIcon";
+export * from "./common/info-icon";
+export * from "./common/user-icon";
+export * from "./common/calendar-icon";
+export * from "./common/calendar-days-icon";
+export * from "./common/phone-icon";
+export * from "./common/phone-call-icon";
+export * from "./common/chat-icon";
+export * from "./common/book-open-icon";
+export * from "./common/bot-icon";
+export * from "./common/server-icon";
+export * from "./common/trending-up-icon";

@@ -2,7 +2,7 @@ import React, { useRef } from "react";
 import { Box, Typography, Divider, Button } from "@mui/material";
 import { CommentCard } from "./CommentCard";
 import type { Comment } from "../../types/case.types";
-import { Maximize2Icon } from "../../assets/icons/support/support-icons";
+import { MaximizeIcon } from "../../assets/icons/support/support-icons";
 
 interface CaseActivityProps {
   comments: Comment[];
@@ -18,11 +18,11 @@ export const CaseActivity: React.FC<CaseActivityProps> = ({
   const bottomRef = useRef<HTMLDivElement>(null);
 
   //Auto-scroll disabled per user request
-//   useEffect(() => {
-//     if (bottomRef.current) {
-//       bottomRef.current.scrollIntoView({ behavior: "smooth" });
-//     }
-//   }, [comments]);
+  //   useEffect(() => {
+  //     if (bottomRef.current) {
+  //       bottomRef.current.scrollIntoView({ behavior: "smooth" });
+  //     }
+  //   }, [comments]);
 
   return (
     <Box
@@ -59,7 +59,7 @@ export const CaseActivity: React.FC<CaseActivityProps> = ({
           </Typography>
           <Button
             size="small"
-            startIcon={<Maximize2Icon width={14} height={14} />}
+            startIcon={<MaximizeIcon width={14} height={14} />}
             sx={{
               color: "#64748B",
               textTransform: "none",

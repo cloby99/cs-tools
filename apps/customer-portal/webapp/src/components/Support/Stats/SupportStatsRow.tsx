@@ -18,10 +18,10 @@ import { Box, Card, Typography } from "@mui/material";
 import React from "react";
 import {
   BotIcon,
-  CircleCheckIcon,
+  CheckCircleIcon,
   ClockIcon,
   FileTextIcon,
-  MessageSquareIcon,
+  ChatIcon,
   TrendingUpIcon,
 } from "../../../assets/icons/support/support-icons";
 import { StatCard } from "./StatCard";
@@ -60,14 +60,14 @@ export const SupportStatsRow: React.FC<SupportStatsRowProps> = ({ stats }) => {
         iconColor="#ea580c" // orange-600
       />
       <StatCard
-        icon={<MessageSquareIcon width={32} height={32} />}
+        icon={<ChatIcon width={32} height={32} />}
         secondaryIcon={<BotIcon width={16} height={16} />}
         value={stats.totalCasesCount}
         label="Total Cases"
         iconColor="#2563eb" // blue-600
       />
       <StatCard
-        icon={<CircleCheckIcon width={32} height={32} />}
+        icon={<CheckCircleIcon width={32} height={32} />}
         value={stats.resolvedCasesCount}
         label="Resolved Cases"
         iconColor="#16a34a" // green-600

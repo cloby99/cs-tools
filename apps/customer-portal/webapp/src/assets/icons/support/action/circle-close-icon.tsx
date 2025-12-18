@@ -15,19 +15,13 @@
 // under the License.
 
 import React from "react";
-import type { IconProps } from "../../../../types/icon.types";
 import { BaseIcon } from "../../BaseIcon";
+import type { IconProps } from "../../../../types/icon.types";
 
-export const SlidersHorizontalIcon: React.FC<IconProps> = (props) => (
+export const CircleCloseIcon: React.FC<IconProps> = (props) => (
   <BaseIcon {...props}>
-    <path d="M10 5H3"></path>
-    <path d="M12 19H3"></path>
-    <path d="M14 3v4"></path>
-    <path d="M16 17v4"></path>
-    <path d="M21 12h-9"></path>
-    <path d="M21 19h-5"></path>
-    <path d="M21 5h-7"></path>
-    <path d="M8 10v4"></path>
-    <path d="M8 12H3"></path>
+    <circle cx="12" cy="12" r="10" />
+    <path d="m15 9-6 6" />
+    <path d="m9 9 6 6" />
   </BaseIcon>
 );

@@ -15,12 +15,14 @@
 // under the License.
 
 import React from "react";
-import type { IconProps } from "../../../../types/icon.types";
 import { BaseIcon } from "../../BaseIcon";
+import type { IconProps } from "../../../../types/icon.types";
 
-export const XIcon: React.FC<IconProps> = (props) => (
+export const MaximizeIcon: React.FC<IconProps> = (props) => (
   <BaseIcon {...props}>
-    <path d="M18 6 6 18"></path>
-    <path d="m6 6 12 12"></path>
+    <path d="M15 3h6v6" />
+    <path d="m21 3-7 7" />
+    <path d="m3 21 7-7" />
+    <path d="M9 21H3v-6" />
   </BaseIcon>
 );

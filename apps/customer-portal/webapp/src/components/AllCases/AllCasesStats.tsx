@@ -1,8 +1,8 @@
 import { Box } from "@mui/material";
 import React from "react";
 import {
-  CircleAlertIcon,
-  CircleCheckIcon,
+  AlertCircleIcon,
+  CheckCircleIcon,
   ClockIcon,
   FileTextIcon,
   MessageCircleIcon,
@@ -34,7 +34,7 @@ export const AllCasesStats: React.FC<AllCasesStatsProps> = ({ stats }) => {
       }}
     >
       <StatCard
-        icon={<CircleAlertIcon width={16} height={16} />}
+        icon={<AlertCircleIcon width={16} height={16} />}
         value={stats.ongoingCasesCount} // Assuming ongoing = open for stats mapping
         label="Open"
         iconColor="#2563eb" // blue-600
@@ -55,7 +55,7 @@ export const AllCasesStats: React.FC<AllCasesStatsProps> = ({ stats }) => {
         compact
       />
       <StatCard
-        icon={<CircleCheckIcon width={16} height={16} />}
+        icon={<CheckCircleIcon width={16} height={16} />}
         value={stats.resolvedCasesCount}
         label="Resolved"
         iconColor="#16a34a" // green-600

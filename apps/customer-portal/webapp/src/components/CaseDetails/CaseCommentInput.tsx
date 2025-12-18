@@ -1,7 +1,9 @@
 import React from "react";
 import { Box, TextField, Button, Avatar } from "@mui/material";
-import { PaperclipIcon } from "../../assets/icons/support/action/PaperclipIcon";
-import { SendIcon } from "../../assets/icons/support/action/SendIcon";
+import {
+  AttachmentIcon,
+  SendIcon,
+} from "../../assets/icons/support/support-icons";
 
 interface CaseCommentInputProps {
   onSendComment?: (comment: string) => void;
@@ -111,7 +113,7 @@ export const CaseCommentInput: React.FC<CaseCommentInputProps> = ({
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Button
                   size="small"
-                  startIcon={<PaperclipIcon width={14} height={14} />}
+                  startIcon={<AttachmentIcon width={14} height={14} />}
                   sx={{
                     color: "#64748B",
                     textTransform: "none",

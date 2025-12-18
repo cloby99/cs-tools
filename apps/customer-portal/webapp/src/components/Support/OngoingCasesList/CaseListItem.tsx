@@ -10,8 +10,8 @@ interface CaseListItemProps {
 }
 
 import {
-  CircleAlertIcon,
-  CircleCheckIcon,
+  AlertCircleIcon,
+  CheckCircleIcon,
   ClockIcon,
   MessageCircleIcon,
 } from "../../../assets/icons/support/support-icons";
@@ -37,7 +37,7 @@ const statusConfig: Record<
     bg: "#dbeafe", // blue-100
     text: "#1d4ed8", // blue-700
     border: "#bfdbfe", // blue-200
-    icon: CircleAlertIcon,
+    icon: AlertCircleIcon,
   },
   "in progress": {
     bg: "#ffedd5", // orange-100
@@ -55,13 +55,13 @@ const statusConfig: Record<
     bg: "#dcfce7",
     text: "#15803d",
     border: "#bbf7d0",
-    icon: CircleCheckIcon,
+    icon: CheckCircleIcon,
   },
   closed: {
     bg: "#f3f4f6", // gray-100
     text: "#374151", // gray-700
     border: "#e5e7eb", // gray-200
-    icon: CircleCheckIcon,
+    icon: CheckCircleIcon,
   },
 };
 

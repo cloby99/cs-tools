@@ -3,10 +3,10 @@ import { Box, Typography, Chip, Button, Avatar } from "@mui/material";
 import type { CaseDetails } from "../../types/case.types";
 import {
   ArrowLeftIcon,
-  CircleCheckIcon,
+  CheckCircleIcon,
   CirclePauseIcon,
   CirclePlayIcon,
-  CircleXIcon,
+  CircleCloseIcon,
 } from "../../assets/icons/support/support-icons";
 
 interface CaseHeaderProps {
@@ -205,7 +205,7 @@ export const CaseHeader: React.FC<CaseHeaderProps> = ({ caseData, onBack }) => {
             <Button
               variant="outlined"
               size="small"
-              startIcon={<CircleCheckIcon width={16} height={16} />}
+              startIcon={<CheckCircleIcon width={16} height={16} />}
               sx={{
                 color: "#15803D",
                 borderColor: "#86EFAC",
@@ -222,7 +222,7 @@ export const CaseHeader: React.FC<CaseHeaderProps> = ({ caseData, onBack }) => {
             <Button
               variant="outlined"
               size="small"
-              startIcon={<CircleXIcon width={16} height={16} />}
+              startIcon={<CircleCloseIcon width={16} height={16} />}
               sx={{
                 color: "#374151",
                 borderColor: "#D1D5DB",

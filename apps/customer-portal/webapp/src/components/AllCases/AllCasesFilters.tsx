@@ -13,8 +13,8 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   SearchIcon,
-  SlidersHorizontalIcon,
-  XIcon,
+  SlidersIcon,
+  CloseIcon,
 } from "../../assets/icons/support/support-icons";
 
 interface FilterOptions {
@@ -212,7 +212,7 @@ export const AllCasesFilters: React.FC<AllCasesFiltersProps> = ({
               },
             }}
           >
-            <SlidersHorizontalIcon width={16} height={16} />
+            <SlidersIcon width={16} height={16} />
             Filters
             {activeFiltersCount > 0 && (
               <Chip
@@ -287,7 +287,7 @@ export const AllCasesFilters: React.FC<AllCasesFiltersProps> = ({
                   </Typography>
                   <Button
                     onClick={onClearFilters}
-                    startIcon={<XIcon width={14} height={14} />}
+                    startIcon={<CloseIcon width={14} height={14} />}
                     sx={{
                       textTransform: "none",
                       color: "text.secondary",
