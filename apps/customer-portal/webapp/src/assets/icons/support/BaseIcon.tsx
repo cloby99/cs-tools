@@ -7,7 +7,9 @@ export const BaseIcon: React.FC<IconProps & { children: React.ReactNode }> = ({
   width = 24,
   height = 24,
   color = "currentColor",
+  className,
   children,
+  ...props
 }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -20,6 +22,8 @@ export const BaseIcon: React.FC<IconProps & { children: React.ReactNode }> = ({
     strokeLinecap="round"
     strokeLinejoin="round"
     aria-hidden="true"
+    className={className}
+    {...props}
   >
     {children}
   </svg>
