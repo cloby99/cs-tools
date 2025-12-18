@@ -14,10 +14,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Stat icons
 export * from "./stat/circle-alert-icon";
 export * from "./stat/circle-check-icon";
 export * from "./stat/clock-icon";
 export * from "./stat/trending-up-icon";
 export * from "./stat/trending-down-icon";
+
+// Action icons
 export * from "./action/funnel-icon";
 export * from "./action/ellipsis-vertical-icon";
