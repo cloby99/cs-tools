@@ -13,6 +13,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 import customer_portal.authorization;
 import customer_portal.entity;
 import customer_portal.scim;
@@ -77,8 +78,7 @@ service http:InterceptableService / on new http:Listener(9095) {
     #
     # + ctx - Request context object
     # + return - User info object or error response
-    resource function get users/me(http:RequestContext ctx)
-        returns entity:UserResponse|http:InternalServerError {
+    resource function get users/me(http:RequestContext ctx) returns entity:UserResponse|http:InternalServerError {
 
         authorization:UserDataPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -274,9 +274,8 @@ service http:InterceptableService / on new http:Listener(9095) {
     # + product - Optional product name
     # + category - Optional category
     # + return - Paginated cases or error response
-    resource function get projects/[string projectId]/cases(http:RequestContext ctx,
-            int offset = DEFAULT_OFFSET, int 'limit = DEFAULT_LIMIT,
-            string? contact = (), string? status = (), string? severity = (),
+    resource function get projects/[string projectId]/cases(http:RequestContext ctx, int offset = DEFAULT_OFFSET,
+            int 'limit = DEFAULT_LIMIT, string? contact = (), string? status = (), string? severity = (),
             string? product = (), string? category = ())
         returns entity:CasesResponse|http:BadRequest|http:InternalServerError {
 
@@ -319,7 +318,9 @@ service http:InterceptableService / on new http:Listener(9095) {
             };
         }
 
-        string cacheKey = string `${userInfo.email}:cases:${projectId}:${offset}:${'limit}:${contact ?: ""}:${status ?: ""}:${severity ?: ""}:${product ?: ""}:${category ?: ""}`;
+        string cacheKey = string `${userInfo.email}:cases:${projectId}:${offset}:${'limit}:${contact ?: ""}:
+            ${status ?: ""}:${severity ?: ""}:${product ?: ""}:${category ?: ""}`;
+
         if userCache.hasKey(cacheKey) {
             entity:CasesResponse|error cached = userCache.get(cacheKey).ensureType();
             if cached is entity:CasesResponse {
@@ -327,7 +328,6 @@ service http:InterceptableService / on new http:Listener(9095) {
             }
         }
 
-        // Fixed: Pass the actual optional parameters instead of ()
         entity:CasesResponse|error cases = entity:fetchCases(userInfo.idToken, offset, 'limit, projectId,
                 contact, status, severity, product, category);
         if cases is error {
@@ -402,9 +402,9 @@ service http:InterceptableService / on new http:Listener(9095) {
     # + group - Group name
     # + payload - List of user emails
     # + return - Created response or error
-    isolated resource function post groups/[string group]/users(
-            http:RequestContext ctx, @http:Payload scim:AddUsersRequest payload)
-            returns http:Created|http:BadRequest|http:InternalServerError {
+    isolated resource function post groups/[string group]/users(http:RequestContext ctx,
+            @http:Payload scim:AddUsersRequest payload)
+        returns http:Created|http:BadRequest|http:InternalServerError {
 
         authorization:UserDataPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -441,4 +441,3 @@ service http:InterceptableService / on new http:Listener(9095) {
         };
     }
 }
-

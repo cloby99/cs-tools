@@ -36,9 +36,7 @@ public isolated function fetchUserBasicInfo(string email, string idToken) return
 # + projectId - Unique ID of the project
 # + idToken - ID token for authorization
 # + return - Case filters object or error
-public isolated function fetchCasesFilters(string projectId, string idToken)
-    returns CaseFiltersResponse|error {
-
+public isolated function fetchCasesFilters(string projectId, string idToken) returns CaseFiltersResponse|error {
     map<string|string[]> headers = {
         "Authorization": ["Bearer " + idToken],
         "X-JWT-Assertion": [idToken]
@@ -53,7 +51,6 @@ public isolated function fetchCasesFilters(string projectId, string idToken)
     }
 
     return caseFiltersResponse;
-
 }
 
 # Fetch project overview from entity service.
@@ -106,7 +103,9 @@ public isolated function fetchProjectDetails(string projectId, string idToken) r
 # + caseId - Unique ID of the case
 # + idToken - ID token for authorization
 # + return - Case details object or error
-public isolated function fetchCaseDetails(string projectId, string caseId, string idToken) returns CaseDetailsResponse|error {
+public isolated function fetchCaseDetails(string projectId, string caseId, string idToken)
+    returns CaseDetailsResponse|error {
+
     map<string|string[]> headers = {
         "Authorization": ["Bearer " + idToken],
         "X-JWT-Assertion": [idToken]
@@ -158,17 +157,8 @@ public isolated function fetchProjects(string idToken, int offset, int 'limit) r
 # + product - Product filter (optional)
 # + category - Category filter (optional)
 # + return - Cases object or error
-public isolated function fetchCases(
-        string idToken,
-        int offset,
-        int 'limit,
-        string projectId,
-        string? contact,
-        string? status,
-        string? severity,
-        string? product,
-        string? category
-) returns CasesResponse|error {
+public isolated function fetchCases(string idToken, int offset, int 'limit, string projectId, string? contact,
+        string? status, string? severity, string? product, string? category) returns CasesResponse|error {
 
     map<string|string[]> headers = {
         "Authorization": ["Bearer " + idToken],
