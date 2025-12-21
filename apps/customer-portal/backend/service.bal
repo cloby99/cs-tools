@@ -16,7 +16,6 @@
 
 import customer_portal.authorization;
 import customer_portal.entity;
-import customer_portal.scim;
 
 import ballerina/cache;
 import ballerina/http;
@@ -431,48 +430,4 @@ service http:InterceptableService / on new http:Listener(9090) {
         return caseDetails;
     }
 
-    # Add users to a SCIM group.
-    #
-    # + ctx - Request context object
-    # + group - Group name
-    # + payload - List of user emails
-    # + return - Created response or error
-    isolated resource function post groups/[string group]/users(http:RequestContext ctx,
-            @http:Payload scim:AddUsersRequest payload)
-        returns http:Created|http:BadRequest|http:InternalServerError {
-
-        authorization:UserDataPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
-        if userInfo is error {
-            return <http:InternalServerError>{
-                body: {
-                    message: "User information header not found!"
-                }
-            };
-        }
-
-        if group.trim().length() == 0 || payload.emails.length() == 0 {
-            return <http:BadRequest>{
-                body: {
-                    message: "Invalid group or empty user list"
-                }
-            };
-        }
-
-        scim:AddUsersResponse|error result = scim:addUsersToGroup(group, payload);
-        if result is error {
-            return <http:InternalServerError>{
-                body: {
-                    message: "Error adding users to group"
-                }
-            };
-        }
-
-        return <http:Created>{
-            body: {
-                message: MSG_USERS_ADDED_SUCCESS,
-                addedUsers: result.addedUsers,
-                failedUsers: result.failedUsers
-            }
-        };
-    }
 }
