@@ -19,15 +19,7 @@ public isolated function fetchUserBasicInfo(string email, string idToken) return
         "Authorization": "Bearer " + idToken
     };
 
-    UserResponse|error userInfoResponse = csEntityClient->/users/me.get(
-        headers = headers
-    );
-
-    if userInfoResponse is error {
-        return userInfoResponse;
-    }
-
-    return userInfoResponse;
+    return csEntityClient->/users/me.get(headers = headers);
 }
 
 # Fetch case filters for a specific project.
@@ -40,15 +32,7 @@ public isolated function fetchCasesFilters(string projectId, string idToken) ret
         "Authorization": "Bearer " + idToken
     };
 
-    CaseFiltersResponse|error caseFiltersResponse = csEntityClient->/projects/[projectId]/cases/filters.get(
-        headers = headers
-    );
-
-    if caseFiltersResponse is error {
-        return caseFiltersResponse;
-    }
-
-    return caseFiltersResponse;
+    return csEntityClient->/projects/[projectId]/cases/filters.get(headers = headers);
 }
 
 # Fetch project overview from entity service.
@@ -61,15 +45,7 @@ public isolated function fetchProjectOverview(string projectId, string idToken) 
         "Authorization": "Bearer " + idToken
     };
 
-    ProjectOverviewResponse|error projectOverviewResponse = csEntityClient->/projects/[projectId]/overview.get(
-        headers = headers
-    );
-
-    if projectOverviewResponse is error {
-        return projectOverviewResponse;
-    }
-
-    return projectOverviewResponse;
+    return csEntityClient->/projects/[projectId]/overview.get(headers = headers);
 }
 
 # Fetch project details by project ID.
@@ -82,15 +58,7 @@ public isolated function fetchProjectDetails(string projectId, string idToken) r
         "Authorization": "Bearer " + idToken
     };
 
-    ProjectDetailsResponse|error projectInformationResponse = csEntityClient->/projects/[projectId].get(
-        headers = headers
-    );
-
-    if projectInformationResponse is error {
-        return projectInformationResponse;
-    }
-
-    return projectInformationResponse;
+    return csEntityClient->/projects/[projectId].get(headers = headers);
 }
 
 # Fetch case details for a specific case in a project.
@@ -106,15 +74,7 @@ public isolated function fetchCaseDetails(string projectId, string caseId, strin
         "Authorization": "Bearer " + idToken
     };
 
-    CaseDetailsResponse|error caseDetailsResponse = csEntityClient->/projects/[projectId]/cases/[caseId].get(
-        headers = headers
-    );
-
-    if caseDetailsResponse is error {
-        return caseDetailsResponse;
-    }
-
-    return caseDetailsResponse;
+    return csEntityClient->/projects/[projectId]/cases/[caseId].get(headers = headers);
 }
 
 # Fetch projects of the logged-in user.
@@ -128,59 +88,31 @@ public isolated function fetchProjects(string idToken, int offset, int 'limit) r
         "Authorization": "Bearer " + idToken
     };
 
-    ProjectsResponse|error projectsResponse = csEntityClient->/projects.get(
-        headers, offset = offset, 'limit = 'limit
-    );
-
-    if projectsResponse is error {
-        return projectsResponse;
-    }
-
-    return projectsResponse;
+    return csEntityClient->/projects.get(headers, offset = offset, 'limit = 'limit);
 }
 
 # Fetch cases for a specific project with pagination and filters.
 #
 # + idToken - ID token for authorization
-# + offset - Pagination offset
-# + 'limit - Pagination limit
 # + projectId - Unique ID of the project
-# + contact - Contact filter (optional)
-# + status - Status filter (optional)
-# + severity - Severity filter (optional)
-# + product - Product filter (optional)
-# + category - Category filter (optional)
+# + filters - Optional filters and pagination parameters (offset, limit, contact, status, severity, product, category)
 # + return - Cases object or error
-public isolated function fetchCases(string idToken, int offset, int 'limit, string projectId, string? contact,
-        string? status, string? severity, string? product, string? category) returns CasesResponse|error {
+public isolated function fetchCases(string idToken, string projectId, CaseFiltersRequest? filters = ())
+    returns CasesResponse|error {
 
     map<string|string[]> headers = {
         "Authorization": "Bearer " + idToken
     };
 
-    map<string|string[]> queryParams = {
-        "offset": offset.toString(),
-        "limit": 'limit.toString()
+    CaseFiltersRequest requestBody = {
+        offset: filters?.offset ?: DEFAULT_OFFSET,
+        'limit: filters?.'limit ?: DEFAULT_LIMIT,
+        contact: (),
+        status: (),
+        severity: (),
+        product: (),
+        category: ()
     };
 
-    if contact is string {
-        queryParams["contact"] = contact;
-    }
-    if status is string {
-        queryParams["status"] = status;
-    }
-    if severity is string {
-        queryParams["severity"] = severity;
-    }
-    if product is string {
-        queryParams["product"] = product;
-    }
-    if category is string {
-        queryParams["category"] = category;
-    }
-
-    return csEntityClient->/projects/[projectId]/cases.get(
-        headers = headers,
-        params = {...queryParams}
-    );
+    return csEntityClient->/projects/[projectId]/cases/search.post(requestBody, headers = headers);
 }
