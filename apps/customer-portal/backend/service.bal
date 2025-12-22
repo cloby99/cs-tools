@@ -21,22 +21,14 @@ import ballerina/cache;
 import ballerina/http;
 import ballerina/log;
 
-configurable int capacity = ?;
-configurable decimal defaultMaxAge = ?;
-configurable float evictionFactor = ?;
-configurable decimal cleanupInterval = ?;
+configurable CacheConfig cacheConfig = ?;
 
 final cache:Cache userCache = new ({
-    capacity,
-    defaultMaxAge,
-    evictionFactor,
-    cleanupInterval
+    capacity: cacheConfig.capacity,
+    defaultMaxAge: cacheConfig.defaultMaxAge,
+    evictionFactor: cacheConfig.evictionFactor,
+    cleanupInterval: cacheConfig.cleanupInterval
 });
-
-@display {
-    label: "Customer Portal",
-    id: "cs/customer-portal"
-}
 
 service class ErrorInterceptor {
     *http:ResponseErrorInterceptor;
@@ -62,7 +54,12 @@ service class ErrorInterceptor {
     }
 }
 
-service http:InterceptableService / on new http:Listener(9090) {
+@display {
+    label: "Customer Portal",
+    id: "cs/customer-portal"
+}
+
+service http:InterceptableService / on new http:Listener(9095) {
     public function createInterceptors() returns http:Interceptor[] =>
         [new authorization:JwtInterceptor(), new ErrorInterceptor()];
 
@@ -78,12 +75,11 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + ctx - Request context object
     # + return - User info object or error response
     resource function get users/me(http:RequestContext ctx) returns entity:UserResponse|http:InternalServerError {
-
         authorization:UserDataPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
             return <http:InternalServerError>{
                 body: {
-                    message: "User information header not found!"
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
                 }
             };
         }
@@ -99,9 +95,11 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         entity:UserResponse|error userDetails = entity:fetchUserBasicInfo(userInfo.email, userInfo.idToken);
         if userDetails is error {
+            string customError = "Error retrieving user data from entity service";
+            log:printError(customError, userDetails);
             return <http:InternalServerError>{
                 body: {
-                    message: "Error retrieving user data"
+                    message: customError
                 }
             };
         }
@@ -126,15 +124,17 @@ service http:InterceptableService / on new http:Listener(9090) {
         if userInfo is error {
             return <http:InternalServerError>{
                 body: {
-                    message: "User information header not found!"
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
                 }
             };
         }
 
         if offset < 0 || 'limit <= 0 {
+            string customError = "Invalid pagination parameters";
+            log:printError(customError);
             return <http:BadRequest>{
                 body: {
-                    message: "Invalid pagination parameters"
+                    message: customError
                 }
             };
         }
@@ -149,9 +149,11 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         entity:ProjectsResponse|error projectsList = entity:fetchProjects(userInfo.idToken, offset, 'limit);
         if projectsList is error {
+            string customError = "Error retrieving projects list";
+            log:printError(customError, projectsList);
             return <http:InternalServerError>{
                 body: {
-                    message: "Error retrieving projects list"
+                    message: customError
                 }
             };
         }
@@ -175,15 +177,17 @@ service http:InterceptableService / on new http:Listener(9090) {
         if userInfo is error {
             return <http:InternalServerError>{
                 body: {
-                    message: "User information header not found!"
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
                 }
             };
         }
 
         if projectId.trim().length() == 0 {
+            string customError = "Project ID cannot be empty or whitespace";
+            log:printError(customError);
             return <http:BadRequest>{
                 body: {
-                    message: "Project ID cannot be empty or whitespace"
+                    message: customError
                 }
             };
         }
@@ -198,9 +202,11 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         entity:ProjectDetailsResponse|error projectDetails = entity:fetchProjectDetails(projectId, userInfo.idToken);
         if projectDetails is error {
+            string customError = "Error retrieving project information";
+            log:printError(customError, projectDetails);
             return <http:InternalServerError>{
                 body: {
-                    message: "Error retrieving project information"
+                    message: customError
                 }
             };
         }
@@ -224,15 +230,17 @@ service http:InterceptableService / on new http:Listener(9090) {
         if userInfo is error {
             return <http:InternalServerError>{
                 body: {
-                    message: "User information header not found!"
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
                 }
             };
         }
 
         if projectId.trim().length() == 0 {
+            string customError = "Project ID cannot be empty or whitespace";
+            log:printError(customError);
             return <http:BadRequest>{
                 body: {
-                    message: "Project ID cannot be empty or whitespace"
+                    message: customError
                 }
             };
         }
@@ -247,9 +255,11 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         entity:ProjectOverviewResponse|error projectOverview = entity:fetchProjectOverview(projectId, userInfo.idToken);
         if projectOverview is error {
+            string customError = "Error retrieving project overview";
+            log:printError(customError, projectOverview);
             return <http:InternalServerError>{
                 body: {
-                    message: "Error retrieving project overview"
+                    message: customError
                 }
             };
         }
@@ -273,15 +283,17 @@ service http:InterceptableService / on new http:Listener(9090) {
         if userInfo is error {
             return <http:InternalServerError>{
                 body: {
-                    message: "User information header not found!"
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
                 }
             };
         }
 
         if projectId.trim().length() == 0 {
+            string customError = "Project ID cannot be empty or whitespace";
+            log:printError(customError);
             return <http:BadRequest>{
                 body: {
-                    message: "Project ID cannot be empty or whitespace"
+                    message: customError
                 }
             };
         }
@@ -296,9 +308,11 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         entity:CaseFiltersResponse|error caseFilters = entity:fetchCasesFilters(projectId, userInfo.idToken);
         if caseFilters is error {
+            string customError = "Error retrieving case filters";
+            log:printError(customError, caseFilters);
             return <http:InternalServerError>{
                 body: {
-                    message: "Error retrieving case filters"
+                    message: customError
                 }
             };
         }
@@ -314,46 +328,44 @@ service http:InterceptableService / on new http:Listener(9090) {
     #
     # + ctx - Request context object
     # + projectId - Project ID filter
-    # + offset - Pagination offset
-    # + 'limit - Pagination limit
-    # + contact - Optional contact name
-    # + status - Optional case status
-    # + severity - Optional severity level
-    # + product - Optional product name
-    # + category - Optional category
+    # + payload - Filter and pagination parameters
     # + return - Paginated cases or error response
-    resource function get projects/[string projectId]/cases(http:RequestContext ctx, int offset = DEFAULT_OFFSET,
-            int 'limit = DEFAULT_LIMIT, string? contact = (), string? status = (), string? severity = (),
-            string? product = (), string? category = ())
+    resource function post projects/[string projectId]/cases/search(http:RequestContext ctx,
+            @http:Payload entity:CaseFiltersRequest payload)
         returns entity:CasesResponse|http:BadRequest|http:InternalServerError {
 
         authorization:UserDataPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
             return <http:InternalServerError>{
                 body: {
-                    message: "User information header not found!"
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
                 }
             };
         }
 
         if projectId.trim().length() == 0 {
+            string customError = "Project ID cannot be empty or whitespace";
+            log:printError(customError);
             return <http:BadRequest>{
                 body: {
-                    message: "Project ID cannot be empty or whitespace"
+                    message: customError
                 }
             };
         }
 
         // Validate Pagination
-        if offset < 0 || 'limit <= 0 {
+        if payload.offset < 0 || payload.'limit <= 0 {
+            string customError = "Invalid pagination parameters";
+            log:printError(customError);
             return <http:BadRequest>{
                 body: {
-                    message: "Invalid pagination parameters"
+                    message: customError
                 }
             };
         }
 
-        string cacheKey = string `${userInfo.email}:cases:${projectId}:${offset}:${'limit}:${contact ?: ""}:${status ?: ""}:${severity ?: ""}:${product ?: ""}:${category ?: ""}`;
+        string cacheKey = string `${userInfo.email}:cases:${projectId}:${payload.offset}:${payload.'limit}:${
+            payload.contact ?: ""}:${payload.status ?: ""}:${payload.severity ?: ""}:${payload.product ?: ""}:${payload.category ?: ""}`;
 
         if userCache.hasKey(cacheKey) {
             entity:CasesResponse|error cached = userCache.get(cacheKey).ensureType();
@@ -362,12 +374,13 @@ service http:InterceptableService / on new http:Listener(9090) {
             }
         }
 
-        entity:CasesResponse|error cases = entity:fetchCases(userInfo.idToken, offset, 'limit, projectId,
-                contact, status, severity, product, category);
+        entity:CasesResponse|error cases = entity:fetchCases(userInfo.idToken, projectId, payload);
         if cases is error {
+            string customError = "Error retrieving cases";
+            log:printError(customError, cases);
             return <http:InternalServerError>{
                 body: {
-                    message: "Error retrieving cases"
+                    message: customError
                 }
             };
         }
@@ -392,15 +405,17 @@ service http:InterceptableService / on new http:Listener(9090) {
         if userInfo is error {
             return <http:InternalServerError>{
                 body: {
-                    message: "User information header not found!"
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
                 }
             };
         }
 
         if projectId.trim().length() == 0 || caseId.trim().length() == 0 {
+            string customError = "Project ID and Case ID cannot be empty or whitespace";
+            log:printError(customError);
             return <http:BadRequest>{
                 body: {
-                    message: "Project ID and Case ID cannot be empty or whitespace"
+                    message: customError
                 }
             };
         }
@@ -415,9 +430,11 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         entity:CaseDetailsResponse|error caseDetails = entity:fetchCaseDetails(projectId, caseId, userInfo.idToken);
         if caseDetails is error {
+            string customError = "Error retrieving case details";
+            log:printError(customError, caseDetails);
             return <http:InternalServerError>{
                 body: {
-                    message: "Error retrieving case details"
+                    message: customError
                 }
             };
         }
