@@ -312,3 +312,21 @@ public type CasesResponse record {|
     # Pagination details
     Pagination pagination;
 |};
+
+# Request body for fetching cases with filters.
+public type CaseFiltersRequest record {|
+    # Pagination offset
+    int offset;
+    # Pagination limit
+    int 'limit;
+    # Optional contact name
+    string contact?;
+    # Optional case status
+    string status?;
+    # Optional severity level
+    string severity?;
+    # Optional product name
+    string product?;
+    # Optional category
+    string category?;
+|};
