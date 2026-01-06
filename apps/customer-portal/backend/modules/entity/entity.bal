@@ -14,12 +14,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+# Fetch logged-in user information.
+# 
+# + email - Email of the user
+# + idToken - ID token for authorization
+# + return - User response or error
 public isolated function fetchUserBasicInfo(string email, string idToken) returns UserResponse|error {
-    map<string|string[]> headers = {
-        "Authorization": "Bearer " + idToken
-    };
-
-    return csEntityClient->/users/me.get(headers = headers);
+    return csEntityClient->/users/me.get(generateHeaders(idToken));
 }
 
 # Fetch case filters for a specific project.
@@ -28,11 +29,7 @@ public isolated function fetchUserBasicInfo(string email, string idToken) return
 # + idToken - ID token for authorization
 # + return - Case filters object or error
 public isolated function fetchCasesFilters(string projectId, string idToken) returns CaseFiltersResponse|error {
-    map<string|string[]> headers = {
-        "Authorization": "Bearer " + idToken
-    };
-
-    return csEntityClient->/projects/[projectId]/cases/filters.get(headers = headers);
+    return csEntityClient->/projects/[projectId]/cases/filters.get(generateHeaders(idToken));
 }
 
 # Fetch project overview from entity service.
@@ -41,11 +38,7 @@ public isolated function fetchCasesFilters(string projectId, string idToken) ret
 # + idToken - ID token for authorization
 # + return - Project overview or error
 public isolated function fetchProjectOverview(string projectId, string idToken) returns ProjectOverviewResponse|error {
-    map<string|string[]> headers = {
-        "Authorization": "Bearer " + idToken
-    };
-
-    return csEntityClient->/projects/[projectId]/overview.get(headers = headers);
+    return csEntityClient->/projects/[projectId]/overview.get(generateHeaders(idToken));
 }
 
 # Fetch project details by project ID.
@@ -54,11 +47,7 @@ public isolated function fetchProjectOverview(string projectId, string idToken) 
 # + idToken - ID token for authorization
 # + return - Project details object or error
 public isolated function fetchProjectDetails(string projectId, string idToken) returns ProjectDetailsResponse|error {
-    map<string|string[]> headers = {
-        "Authorization": "Bearer " + idToken
-    };
-
-    return csEntityClient->/projects/[projectId].get(headers = headers);
+    return csEntityClient->/projects/[projectId].get(generateHeaders(idToken));
 }
 
 # Fetch case details for a specific case in a project.
@@ -70,25 +59,16 @@ public isolated function fetchProjectDetails(string projectId, string idToken) r
 public isolated function fetchCaseDetails(string projectId, string caseId, string idToken)
     returns CaseDetailsResponse|error {
 
-    map<string|string[]> headers = {
-        "Authorization": "Bearer " + idToken
-    };
-
-    return csEntityClient->/projects/[projectId]/cases/[caseId].get(headers = headers);
+    return csEntityClient->/projects/[projectId]/cases/[caseId].get(generateHeaders(idToken));
 }
 
-# Fetch projects of the logged-in user.
+# Search projects of the logged-in user.
 #
 # + idToken - ID token for authorization
-# + offset - Pagination offset
-# + 'limit - Pagination limit
-# + return - Projects object or error
-public isolated function fetchProjects(string idToken, int offset, int 'limit) returns ProjectsResponse|error {
-    map<string|string[]> headers = {
-        "Authorization": "Bearer " + idToken
-    };
-
-    return csEntityClient->/projects.get(headers, offset = offset, 'limit = 'limit);
+# + payload - Request body for searching projects
+# + return - Projects response or error
+public isolated function searchProjects(string idToken, ProjectRequest payload) returns ProjectsResponse|error {
+    return csEntityClient->/projects.post(payload, generateHeaders(idToken));
 }
 
 # Fetch cases for a specific project with pagination and filters.
@@ -100,10 +80,6 @@ public isolated function fetchProjects(string idToken, int offset, int 'limit) r
 public isolated function fetchCases(string idToken, string projectId, CaseFiltersRequest? filters = ())
     returns CasesResponse|error {
 
-    map<string|string[]> headers = {
-        "Authorization": "Bearer " + idToken
-    };
-
     CaseFiltersRequest requestBody = {
         offset: filters?.offset ?: DEFAULT_OFFSET,
         'limit: filters?.'limit ?: DEFAULT_LIMIT,
@@ -114,5 +90,5 @@ public isolated function fetchCases(string idToken, string projectId, CaseFilter
         category: ()
     };
 
-    return csEntityClient->/projects/[projectId]/cases/search.post(requestBody, headers = headers);
+    return csEntityClient->/projects/[projectId]/cases/search.post(requestBody, generateHeaders(idToken));
 }

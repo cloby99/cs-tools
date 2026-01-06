@@ -1,4 +1,4 @@
-// Copyright (c) 2025 WSO2 LLC. (https://www.wso2.com).
+// Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
 //
 // WSO2 LLC. licenses this file to you under the Apache License,
 // Version 2.0 (the "License"); you may not use this file except
@@ -14,6 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-# Default pagination values.
-const DEFAULT_OFFSET = 0;
-const DEFAULT_LIMIT = 10;
+# Generate authorization headers.
+#
+# + token - ID token for authorization
+# + return - Map of headers with authorization
+isolated function generateHeaders(string token) returns map<string|string[]> => {"Authorization": "Bearer " + token};
