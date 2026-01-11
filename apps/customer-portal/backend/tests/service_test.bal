@@ -34,7 +34,7 @@ public function testGetLoggedInUserInformation() returns error? {
 }
 
 @test:Config
-public function testProjectsSearch() returns error? {
+public function testSearchLoggedInUserProjects() returns error? {
     // TODO: Add mock search payload
     http:Response response = check testClient->/user/projects/search.post({},
         headers = {MOCK_HEADER_NAME: mockIdToken});
@@ -44,7 +44,7 @@ public function testProjectsSearch() returns error? {
 }
 
 @test:Config
-public function testProject() returns error? {
+public function testGetProjectDetails() returns error? {
     // TODO: Add mock project ID
     http:Response response = check testClient->/projects/[1].get(headers = {MOCK_HEADER_NAME: mockIdToken});
     json payload = check response.getJsonPayload();
