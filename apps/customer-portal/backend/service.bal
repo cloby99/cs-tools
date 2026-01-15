@@ -21,13 +21,11 @@ import ballerina/cache;
 import ballerina/http;
 import ballerina/log;
 
-configurable CacheConfig cacheConfig = ?;
-
 final cache:Cache userCache = new ({
-    capacity: cacheConfig.capacity,
-    defaultMaxAge: cacheConfig.defaultMaxAge,
-    evictionFactor: cacheConfig.evictionFactor,
-    cleanupInterval: cacheConfig.cleanupInterval
+    capacity: 500,
+    defaultMaxAge: 3600,
+    evictionFactor: 0.2,
+    cleanupInterval: 1800
 });
 
 service class ErrorInterceptor {
