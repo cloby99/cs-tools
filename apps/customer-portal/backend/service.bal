@@ -119,7 +119,7 @@ service http:InterceptableService / on new http:Listener(9090) {
         if userResults.length() > 0 {
             scim:PhoneNumber[]? phoneNumbers = userResults[0].phoneNumbers;
             if phoneNumbers != () {
-                // Only one mobile type phone number exists
+                // Filter for mobile type phone numbers
                 mobilePhoneNumbers = phoneNumbers.filter(phoneNumber => phoneNumber.'type == MOBILE_PHONE_NUMBER_TYPE);
             }
         }
