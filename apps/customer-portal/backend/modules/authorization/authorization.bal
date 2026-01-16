@@ -70,19 +70,22 @@ public isolated service class JwtInterceptor {
 
         // TODO: Temporarily handle case where groups might be null or empty.
         // Remove this after the groups are finalized.
-        string[]? userGroups = userInfo.groups;
+        
 
         // TODO: Temporarily handle users without groups by skipping authorization and allowing access. 
         // Remove this logic once groups are finalized.
-        if userGroups is () {
-            log:printDebug(string `User ${userInfo.email} has no groups, allowing access`);
-            ctx.set(HEADER_USER_INFO, userInfo);
-            return ctx.next();
-        }
+        ctx.set(HEADER_USER_INFO, userInfo);
+        return ctx.next();
+        // string[]? userGroups = userInfo.groups;
+        // if userGroups is () {
+        //     log:printDebug(string `User ${userInfo.email} has no groups, allowing access`);
+        //     ctx.set(HEADER_USER_INFO, userInfo);
+        //     return ctx.next();
+        // }
 
-        log:printError(string `${userInfo.email} is missing required permissions, only has ${
-                userInfo.groups.toBalString()}`);
+        // log:printError(string `${userInfo.email} is missing required permissions, only has ${
+        //         userInfo.groups.toBalString()}`);
 
-        return <http:Forbidden>{body: {message: "Insufficient privileges!"}};
+        // return <http:Forbidden>{body: {message: "Insufficient privileges!"}};
     }
 }

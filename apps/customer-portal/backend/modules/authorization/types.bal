@@ -15,12 +15,13 @@
 // under the License.
 
 # JWT payload data structure from decoded token.
-type CustomJwtPayload record {
+type CustomJwtPayload record {|
     # User email
     string email;
     # User groups
     string[] groups?;
-};
+    json...;
+|};
 
 # User info custom type for Asgardeo token.
 public type UserDataPayload record {|
