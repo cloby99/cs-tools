@@ -23,7 +23,7 @@ configurable string mockIdToken = ?;
 
 @test:Config
 public function testGetLoggedInUserInformation() returns error? {
-    http:Response response = check testClient->/users/me.get(headers = {"x-jwt-assertion": mockIdToken});
+    http:Response response = check testClient->/users/me.get(headers = generateHeaders(mockIdToken));
     json payload = check response.getJsonPayload();
     test:assertEquals(response.statusCode, http:STATUS_OK);
     test:assertEquals(payload, MOCK_USER_INFO_RESPONSE);
@@ -42,7 +42,7 @@ public function testMissingInvokerHeader() returns error? {
 public function testSearchLoggedInUserProjects() returns error? {
     // TODO: Add mock search payload
     http:Response response = check testClient->/projects/search.post({},
-        headers = {"x-jwt-assertion": mockIdToken}
+        headers = generateHeaders(mockIdToken)
     );
     json payload = check response.getJsonPayload();
     test:assertEquals(response.statusCode, http:STATUS_OK);
@@ -53,13 +53,13 @@ public function testSearchLoggedInUserProjects() returns error? {
 public function testSearchCasesOfProject() returns error? {
     // TODO: Add mock project ID
     http:Response response = check testClient->/projects/[1]/cases/search.post({},
-        headers = {"x-jwt-assertion": mockIdToken}
+        headers = generateHeaders(mockIdToken)
     );
     json payload = check response.getJsonPayload();
     test:assertEquals(response.statusCode, http:STATUS_OK);
     test:assertEquals(payload, {}); // TODO: Add mock response
 
-    response = check testClient->/projects/[" "]/cases/search.post({}, headers = {"x-jwt-assertion": mockIdToken});
+    response = check testClient->/projects/[" "]/cases/search.post({}, headers = generateHeaders(mockIdToken));
     test:assertEquals(response.statusCode, http:STATUS_BAD_REQUEST);
     test:assertEquals(response.getTextPayload(), "Project ID cannot be empty or whitespace");
 }
