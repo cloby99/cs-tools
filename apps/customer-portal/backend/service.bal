@@ -115,12 +115,14 @@ service http:InterceptableService / on new http:Listener(9090) {
             log:printError(string `No user found while searching phone number for ${userInfo.email}`);
         }
 
+        // TODO: Handle this in a utility function. Will address this in the next PR which has utils.bal file.
         scim:PhoneNumber[] mobilePhoneNumbers = [];
         if userResults.length() > 0 {
             scim:PhoneNumber[]? phoneNumbers = userResults[0].phoneNumbers;
             if phoneNumbers != () {
                 // Filter for mobile type phone numbers
-                mobilePhoneNumbers = phoneNumbers.filter(phoneNumber => phoneNumber.'type == MOBILE_PHONE_NUMBER_TYPE);
+                mobilePhoneNumbers.push(...phoneNumbers.filter(phoneNumber =>
+                    phoneNumber.'type == MOBILE_PHONE_NUMBER_TYPE));
             }
         }
 
