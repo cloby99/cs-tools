@@ -239,7 +239,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + id - ID of the project
     # + return - Case filters or error
     resource function get projects/[string id]/cases/filters(http:RequestContext ctx)
-        returns CaseFilter|http:BadRequest|http:InternalServerError {
+        returns CaseFilterOptions|http:BadRequest|http:InternalServerError {
 
         authorization:UserDataPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -255,7 +255,7 @@ service http:InterceptableService / on new http:Listener(9090) {
             return validationResult;
         }
 
-        CaseFilter|error caseFilters = getCaseFilters(userInfo.idToken, id);
+        CaseFilterOptions|error caseFilters = getCaseFilters(userInfo.idToken, id);
         if caseFilters is error {
             string customError = "Error retrieving case filters";
             log:printError(customError, caseFilters);

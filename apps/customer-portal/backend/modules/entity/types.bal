@@ -131,7 +131,7 @@ public type Case record {|
     ReferenceTableItem? project;
     # Type of the case
     ReferenceTableItem? 'type;
-    # Deployment ID
+    # Deployment information
     ReferenceTableItem? deployment;
     # Status information
     ChoiceListItem? state;

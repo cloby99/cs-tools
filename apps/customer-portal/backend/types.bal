@@ -109,7 +109,7 @@ public type User record {|
 |};
 
 # Case filter options.
-public type CaseFilter record {|
+public type CaseFilterOptions record {|
     # List of case statuses
     ReferenceItem[] statuses;
     # List of case severities
