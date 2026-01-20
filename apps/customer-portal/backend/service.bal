@@ -110,14 +110,12 @@ service http:InterceptableService / on new http:Listener(9090) {
         if userResults is scim:User[] {
             if userResults.length() == 0 {
                 log:printError(string `No user found while searching phone number for ${userInfo.email}`);
-            }
-
-            if userResults.length() > 0 {
+            } else {
                 scim:PhoneNumber[]? phoneNumbers = userResults[0].phoneNumbers;
                 if phoneNumbers != () {
                     // Filter for mobile type phone numbers
                     mobilePhoneNumbers.push(...phoneNumbers.filter(phoneNumber =>
-                    phoneNumber.'type == MOBILE_PHONE_NUMBER_TYPE));
+                        phoneNumber.'type == MOBILE_PHONE_NUMBER_TYPE));
                 }
             }
         }

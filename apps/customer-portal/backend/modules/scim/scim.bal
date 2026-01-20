@@ -19,10 +19,10 @@
 # + email - Email of the user to be searched
 # + return - An array of User records, or an error if the operation fails
 public isolated function searchUsers(string email) returns User[]|error {
-    boolean moreUsersExists = true;
+    boolean moreUsersExist = true;
     User[] users = [];
     int startIndex = 1;
-    while moreUsersExists {
+    while moreUsersExist {
         string organization = isWso2Email(email) ? ORGANIZATION_INTERNAL : ORGANIZATION_EXTERNAL;
         UserSearchResult usersResult = check scimOperationsClient->/organizations/[organization]/users/search.post({
             domain: DOMAIN_DEFAULT,
@@ -31,7 +31,7 @@ public isolated function searchUsers(string email) returns User[]|error {
             startIndex
         });
         users.push(...usersResult.Resources);
-        moreUsersExists = (startIndex + usersResult.itemsPerPage - 1) < usersResult.totalResults;
+        moreUsersExist = (startIndex + usersResult.itemsPerPage - 1) < usersResult.totalResults;
         startIndex += usersResult.itemsPerPage;
     }
     return users;
