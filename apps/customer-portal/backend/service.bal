@@ -251,7 +251,7 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        entity:CaseMetadataResponse|error caseMetadata = entity:getCaseMetadata(id);
+        entity:CaseMetadataResponse|error caseMetadata = entity:getCaseMetadata(userInfo.idToken);
         if caseMetadata is error {
             string customError = "Error retrieving case filters";
             log:printError(customError, caseMetadata);

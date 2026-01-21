@@ -202,4 +202,6 @@ public type CaseMetadataResponse record {|
     ChoiceListItem[] states;
     # List of available case severities
     ChoiceListItem[] severities;
+    # List of available case types
+    ReferenceTableItem[] caseTypes;
 |};

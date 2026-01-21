@@ -21,3 +21,4 @@ const ORGANIZATION_INTERNAL = "internal";
 const ORGANIZATION_EXTERNAL = "external";
 const DOMAIN_DEFAULT = "DEFAULT";
 const ATTRIBUTE_PHONE_NUMBERS = "phoneNumbers";
+const ATTRIBUTE_USERNAME = "userName";

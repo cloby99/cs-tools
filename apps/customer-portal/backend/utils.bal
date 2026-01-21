@@ -68,11 +68,14 @@ public isolated function getCaseFilters(entity:CaseMetadataResponse caseMetadata
         select {id: item.id.toString(), label: item.label};
     ReferenceItem[] severities = from entity:ChoiceListItem item in caseMetadata.severities
         select {id: item.id.toString(), label: item.label};
+    ReferenceItem[] caseTypes = from entity:ReferenceTableItem item in caseMetadata.caseTypes
+        select {id: item.id, label: item.name};
 
     // TODO: Other project specific filters will be added later
     return {
         statuses,
-        severities
+        severities,
+        caseTypes
     };
 }
 
