@@ -184,12 +184,11 @@ service http:InterceptableService / on new http:Listener(9090) {
         return projectResponse;
     }
 
-    # Get case details by ID for a specific project.
+    # Get case details by ID.
     # 
-    # + projectId - ID of the project
     # + caseId - ID of the case
     # + return - Case details or error
-    resource function get projects/[string projectId]/cases/[string caseId](http:RequestContext ctx) 
+    resource function get cases/[string caseId](http:RequestContext ctx) 
         returns entity:CaseResponse|http:BadRequest|http:InternalServerError {
 
         authorization:UserDataPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
@@ -201,15 +200,6 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        if !isValidId(projectId) {
-            string customError = "Project ID cannot be empty or whitespace";
-            log:printError(customError);
-            return <http:BadRequest>{
-                body: {
-                    message: customError
-                }
-            };
-        }
         if !isValidId(caseId) {
             string customError = "Case ID cannot be empty or whitespace";
             log:printError(customError);
