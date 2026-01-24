@@ -17,6 +17,8 @@
 // Error messages.
 const ERR_MSG_USER_INFO_HEADER_NOT_FOUND = "User information header not found!";
 const UNEXPECTED_ERROR_MSG = "An unexpected error occurred.";
+const ERR_MSG_PROJECT_ACCESS_FORBIDDEN = "Access to the requested project is forbidden!";
+const ERR_MSG_FETCHING_PROJECT_DETAILS = "Error retrieving project details!";
 
 // Default Pagination Values
 public const int DEFAULT_OFFSET = 0;

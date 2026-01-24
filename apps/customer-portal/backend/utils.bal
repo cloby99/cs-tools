@@ -95,7 +95,7 @@ public isolated function getCaseStatsFromCache(string projectId) returns Project
         if cachedStats is ProjectCaseStats {
             return cachedStats;
         }
-        log:printWarn(string `Unable to read cached stats for project: ${projectId}`);
+        log:printWarn(string `Unable to read cached case stats for project: ${projectId}`);
     }
     return;
 }

@@ -297,7 +297,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + id - ID of the project
     # + return - Project statistics overview or error response
     resource function get projects/[string id]/stats/cases(http:RequestContext ctx)
-        returns ProjectCaseStats|http:BadRequest|http:InternalServerError {
+        returns ProjectCaseStats|http:BadRequest|http:Forbidden|http:InternalServerError {
 
         authorization:UserDataPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -312,6 +312,26 @@ service http:InterceptableService / on new http:Listener(9090) {
             return <http:BadRequest>{
                 body: {
                     message: "Project ID cannot be empty or whitespace"
+                }
+            };
+        }
+
+        // Verify project access
+        entity:ProjectDetailsResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
+        if projectResponse is error {
+            if getStatusCode(projectResponse) == http:STATUS_FORBIDDEN {
+                logForbiddenProjectAccess(id, userInfo.email);
+                return <http:Forbidden>{
+                    body: {
+                        message: ERR_MSG_PROJECT_ACCESS_FORBIDDEN
+                    }
+                };
+            }
+
+            log:printError(ERR_MSG_FETCHING_PROJECT_DETAILS, projectResponse);
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_FETCHING_PROJECT_DETAILS
                 }
             };
         }
@@ -350,7 +370,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + id - ID of the project
     # + return - Project support statistics or error response
     resource function get projects/[string id]/stats/support(http:RequestContext ctx)
-        returns ProjectSupportStats|http:BadRequest|http:InternalServerError {
+        returns ProjectSupportStats|http:BadRequest|http:Forbidden|http:InternalServerError {
 
         authorization:UserDataPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -369,12 +389,33 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
+        // Verify project access
+        entity:ProjectDetailsResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
+        if projectResponse is error {
+            if getStatusCode(projectResponse) == http:STATUS_FORBIDDEN {
+                logForbiddenProjectAccess(id, userInfo.email);
+                return <http:Forbidden>{
+                    body: {
+                        message: ERR_MSG_PROJECT_ACCESS_FORBIDDEN
+                    }
+                };
+            }
+
+            log:printError(ERR_MSG_FETCHING_PROJECT_DETAILS, projectResponse);
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_FETCHING_PROJECT_DETAILS
+                }
+            };
+        }
+
         // Check support cache first
         ProjectSupportStats? cachedSupportStats = getSupportStatsFromCache(id);
         if cachedSupportStats is ProjectSupportStats {
             return cachedSupportStats;
         }
 
+        // Fetch chat stats
         entity:ProjectChatStatsResponse|error chatStats = entity:getChatStatsForProject(userInfo.idToken, id);
         if chatStats is error {
             string customError = "Error retrieving project chat statistics";
@@ -424,11 +465,11 @@ service http:InterceptableService / on new http:Listener(9090) {
     }
 
     # Get overall project health statistics by ID.
-    # 
+    #
     # + id - ID of the project
     # + return - Project health statistics or error response
     resource function get projects/[string id]/stats/health(http:RequestContext ctx)
-        returns ProjectHealthtStats|http:BadRequest|http:InternalServerError {
+        returns ProjectHealthtStats|http:BadRequest|http:Forbidden|http:InternalServerError {
 
         authorization:UserDataPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -445,6 +486,32 @@ service http:InterceptableService / on new http:Listener(9090) {
                     message: "Project ID cannot be empty or whitespace"
                 }
             };
+        }
+
+        // Verify project access
+        entity:ProjectDetailsResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
+        if projectResponse is error {
+            if getStatusCode(projectResponse) == http:STATUS_FORBIDDEN {
+                logForbiddenProjectAccess(id, userInfo.email);
+                return <http:Forbidden>{
+                    body: {
+                        message: ERR_MSG_PROJECT_ACCESS_FORBIDDEN
+                    }
+                };
+            }
+
+            log:printError(ERR_MSG_FETCHING_PROJECT_DETAILS, projectResponse);
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_FETCHING_PROJECT_DETAILS
+                }
+            };
+        }
+
+        // Check project health cache first
+        ProjectHealthtStats? cachedProjectHealthStats = getHealthStatsFromCache(id);
+        if cachedProjectHealthStats is ProjectHealthtStats {
+            return cachedProjectHealthStats;
         }
 
         entity:ProjectDeploymentStatsResponse|error deploymentStats =
@@ -520,6 +587,9 @@ service http:InterceptableService / on new http:Listener(9090) {
         }
         // Cache support stats
         _ = updateSupportStatsCache(id, chatStats, caseStats.totalCount);
+
+        // Cache project health stats
+        _ = updateProjectHealthStatsCache(id, caseStats.openCount, chatStats.activeCount, deploymentStats);
 
         return {
             openCases: caseStats.openCount,
