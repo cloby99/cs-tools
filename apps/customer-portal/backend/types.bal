@@ -165,7 +165,7 @@ public type ProjectSupportStats record {|
 |};
 
 # Project health statistics.
-public type ProjectHealthtStats record {|
+public type ProjectHealthStats record {|
     # Open cases count
     int openCases;
     # Active chats count

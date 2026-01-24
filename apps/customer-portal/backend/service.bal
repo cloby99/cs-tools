@@ -469,7 +469,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + id - ID of the project
     # + return - Project health statistics or error response
     resource function get projects/[string id]/stats/health(http:RequestContext ctx)
-        returns ProjectHealthtStats|http:BadRequest|http:Forbidden|http:InternalServerError {
+        returns ProjectHealthStats|http:BadRequest|http:Forbidden|http:InternalServerError {
 
         authorization:UserDataPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -509,8 +509,8 @@ service http:InterceptableService / on new http:Listener(9090) {
         }
 
         // Check project health cache first
-        ProjectHealthtStats? cachedProjectHealthStats = getHealthStatsFromCache(id);
-        if cachedProjectHealthStats is ProjectHealthtStats {
+        ProjectHealthStats? cachedProjectHealthStats = getHealthStatsFromCache(id);
+        if cachedProjectHealthStats is ProjectHealthStats {
             return cachedProjectHealthStats;
         }
 
