@@ -101,13 +101,7 @@ public isolated function getPhoneNumber(string email, string id) returns string?
         if userResults.length() == 0 {
             log:printError(string `No user found while searching phone number for user: ${id}`);
         } else {
-            scim:PhoneNumber[]? phoneNumbers = userResults[0].phoneNumbers;
-            if phoneNumbers != () {
-                // Filter for mobile type phone numbers
-                scim:PhoneNumber[] mobilePhoneNumbers =
-                    phoneNumbers.filter(phoneNumber => phoneNumber.'type == MOBILE_PHONE_NUMBER_TYPE);
-                mobilePhoneNumber = mobilePhoneNumbers.length() > 0 ? mobilePhoneNumbers[0].value : ();
-            }
+            mobilePhoneNumber = processPhoneNumber(userResults[0]);
         }
     }
     return mobilePhoneNumber;
@@ -121,4 +115,31 @@ public isolated function getStatusCode(error err) returns int {
     map<anydata|readonly> & readonly errorDetails = err.detail();
     anydata|readonly statusCodeValue = errorDetails[ERR_STATUS_CODE] ?: ();
     return statusCodeValue is int ? statusCodeValue : http:STATUS_INTERNAL_SERVER_ERROR;
+}
+
+# Process SCIM user to extract mobile phone number.
+#
+# + user - SCIM user object
+# + return - Mobile phone number if found, else nil
+public isolated function processPhoneNumber(scim:User user) returns string? {
+    string? mobilePhoneNumber = ();
+    scim:PhoneNumber[]? phoneNumbers = user.phoneNumbers;
+    if phoneNumbers != () {
+        // Filter for mobile type phone numbers
+        scim:PhoneNumber[] mobilePhoneNumbers =
+            phoneNumbers.filter(phoneNumber => phoneNumber.'type == MOBILE_PHONE_NUMBER_TYPE);
+        mobilePhoneNumber = mobilePhoneNumbers.length() > 0 ? mobilePhoneNumbers[0].value : ();
+    }
+    return mobilePhoneNumber;
+}
+
+
+# Get error message from the given error.
+# 
+# + err - Error to handle
+# + return - Error message
+public isolated function getErrorMessage(error err) returns string {
+    map<anydata|readonly> & readonly errorDetails = err.detail();
+    anydata|readonly errorMessage = errorDetails[ERR_BODY] ?: ();
+    return errorMessage is string ? errorMessage : UNEXPECTED_ERROR_MSG;
 }

@@ -16,6 +16,7 @@
 
 import customer_portal.authorization;
 import customer_portal.entity;
+import customer_portal.scim;
 
 import ballerina/cache;
 import ballerina/http;
@@ -116,6 +117,7 @@ service http:InterceptableService / on new http:Listener(9090) {
             email: userDetails.email,
             firstName: userDetails.firstName,
             lastName: userDetails.lastName,
+            timeZone: userDetails.timeZone,
             phoneNumber
         };
 
@@ -124,6 +126,45 @@ service http:InterceptableService / on new http:Listener(9090) {
             log:printWarn("Error writing user information to cache", cacheError);
         }
         return user;
+    }
+
+    # Update user information of the logged in user.
+    #
+    # + payload - User update request body
+    # + return - Updated user object or error response
+    resource function patch users/me(http:RequestContext ctx, UserUpdatePayload payload)
+        returns UpdatedUser|http:InternalServerError|http:BadRequest {
+
+        authorization:UserDataPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        if payload.phoneNumber != () {
+            string uuid = ""; // This will be taken from user ID token and a PR has already sent for it
+            scim:Phone phoneNumber = {mobile: payload.phoneNumber};
+            scim:User|error updatedUser = scim:updateUser({phoneNumber}, userInfo.email, uuid);
+            if updatedUser is error {
+                string customError = getErrorMessage(updatedUser);
+                log:printError(customError, updatedUser);
+                return <http:InternalServerError>{
+                    body: {
+                        message: customError
+                    }
+                };
+            }
+            return {phoneNumber: processPhoneNumber(updatedUser)};
+        }
+
+        if payload.timezone != () {
+            // TODO: Update timezone
+        }
+
+        return http:BAD_REQUEST;
     }
 
     # Search projects of the logged-in user.
