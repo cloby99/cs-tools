@@ -78,10 +78,10 @@ public isolated function getCaseFilters(entity:CaseMetadataResponse caseMetadata
     };
 }
 
-# Check if the given ID is empty.
+# Check if the given ID is empty or whitespace.
 #
-# + id - ID to validate
-# + return - True if valid, else false
+ # + id - ID to validate
+# + return - True if empty/whitespace, else false
 public isolated function isEmptyId(string id) returns boolean => id.trim().length() == 0;
 
 # Get mobile phone number from SCIM users.
