@@ -16,8 +16,8 @@
 import customer_portal.entity;
 import customer_portal.scim;
 
-import ballerina/log;
 import ballerina/http;
+import ballerina/log;
 
 # Search cases for a given project.
 #
@@ -112,7 +112,6 @@ public isolated function getPhoneNumber(string email, string id) returns string?
     }
     return mobilePhoneNumber;
 }
-
 
 # Get HTTP status code from the given error.
 #
