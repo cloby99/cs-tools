@@ -656,13 +656,13 @@ service http:InterceptableService / on new http:Listener(9090) {
     }
 
     # Get comments for a specific case.
-    # 
+    #
     # + id - ID of the case
     # + limit - Number of comments to retrieve
     # + offset - Offset for pagination
     # + return - Comments response or error
-    resource function get cases/[string id]/comments(http:RequestContext ctx, int? 'limit, int? offset) 
-        returns entity:CommentsResponse|http:BadRequest|http:Forbidden|http:InternalServerError{
+    resource function get cases/[string id]/comments(http:RequestContext ctx, int? 'limit, int? offset)
+        returns entity:CommentsResponse|http:BadRequest|http:Forbidden|http:InternalServerError {
 
         authorization:UserDataPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -677,6 +677,14 @@ service http:InterceptableService / on new http:Listener(9090) {
             return <http:BadRequest>{
                 body: {
                     message: "Case ID cannot be empty or whitespace"
+                }
+            };
+        }
+
+        if ('limit != () && 'limit < 0) || (offset != () && offset < 0 && offset > 50) {
+            return <http:BadRequest>{
+                body: {
+                    message: "Offset and limit must be non-negative integers. Offset cannot be greater than 50."
                 }
             };
         }
