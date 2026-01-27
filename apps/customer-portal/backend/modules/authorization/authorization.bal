@@ -57,6 +57,7 @@ public isolated service class JwtInterceptor {
         UserDataPayload userInfo = {
             email: payloadData.email,
             groups: payloadData.groups,
+            userId: payloadData.userid,
             idToken
         };
 

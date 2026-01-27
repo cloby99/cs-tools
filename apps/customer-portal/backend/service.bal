@@ -145,11 +145,18 @@ service http:InterceptableService / on new http:Listener(9090) {
         }
 
         if payload.phoneNumber != () {
-            string uuid = ""; // This will be taken from user ID token and a PR has already sent for it
             scim:Phone phoneNumber = {mobile: payload.phoneNumber};
-            scim:User|error updatedUser = scim:updateUser({phoneNumber}, userInfo.email, uuid);
+            scim:User|error updatedUser = scim:updateUser({phoneNumber}, userInfo.email, userInfo.userId);
             if updatedUser is error {
-                string customError = getErrorMessage(updatedUser);
+                if getStatusCode(updatedUser) == http:STATUS_BAD_REQUEST {
+                    return <http:BadRequest>{
+                        body: {
+                            message: getErrorMessage(updatedUser)
+                        }
+                    };
+                }
+
+                string customError = "Error updating user phone number";
                 log:printError(customError, updatedUser);
                 return <http:InternalServerError>{
                     body: {

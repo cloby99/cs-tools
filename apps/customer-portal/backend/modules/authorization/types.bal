@@ -20,6 +20,8 @@ type CustomJwtPayload record {|
     string email;
     # User groups
     string[] groups?;
+    # User ID
+    string userid;
     json...;
 |};
 
@@ -29,6 +31,8 @@ public type UserDataPayload record {|
     string email;
     # User groups
     string[] groups?;
+    # User ID
+    string userId;
     # ID token
     string idToken;
     json...;
