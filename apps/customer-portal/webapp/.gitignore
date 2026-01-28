@@ -22,9 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-src/router.ts
 
 # Environment files
 .env
 .env.local
 .env.*.local
+
+# OS files
+.DS_Store
