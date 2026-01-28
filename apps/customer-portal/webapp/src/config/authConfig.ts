@@ -19,11 +19,28 @@ import { type BaseURLAuthClientConfig } from "@asgardeo/auth-react";
 /**
  * Configuration for the Auth service.
  */
+const authBaseUrl = import.meta.env.CUSTOMER_PORTAL_AUTH_BASE_URL;
+const authClientId = import.meta.env.CUSTOMER_PORTAL_AUTH_CLIENT_ID;
+const signInRedirectURL = import.meta.env
+  .CUSTOMER_PORTAL_AUTH_SIGN_IN_REDIRECT_URL;
+const signOutRedirectURL = import.meta.env
+  .CUSTOMER_PORTAL_AUTH_SIGN_OUT_REDIRECT_URL;
+
+if (
+  !authBaseUrl ||
+  !authClientId ||
+  !signInRedirectURL ||
+  !signOutRedirectURL
+) {
+  throw new Error(
+    "Missing required auth env variables: baseUrl, clientID, signInRedirectURL, or signOutRedirectURL.",
+  );
+}
+
 export const authConfig: BaseURLAuthClientConfig = {
   scope: ["openid", "email", "groups"],
-  baseUrl: import.meta.env.CUSTOMER_PORTAL_AUTH_BASE_URL,
-  clientID: import.meta.env.CUSTOMER_PORTAL_AUTH_CLIENT_ID,
-  signInRedirectURL: import.meta.env.CUSTOMER_PORTAL_AUTH_SIGN_IN_REDIRECT_URL,
-  signOutRedirectURL: import.meta.env
-    .CUSTOMER_PORTAL_AUTH_SIGN_OUT_REDIRECT_URL,
+  baseUrl: authBaseUrl,
+  clientID: authClientId,
+  signInRedirectURL,
+  signOutRedirectURL,
 };

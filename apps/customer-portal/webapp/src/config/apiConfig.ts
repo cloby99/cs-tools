@@ -17,11 +17,11 @@
 /**
  * Base URL for the API service.
  */
-export const BACKEND_BASE_URL =
-  import.meta.env.CUSTOMER_PORTAL_BACKEND_BASE_URL;
+export const BACKEND_BASE_URL = import.meta.env
+  .CUSTOMER_PORTAL_BACKEND_BASE_URL;
 
 if (!BACKEND_BASE_URL) {
-  throw new Error("CUSTOMER_PORTAL_BACKEND_BASE_URL is required in .env file");
+  throw new Error("Missing required env variables: baseUrl");
 }
 
 /**
