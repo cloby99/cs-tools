@@ -1,75 +1,99 @@
-# React + TypeScript + Vite
+# Customer Portal Webapp
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The Customer Portal Webapp is a modern React application built with TypeScript and Vite, designed to provide a seamless user experience for managing customer-related tasks and services.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Core**: [React 19](https://react.dev/)
+- **Build Tool**: [Vite](https://vitejs.dev/)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **UI Library**: [Oxygen UI](https://github.com/wso2/oxygen-ui) (based on MUI)
+- **Data Fetching**: [TanStack Query](https://tanstack.com/query/latest) (React Query)
+- **Authentication**: [@asgardeo/auth-react](https://github.com/asgardeo/asgardeo-auth-react-sdk)
+- **Testing**: [Vitest](https://vitest.dev/) & [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
 
-## React Compiler
+## Getting Started
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+### Prerequisites
 
-Note: This will impact Vite dev & build performances.
+- [Node.js](https://nodejs.org/) (Latest LTS recommended)
+- [pnpm](https://pnpm.io/) (Recommended package manager)
 
-## Expanding the ESLint configuration
+### Installation
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1. Install dependencies:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+   ```bash
+   pnpm install
+   ```
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+2. Copy the environment variables template:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+   ```bash
+   cp .env.example .env
+   ```
+
+3. Update the `.env` file with your specific configuration values.
+
+### Development
+
+Start the development server:
+
+```bash
+pnpm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Build
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Build the application for production:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+pnpm run build
+```
+
+Preview the production build:
+
+```bash
+pnpm run preview
+```
+
+## Configuration
+
+The application uses environment variables for configuration. All variables are prefixed with `CUSTOMER_PORTAL_`.
+
+### Environment Variables
+
+| Variable                                     | Description                                                             | Example                          |
+| -------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------- |
+| `CUSTOMER_PORTAL_AUTH_BASE_URL`              | Asgardeo/Auth base URL                                                  | `https://api.asgardeo.com/t/org` |
+| `CUSTOMER_PORTAL_AUTH_CLIENT_ID`             | OAuth2 Client ID                                                        | `your_client_id`                 |
+| `CUSTOMER_PORTAL_AUTH_SIGN_IN_REDIRECT_URL`  | Sign-in callback URL                                                    | `http://localhost:3000`          |
+| `CUSTOMER_PORTAL_AUTH_SIGN_OUT_REDIRECT_URL` | Sign-out callback URL                                                   | `http://localhost:3000`          |
+| `CUSTOMER_PORTAL_BACKEND_BASE_URL`           | Backend API base URL                                                    | `https://api.example.com`        |
+| `CUSTOMER_PORTAL_THEME`                      | Application theme (acrylicOrange, acrylicPurple, highContrast, classic) | `acrylicOrange`                  |
+| `CUSTOMER_PORTAL_LOG_LEVEL`                  | Logging level (DEBUG, INFO, WARN, ERROR)                                | `INFO`                           |
+
+### Import Aliases
+
+The project uses the `@` alias to refer to the `src` directory, allowing for cleaner imports:
+
+```typescript
+import { someUtil } from "@/utils/someUtil";
+```
+
+## Logging
+
+The app includes a custom logging service that respects the `CUSTOMER_PORTAL_LOG_LEVEL` environment variable. Access the logger via the `useLogger` hook:
+
+```typescript
+const logger = useLogger();
+logger.info("Message to log");
+```
+
+## Testing
+
+Run tests using Vitest:
+
+```bash
+pnpm run test
 ```
