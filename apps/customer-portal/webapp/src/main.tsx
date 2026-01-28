@@ -16,7 +16,7 @@
 
 import React from "react";
 import { createRoot } from "react-dom/client";
-import AppWithConfig from "@/AppWithConfig.tsx";
+import AppWithConfig from "@/AppWithConfig";
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
