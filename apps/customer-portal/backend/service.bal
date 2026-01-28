@@ -664,7 +664,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     resource function get cases/[string id]/comments(http:RequestContext ctx, int? 'limit, int? offset)
         returns entity:CommentsResponse|http:BadRequest|http:Forbidden|http:InternalServerError {
 
-        authorization:UserDataPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
             return <http:InternalServerError>{
                 body: {
@@ -673,7 +673,7 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        if !isValidId(id) {
+        if !isEmptyId(id) {
             return <http:BadRequest>{
                 body: {
                     message: "Case ID cannot be empty or whitespace"
