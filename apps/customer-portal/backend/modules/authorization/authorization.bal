@@ -39,6 +39,7 @@ public isolated service class JwtInterceptor {
             };
         }
 
+        // TODO: Remove this if the token issuer issue get resolved.
         string|error userIdToken = req.getHeader(USER_ID_TOKEN_HEADER);
         if userIdToken is error {
             string errorMsg = "Missing user id token info header!";
