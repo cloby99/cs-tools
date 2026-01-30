@@ -383,6 +383,7 @@ public type Attachment record {|
     string createdOn;
     # Download URL
     string downloadUrl;
+    json...;
 |};
 
 # Attachments response.
