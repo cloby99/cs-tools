@@ -54,8 +54,8 @@ export const mockProjects: ProjectListItem[] = [
  * Sample user for the user menu.
  */
 export const mockUser: UserProfile = {
-  name: "Dileepa Peiris",
-  email: "dileepa12345@example.com",
-  avatar: "DP",
+  name: "John Doe",
+  email: "John@example.com",
+  avatar: "JD",
   role: "Admin",
 };
