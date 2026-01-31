@@ -16,13 +16,10 @@
 
 import {
   Bot,
-  CircleAlert,
   CircleCheck,
   Clock,
   FileText,
   MessageSquare,
-  MessageSquareDiff,
-  MessageSquareMore,
   TrendingUp,
 } from "@wso2/oxygen-ui-icons-react";
 import { type ComponentType } from "react";
