@@ -80,8 +80,8 @@ describe("ProjectSwitcher", () => {
     );
 
     const select = screen.getByTestId("project-select");
-    fireEvent.change(select, { target: { value: mockProjects[1].key } });
+    fireEvent.change(select, { target: { value: mockProjects[1].id } });
 
-    expect(mockOnProjectChange).toHaveBeenCalledWith(mockProjects[1].key);
+    expect(mockOnProjectChange).toHaveBeenCalledWith(mockProjects[1].id);
   });
 });
