@@ -27,7 +27,7 @@ const mockShellActions = {
 
 const mockShellState = {
   sidebarCollapsed: false,
-  expandedMenus: [],
+  expandedMenus: {},
 };
 
 vi.mock("@wso2/oxygen-ui", () => ({
