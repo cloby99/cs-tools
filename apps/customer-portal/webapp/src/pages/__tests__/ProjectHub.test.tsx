@@ -140,4 +140,22 @@ describe("ProjectHub", () => {
       );
     });
   });
+
+  it("should call fetchNextPage when hasNextPage is true", () => {
+    const mockFetchNextPage = vi.fn();
+    mockUseGetProjects.mockReturnValue({
+      isLoading: false,
+      data: {
+        pages: [{ projects: mockProjects }],
+      },
+      fetchNextPage: mockFetchNextPage,
+      hasNextPage: true,
+      isFetchingNextPage: false,
+      isError: false,
+    });
+
+    render(<ProjectHub />);
+
+    expect(mockFetchNextPage).toHaveBeenCalled();
+  });
 });

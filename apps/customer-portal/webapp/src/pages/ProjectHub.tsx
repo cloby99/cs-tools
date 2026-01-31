@@ -38,9 +38,21 @@ export default function ProjectHub(): JSX.Element {
    */
   const {
     data: projectsResponse,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     isLoading,
     isError,
   } = useGetProjects({}, true);
+
+  /**
+   * Drain all pages if fetch-all flag is set.
+   */
+  useEffect(() => {
+    if (hasNextPage && !isFetchingNextPage && !isError) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, isError, fetchNextPage]);
 
   /**
    * Get projects from the response.
