@@ -17,8 +17,8 @@
 import { useParams } from "react-router";
 import { useEffect, type JSX } from "react";
 import { Typography, Box } from "@wso2/oxygen-ui";
-import CasesOverviewStats from "@/components/support/CasesOverviewStats/CasesOverviewStats";
-import NoveraChatBanner from "@/components/support/Noverachat/NoveraChatBanner/NoveraChatBanner";
+import CasesOverviewStats from "@/components/support/casesOverviewStats/CasesOverviewStats";
+import NoveraChatBanner from "@/components/support/noveraAIAssistant/noveraChatBanner/NoveraChatBanner";
 import { useGetProjectSupportStats } from "@/api/useGetProjectSupportStats";
 import { useLogger } from "@/hooks/useLogger";
 
