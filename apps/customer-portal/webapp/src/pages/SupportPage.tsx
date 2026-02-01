@@ -54,7 +54,7 @@ export default function SupportPage(): JSX.Element {
     if (isError) {
       logger.error(`Failed to load support stats for project: ${projectId}`);
     }
-  }, [isError, projectId]);
+  }, [isError, projectId, logger]);
 
   /**
    * Use effect to log when stats are loaded.
@@ -63,7 +63,7 @@ export default function SupportPage(): JSX.Element {
     if (stats) {
       logger.debug(`Support stats loaded for project: ${projectId}`);
     }
-  }, [stats, projectId]);
+  }, [stats, projectId, logger]);
 
   if (isError) {
     return (
