@@ -46,7 +46,11 @@ export default function ChatInput({
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") onSend();
+            if (e.key === "Enter") {
+              if (!inputValue.trim()) return;
+              e.preventDefault();
+              onSend();
+            }
           }}
         />
         <IconButton
