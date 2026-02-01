@@ -64,7 +64,9 @@ export default function NoveraChatPage(): JSX.Element {
    */
   useEffect(() => {
     return () => {
-      pendingTimeoutsRef.current.forEach((id) => clearTimeout(id));
+      pendingTimeoutsRef.current.forEach((id) => {
+        clearTimeout(id);
+      });
       pendingTimeoutsRef.current = [];
     };
   }, []);
