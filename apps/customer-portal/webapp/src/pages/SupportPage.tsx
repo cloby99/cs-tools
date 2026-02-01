@@ -17,7 +17,8 @@
 import { useParams } from "react-router";
 import { useEffect, type JSX } from "react";
 import { Typography, Box } from "@wso2/oxygen-ui";
-import CasesOverviewStats from "@/components/support/CasesOverviewStats";
+import CasesOverviewStats from "@/components/support/CasesOverviewStats/CasesOverviewStats";
+import NoveraChatBanner from "@/components/support/Noverachat/NoveraChatBanner/NoveraChatBanner";
 import { useGetProjectSupportStats } from "@/api/useGetProjectSupportStats";
 import { useLogger } from "@/hooks/useLogger";
 
@@ -74,5 +75,10 @@ export default function SupportPage(): JSX.Element {
     );
   }
 
-  return <CasesOverviewStats isLoading={isLoading} stats={stats} />;
+  return (
+    <Box>
+      <CasesOverviewStats isLoading={isLoading} stats={stats} />
+      <NoveraChatBanner />
+    </Box>
+  );
 }
