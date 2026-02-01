@@ -112,16 +112,6 @@ export default function CreateCasePage(): JSX.Element {
    */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    logger.debug("Submitting case:", {
-      project,
-      title,
-      description,
-      issueType,
-      product,
-      deployment,
-      severity,
-    });
   };
 
   /**
