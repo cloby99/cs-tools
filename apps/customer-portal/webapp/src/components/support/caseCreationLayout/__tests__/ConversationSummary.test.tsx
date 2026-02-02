@@ -17,6 +17,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ConversationSummary } from "../ConversationSummary";
+import type { CaseCreationMetadata } from "@/models/mockData";
 
 // Mock @wso2/oxygen-ui components
 vi.mock("@wso2/oxygen-ui", () => ({
@@ -41,7 +42,12 @@ vi.mock("@wso2/oxygen-ui-icons-react", () => ({
 }));
 
 describe("ConversationSummary", () => {
-  const mockMetadata = {
+  const mockMetadata: CaseCreationMetadata = {
+    projects: [],
+    products: [],
+    deploymentTypes: [],
+    issueTypes: [],
+    severityLevels: [],
     conversationSummary: {
       messagesExchanged: 10,
       troubleshootingAttempts: "3 attempts",
