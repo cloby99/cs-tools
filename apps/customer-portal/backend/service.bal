@@ -203,7 +203,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + payload - Project search payload
     # + return - Projects list or error response
     resource function post projects/search(http:RequestContext ctx, entity:ProjectSearchPayload payload)
-        returns http:Ok|http:BadRequest|http:Forbidden|http:InternalServerError {
+        returns http:Ok|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -216,6 +216,15 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         entity:ProjectsResponse|error projectsList = entity:searchProjects(userInfo.idToken, payload);
         if projectsList is error {
+            if getStatusCode(projectsList) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access to the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
             if getStatusCode(projectsList) == http:STATUS_FORBIDDEN {
                 log:printWarn(string `Access to requested projects are forbidden for user: ${userInfo.userId}`);
                 return <http:Forbidden>{
@@ -243,7 +252,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + id - ID of the project
     # + return - Project details or error response
     resource function get projects/[string id](http:RequestContext ctx)
-        returns entity:ProjectDetailsResponse|http:BadRequest|http:Forbidden|http:InternalServerError {
+        returns entity:ProjectResponse|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -262,8 +271,17 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        entity:ProjectDetailsResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
+        entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
         if projectResponse is error {
+            if getStatusCode(projectResponse) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
             if getStatusCode(projectResponse) == http:STATUS_FORBIDDEN {
                 logForbiddenProjectAccess(id, userInfo.userId);
                 return <http:Forbidden>{
@@ -289,7 +307,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + id - ID of the project
     # + return - Project statistics response or error
     resource function get projects/[string id]/stats(http:RequestContext ctx)
-        returns ProjectStatsResponse|http:BadRequest|http:Forbidden|http:InternalServerError {
+        returns ProjectStatsResponse|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -309,8 +327,17 @@ service http:InterceptableService / on new http:Listener(9090) {
         }
 
         // Verify project access
-        entity:ProjectDetailsResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
+        entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
         if projectResponse is error {
+            if getStatusCode(projectResponse) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access to the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
             if getStatusCode(projectResponse) == http:STATUS_FORBIDDEN {
                 logForbiddenProjectAccess(id, userInfo.userId);
                 return <http:Forbidden>{
@@ -398,7 +425,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + id - ID of the project
     # + return - Project statistics overview or error response
     resource function get projects/[string id]/stats/cases(http:RequestContext ctx)
-        returns ProjectCaseStats|http:BadRequest|http:Forbidden|http:InternalServerError {
+        returns ProjectCaseStats|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -418,8 +445,17 @@ service http:InterceptableService / on new http:Listener(9090) {
         }
 
         // Verify project access
-        entity:ProjectDetailsResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
+        entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
         if projectResponse is error {
+            if getStatusCode(projectResponse) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access to the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
             if getStatusCode(projectResponse) == http:STATUS_FORBIDDEN {
                 logForbiddenProjectAccess(id, userInfo.userId);
                 return <http:Forbidden>{
@@ -463,7 +499,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + id - ID of the project
     # + return - Project support statistics or error response
     resource function get projects/[string id]/stats/support(http:RequestContext ctx)
-        returns ProjectSupportStats|http:BadRequest|http:Forbidden|http:InternalServerError {
+        returns ProjectSupportStats|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -483,8 +519,17 @@ service http:InterceptableService / on new http:Listener(9090) {
         }
 
         // Verify project access
-        entity:ProjectDetailsResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
+        entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
         if projectResponse is error {
+            if getStatusCode(projectResponse) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access to the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
             if getStatusCode(projectResponse) == http:STATUS_FORBIDDEN {
                 logForbiddenProjectAccess(id, userInfo.userId);
                 return <http:Forbidden>{
@@ -539,7 +584,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + id - ID of the case
     # + return - Case details or error
     resource function get cases/[string id](http:RequestContext ctx)
-        returns entity:CaseResponse|http:BadRequest|http:Forbidden|http:InternalServerError {
+        returns entity:CaseResponse|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -560,6 +605,15 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         entity:CaseResponse|error caseResponse = entity:getCase(userInfo.idToken, id);
         if caseResponse is error {
+            if getStatusCode(caseResponse) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access to the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
             if getStatusCode(caseResponse) == http:STATUS_FORBIDDEN {
                 logForbiddenCaseAccess(id, userInfo.userId);
                 return <http:Forbidden>{
@@ -586,7 +640,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + payload - Case search request body
     # + return - Paginated cases or error
     resource function post projects/[string id]/cases/search(http:RequestContext ctx, CaseSearchPayload payload)
-        returns http:Ok|http:BadRequest|http:InternalServerError {
+        returns http:Ok|http:BadRequest|http:Unauthorized|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -607,6 +661,15 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         CaseSearchResponse|error casesResponse = searchCases(userInfo.idToken, id, payload);
         if casesResponse is error {
+            if getStatusCode(casesResponse) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access to the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
             string customError = "Failed to retrieve cases.";
             log:printError(customError, casesResponse);
             return <http:InternalServerError>{
@@ -626,7 +689,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + id - ID of the project
     # + return - Case filters or error
     resource function get projects/[string id]/cases/filters(http:RequestContext ctx)
-        returns CaseFilterOptions|http:BadRequest|http:InternalServerError {
+        returns CaseFilterOptions|http:BadRequest|http:Unauthorized|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -647,6 +710,15 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         entity:CaseMetadataResponse|error caseMetadata = entity:getCaseMetadata(userInfo.idToken);
         if caseMetadata is error {
+            if getStatusCode(caseMetadata) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access to the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
             string customError = "Failed to retrieve case filters.";
             log:printError(customError, caseMetadata);
             return <http:InternalServerError>{
@@ -666,7 +738,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + offset - Offset for pagination
     # + return - Comments response or error
     resource function get cases/[string id]/comments(http:RequestContext ctx, int? 'limit, int? offset)
-        returns CommentsResponse|http:BadRequest|http:Forbidden|http:InternalServerError {
+        returns CommentsResponse|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -696,6 +768,15 @@ service http:InterceptableService / on new http:Listener(9090) {
         // Verify case validation for the user
         entity:CaseResponse|error caseDetails = entity:getCase(userInfo.idToken, id);
         if caseDetails is error {
+            if getStatusCode(caseDetails) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access to the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+            
             if getStatusCode(caseDetails) == http:STATUS_FORBIDDEN {
                 logForbiddenCaseAccess(id, userInfo.userId);
                 return <http:Forbidden>{

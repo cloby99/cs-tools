@@ -95,8 +95,8 @@ public type ProjectsResponse record {|
     json...;
 |};
 
-# Project details information.
-public type ProjectDetailsResponse record {|
+# Project information.
+public type ProjectResponse record {|
     *Project;
     # Project type
     string 'type;
