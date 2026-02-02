@@ -106,4 +106,30 @@ describe("OutstandingIncidentsChart", () => {
     // We expect 3 segments (Medium, High, Critical)
     expect(segments).toHaveLength(3);
   });
+
+  it("should render all segments even with missing data values", () => {
+    const incompleteData = {
+      medium: 5,
+      high: 3,
+      total: 8,
+    } as any;
+
+    render(
+      <OutstandingIncidentsChart data={incompleteData} isLoading={false} />,
+    );
+
+    const segments = screen.getAllByTestId("pie-segment");
+    expect(segments).toHaveLength(3);
+
+    // Verify that the missing value was defaulted to 0
+    const values = segments.map((s) => s.getAttribute("data-value"));
+    expect(values).toContain("0");
+  });
+
+  it("should display 'N/A' when data is undefined", () => {
+    render(
+      <OutstandingIncidentsChart data={undefined as any} isLoading={false} />,
+    );
+    expect(screen.getByText("N/A")).toBeInTheDocument();
+  });
 });

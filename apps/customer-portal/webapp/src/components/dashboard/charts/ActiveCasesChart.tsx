@@ -46,12 +46,20 @@ export const ActiveCasesChart = ({
   data,
   isLoading,
 }: ActiveCasesChartProps): JSX.Element => {
-  // Map the active cases chart data to the chart data format
-  const chartData = ACTIVE_CASES_CHART_DATA.map((item) => ({
-    name: item.name,
-    value: data[item.key],
-    color: item.color,
-  }));
+  const safeData = data ?? {
+    workInProgress: 0,
+    waitingOnClient: 0,
+    waitingOnWso2: 0,
+    total: 0,
+  };
+
+  const chartData = isLoading
+    ? []
+    : ACTIVE_CASES_CHART_DATA.map((item) => ({
+        name: item.name,
+        value: safeData[item.key] || 0,
+        color: item.color,
+      }));
 
   return (
     <Card sx={{ height: "100%", p: 2 }}>
@@ -111,7 +119,7 @@ export const ActiveCasesChart = ({
               pointerEvents: "none",
             }}
           >
-            <Typography variant="h4">{data.total}</Typography>
+            <Typography variant="h4">{data ? data.total : "N/A"}</Typography>
             <Typography variant="caption">Total</Typography>
           </Box>
         </Box>
