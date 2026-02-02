@@ -85,9 +85,9 @@ export const getMockProjectCasesStats = (): ProjectCasesStats => {
   const waitingOnClient = Math.floor(Math.random() * 5);
   const waitingOnWso2 = Math.floor(Math.random() * 5);
 
-  const medium = Math.floor(Math.random() * 8);
-  const high = Math.floor(Math.random() * 4);
-  const critical = Math.floor(Math.random() * 2);
+  const medium = Math.floor(Math.random() * 8) + 1;
+  const high = Math.floor(Math.random() * 4) + 1;
+  const critical = Math.floor(Math.random() * 2) + 1;
 
   return {
     activeCases: {
@@ -178,5 +178,56 @@ export const getMockDashboardStats = (): DashboardMockStats => {
       value: "4.5h",
       trend: { value: "0.5h", direction: "down", color: "error" },
     },
+    casesTrend: [
+      {
+        name: "Jan",
+        TypeA: 400,
+        TypeB: 240,
+        TypeC: 240,
+        TypeD: 240,
+      },
+      {
+        name: "Feb",
+        TypeA: 300,
+        TypeB: 139,
+        TypeC: 221,
+        TypeD: 221,
+      },
+      {
+        name: "Mar",
+        TypeA: 200,
+        TypeB: 980,
+        TypeC: 229,
+        TypeD: 229,
+      },
+      {
+        name: "Apr",
+        TypeA: 278,
+        TypeB: 390,
+        TypeC: 200,
+        TypeD: 200,
+      },
+      {
+        name: "May",
+        TypeA: 189,
+        TypeB: 480,
+        TypeC: 218,
+        TypeD: 218,
+      },
+      {
+        name: "Jun",
+        TypeA: 239,
+        TypeB: 380,
+        TypeC: 250,
+        TypeD: 250,
+      },
+      {
+        name: "Jul",
+        TypeA: 349,
+        TypeB: 430,
+        TypeC: 210,
+        TypeD: 210,
+      },
+    ],
   };
 };
