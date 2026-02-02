@@ -15,7 +15,7 @@
 // under the License.
 
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import ActiveFilters from "../ActiveFilters";
 
 // Mock Oxygen UI components
@@ -65,12 +65,16 @@ describe("ActiveFilters", () => {
   const mockFilterFields = [
     { id: "status", label: "Status", options: ["Open", "Closed"] },
     { id: "priority", label: "Priority", options: ["High", "Low"] },
-    { id: "search", label: "Search" }, // No options
+    { id: "search", label: "Search" },
   ];
 
   const mockOnRemoveFilter = vi.fn();
   const mockOnClearAll = vi.fn();
   const mockOnUpdateFilter = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it("should render active filters correctly", () => {
     render(
