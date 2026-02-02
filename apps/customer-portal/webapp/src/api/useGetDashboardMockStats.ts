@@ -17,7 +17,7 @@
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { getMockDashboardStats } from "@/models/mockFunctions";
 import { useLogger } from "@/hooks/useLogger";
-import { ApiQueryKeys } from "@/constants/apiQueryKeys";
+import { ApiQueryKeys, API_MOCK_DELAY } from "@/constants/apiConstants";
 import type { DashboardMockStats } from "@/models/responses";
 
 /**
@@ -41,7 +41,7 @@ export function useGetDashboardMockStats(
       /**
        * Mock behavior: simulate network latency.
        */
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, API_MOCK_DELAY));
 
       const stats: DashboardMockStats = getMockDashboardStats();
 
