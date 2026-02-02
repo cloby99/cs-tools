@@ -118,7 +118,7 @@ const FilterPopover = <T extends Record<string, any>>({
         </IconButton>
       </DialogTitle>
       {/* filter popover content */}
-      <DialogContent sx={{ pt: 30, pb: 1, minHeight: 300 }}>
+      <DialogContent sx={{ minHeight: 300 }}>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3, pt: 2 }}>
           {/* filter popover fields */}
           {fields.map((field) => (
