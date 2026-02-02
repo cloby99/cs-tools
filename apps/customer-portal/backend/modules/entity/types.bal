@@ -359,7 +359,7 @@ public type CommentsResponse record {|
 
 # Reference search payload to search comments, attachments, etc.
 public type ReferenceSearchPayload record {|
-    # Reference ID to filter related resources(caseId, serviceRequestId, etc.)
+    # Reference ID to filter related resources(query ID, incident ID, service request ID, etc.)
     string referenceId;
     # Pagination details
     Pagination pagination?;
@@ -369,7 +369,7 @@ public type ReferenceSearchPayload record {|
 public type Attachment record {|
     # ID of the attachment
     string id;
-    # Reference ID associated with the attachment(caseId, serviceRequestId, etc.)
+    # Reference ID associated with the attachment(query ID, incident ID, service request ID, etc.)
     string referenceId;
     # File name
     string name;
