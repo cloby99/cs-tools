@@ -59,7 +59,7 @@ export function ConversationSummary({
             <Skeleton variant="text" width="20%" height={20} />
           ) : (
             <Typography variant="body2">
-              {metadata?.conversationSummary?.messagesExchanged}
+              {metadata?.conversationSummary?.messagesExchanged ?? "N/A"}
             </Typography>
           )}
         </Box>
@@ -72,7 +72,7 @@ export function ConversationSummary({
             <Skeleton variant="text" width="60%" height={20} />
           ) : (
             <Typography variant="body2">
-              {metadata?.conversationSummary?.troubleshootingAttempts}
+              {metadata?.conversationSummary?.troubleshootingAttempts ?? "N/A"}
             </Typography>
           )}
         </Box>
@@ -85,7 +85,7 @@ export function ConversationSummary({
             <Skeleton variant="text" width="50%" height={20} />
           ) : (
             <Typography variant="body2">
-              {metadata?.conversationSummary?.kbArticlesReviewed}
+              {metadata?.conversationSummary?.kbArticlesReviewed ?? "N/A"}
             </Typography>
           )}
         </Box>
