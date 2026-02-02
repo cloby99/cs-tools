@@ -217,7 +217,7 @@ service http:InterceptableService / on new http:Listener(9090) {
         entity:ProjectsResponse|error projectsList = entity:searchProjects(userInfo.idToken, payload);
         if projectsList is error {
             if getStatusCode(projectsList) == http:STATUS_UNAUTHORIZED {
-                log:printWarn(string `User: ${userInfo.userId} is not authorized to access to the customer portal!`);
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
                 return <http:Unauthorized>{
                     body: {
                         message: ERR_MSG_UNAUTHORIZED_ACCESS
@@ -330,7 +330,7 @@ service http:InterceptableService / on new http:Listener(9090) {
         entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
         if projectResponse is error {
             if getStatusCode(projectResponse) == http:STATUS_UNAUTHORIZED {
-                log:printWarn(string `User: ${userInfo.userId} is not authorized to access to the customer portal!`);
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
                 return <http:Unauthorized>{
                     body: {
                         message: ERR_MSG_UNAUTHORIZED_ACCESS
@@ -448,7 +448,7 @@ service http:InterceptableService / on new http:Listener(9090) {
         entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
         if projectResponse is error {
             if getStatusCode(projectResponse) == http:STATUS_UNAUTHORIZED {
-                log:printWarn(string `User: ${userInfo.userId} is not authorized to access to the customer portal!`);
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
                 return <http:Unauthorized>{
                     body: {
                         message: ERR_MSG_UNAUTHORIZED_ACCESS
@@ -522,7 +522,7 @@ service http:InterceptableService / on new http:Listener(9090) {
         entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
         if projectResponse is error {
             if getStatusCode(projectResponse) == http:STATUS_UNAUTHORIZED {
-                log:printWarn(string `User: ${userInfo.userId} is not authorized to access to the customer portal!`);
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
                 return <http:Unauthorized>{
                     body: {
                         message: ERR_MSG_UNAUTHORIZED_ACCESS
@@ -606,7 +606,7 @@ service http:InterceptableService / on new http:Listener(9090) {
         entity:CaseResponse|error caseResponse = entity:getCase(userInfo.idToken, id);
         if caseResponse is error {
             if getStatusCode(caseResponse) == http:STATUS_UNAUTHORIZED {
-                log:printWarn(string `User: ${userInfo.userId} is not authorized to access to the customer portal!`);
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
                 return <http:Unauthorized>{
                     body: {
                         message: ERR_MSG_UNAUTHORIZED_ACCESS
@@ -662,7 +662,7 @@ service http:InterceptableService / on new http:Listener(9090) {
         CaseSearchResponse|error casesResponse = searchCases(userInfo.idToken, id, payload);
         if casesResponse is error {
             if getStatusCode(casesResponse) == http:STATUS_UNAUTHORIZED {
-                log:printWarn(string `User: ${userInfo.userId} is not authorized to access to the customer portal!`);
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
                 return <http:Unauthorized>{
                     body: {
                         message: ERR_MSG_UNAUTHORIZED_ACCESS
@@ -711,7 +711,7 @@ service http:InterceptableService / on new http:Listener(9090) {
         entity:CaseMetadataResponse|error caseMetadata = entity:getCaseMetadata(userInfo.idToken);
         if caseMetadata is error {
             if getStatusCode(caseMetadata) == http:STATUS_UNAUTHORIZED {
-                log:printWarn(string `User: ${userInfo.userId} is not authorized to access to the customer portal!`);
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
                 return <http:Unauthorized>{
                     body: {
                         message: ERR_MSG_UNAUTHORIZED_ACCESS
@@ -769,7 +769,7 @@ service http:InterceptableService / on new http:Listener(9090) {
         entity:CaseResponse|error caseDetails = entity:getCase(userInfo.idToken, id);
         if caseDetails is error {
             if getStatusCode(caseDetails) == http:STATUS_UNAUTHORIZED {
-                log:printWarn(string `User: ${userInfo.userId} is not authorized to access to the customer portal!`);
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
                 return <http:Unauthorized>{
                     body: {
                         message: ERR_MSG_UNAUTHORIZED_ACCESS
