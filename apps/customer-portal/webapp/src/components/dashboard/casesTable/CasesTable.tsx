@@ -61,6 +61,14 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
     setPage(0);
   };
 
+  const handleUpdateFilter = (field: string, value: any) => {
+    setFilters((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+    setPage(0);
+  };
+
   const handleRemoveFilter = (field: string) => {
     const newFilters = { ...filters };
     delete newFilters[field];
@@ -87,6 +95,7 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
   const activeFilterFields = FILTER_FIELDS.map((field) => ({
     id: field.id,
     label: field.label,
+    options: field.options,
   }));
 
   const getDisplayValue = (fieldId: string, value: any): string => {
@@ -119,6 +128,7 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
         appliedFilters={mappedAppliedFilters}
         filterFields={activeFilterFields}
         onRemoveFilter={handleRemoveFilter}
+        onUpdateFilter={handleUpdateFilter}
         onClearAll={handleClearFilters}
         onFilterClick={() => setIsFilterOpen(true)}
         onCreateCase={() => navigate(`/${projectId}/support/chat`)}
