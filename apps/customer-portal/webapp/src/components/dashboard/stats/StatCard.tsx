@@ -29,37 +29,14 @@ import { TrendIndicator } from "./TrendIndicator";
 import { type StatCardColor } from "@/constants/dashboardConstants";
 import { type TrendData } from "@/models/responses";
 
-/**
- * Props for the StatCard component.
- */
+//Props for the StatCard component.
 interface StatCardProps {
-  /**
-   * Label for the statistic.
-   */
   label: string;
-  /**
-   * Value of the statistic.
-   */
   value: string | number;
-  /**
-   * Icon component to display.
-   */
   icon: JSX.Element;
-  /**
-   * Color theme for the icon.
-   */
   iconColor: StatCardColor;
-  /**
-   * Text to display in the tooltip.
-   */
   tooltipText: string;
-  /**
-   * Trend data to display.
-   */
   trend?: TrendData;
-  /**
-   * Whether the component is in a loading state.
-   */
   isLoading?: boolean;
 }
 
@@ -78,9 +55,6 @@ export const StatCard = ({
   trend,
   isLoading,
 }: StatCardProps): JSX.Element => {
-  /**
-   * Get the theme
-   */
   const theme = useTheme();
 
   return (
@@ -130,7 +104,7 @@ export const StatCard = ({
           {isLoading ? (
             <Skeleton variant="text" width="40%" height={28} />
           ) : (
-            value
+            (value ?? "N/A")
           )}
         </Typography>
 

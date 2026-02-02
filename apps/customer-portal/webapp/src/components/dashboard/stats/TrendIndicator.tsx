@@ -19,17 +19,8 @@ import { TrendingUp, TrendingDown } from "@wso2/oxygen-ui-icons-react";
 import { type JSX } from "react";
 import { type TrendData } from "@/models/responses";
 
-/**
- * TrendIndicator component props.
- */
 interface TrendIndicatorProps {
-  /**
-   * Trend data to display.
-   */
   trend?: TrendData;
-  /**
-   * Whether the component is in a loading state.
-   */
   isLoading?: boolean;
 }
 
@@ -43,16 +34,10 @@ export const TrendIndicator = ({
   trend,
   isLoading,
 }: TrendIndicatorProps): JSX.Element | null => {
-  /**
-   * If not loading and no trend data, return null.
-   */
   if (!isLoading && !trend) {
     return null;
   }
 
-  /**
-   * Render the trend indicator.
-   */
   return (
     <Box
       sx={{
