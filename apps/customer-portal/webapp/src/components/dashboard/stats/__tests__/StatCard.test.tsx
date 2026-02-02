@@ -60,6 +60,14 @@ vi.mock("@wso2/oxygen-ui", () => ({
     },
   }),
   alpha: (color: string, opacity: number) => `rgba(${color}, ${opacity})`,
+  colors: {
+    common: { white: "#ffffff" },
+    blue: { 500: "#3B82F6" },
+    green: { 500: "#22C55E" },
+    orange: { 500: "#F97316" },
+    red: { 500: "#EF4444" },
+    yellow: { 600: "#EAB308" },
+  },
 }));
 
 // Mock icons
