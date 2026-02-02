@@ -17,9 +17,9 @@
 import { Box, Typography, Button } from "@wso2/oxygen-ui";
 import { ListFilter, Plus } from "@wso2/oxygen-ui-icons-react";
 import { type JSX } from "react";
-import GenericActiveFilters, {
+import ActiveFilters, {
   type ActiveFilterConfig,
-} from "@/components/dashboard/casesTable/ActiveFilters";
+} from "@/components/common/filterPanel/ActiveFilters";
 
 interface CasesTableHeaderProps {
   activeFiltersCount: number;
@@ -27,6 +27,7 @@ interface CasesTableHeaderProps {
   filterFields: ActiveFilterConfig[];
   onRemoveFilter: (field: string) => void;
   onClearAll: () => void;
+  onUpdateFilter: (field: string, value: any) => void;
   onFilterClick: () => void;
   onCreateCase: () => void;
   projectId: string;
@@ -38,6 +39,7 @@ const CasesTableHeader = ({
   filterFields,
   onRemoveFilter,
   onClearAll,
+  onUpdateFilter,
   onFilterClick,
   onCreateCase,
 }: CasesTableHeaderProps): JSX.Element => {
@@ -71,11 +73,12 @@ const CasesTableHeader = ({
         </Box>
 
         {/* Active filters */}
-        <GenericActiveFilters
+        <ActiveFilters
           appliedFilters={appliedFilters}
           filterFields={filterFields}
           onRemoveFilter={onRemoveFilter}
           onClearAll={onClearAll}
+          onUpdateFilter={onUpdateFilter}
         />
       </Box>
       {/* Buttons */}
