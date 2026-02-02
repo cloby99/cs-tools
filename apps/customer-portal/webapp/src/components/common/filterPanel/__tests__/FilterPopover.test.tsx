@@ -33,9 +33,10 @@ vi.mock("@wso2/oxygen-ui", () => ({
   ),
 
   InputLabel: ({ children, id }: any) => <label id={id}>{children}</label>,
-  Select: ({ children, value, onChange }: any) => (
+  Select: ({ children, value, onChange, labelId }: any) => (
     <select
       data-testid="select"
+      data-label-id={labelId}
       value={value}
       onChange={(e) => onChange({ target: { value: e.target.value } } as any)}
     >
@@ -127,6 +128,36 @@ describe("FilterPopover", () => {
     expect(screen.getAllByText("Search").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByTestId("select")).toHaveLength(2);
     expect(screen.getByTestId("text-field")).toBeInTheDocument();
+  });
+
+  it("should render correct accessibility attributes", () => {
+    render(
+      <FilterPopover
+        open={true}
+        onClose={mockOnClose}
+        onSearch={mockOnSearch}
+        initialFilters={mockFilters}
+        fields={mockFields}
+      />,
+    );
+
+    // Check Select label association
+    const statusSelect = screen.getAllByTestId("select")[0];
+    expect(statusSelect).toHaveAttribute("data-label-id", "status-label");
+    // Verify label exists with correct ID
+    // Note: In our mock, InputLabel renders <label id={id}>
+    // We can find it by ID directly using document query or ensure it exists via text search which we did in render test
+    // But let's be specific about ID:
+    // Note: testing-library suggests getByLabelText but since we are mocking structure differently,
+    // let's just verify the ID presence on the label element if possible or rely on the Fact that text "Status" is inside a label with that ID.
+    // Since our mock renders <label id="status-label">Status</label>, we can do:
+    const statusLabel = screen.getByText("Status");
+    expect(statusLabel.tagName).toBe("LABEL");
+    expect(statusLabel).toHaveAttribute("id", "status-label");
+
+    // Check TextField label
+    const searchInputContainer = screen.getByTestId("text-field").parentElement;
+    expect(searchInputContainer).toHaveTextContent("Search");
   });
 
   it("should not render when closed", () => {
