@@ -139,6 +139,32 @@ describe("ProjectDetails", () => {
     expect(mockShowLoader).toHaveBeenCalled();
   });
 
+  it("should hide loader when loading completes", () => {
+    mockUseGetProjectDetails.mockReturnValue({
+      data: null,
+      isLoading: true,
+      error: null,
+    });
+    mockUseGetProjectStat.mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
+    });
+
+    const { rerender } = render(<ProjectDetails />);
+    expect(mockShowLoader).toHaveBeenCalledTimes(1);
+    expect(mockHideLoader).not.toHaveBeenCalled();
+
+    mockUseGetProjectDetails.mockReturnValue({
+      data: { id: "123" },
+      isLoading: false,
+      error: null,
+    });
+
+    rerender(<ProjectDetails />);
+    expect(mockHideLoader).toHaveBeenCalledTimes(1);
+  });
+
   it("should log error when project details fail to load", async () => {
     const error = new Error("Project Load Failed");
     mockUseGetProjectDetails.mockReturnValue({
