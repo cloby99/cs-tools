@@ -23,6 +23,7 @@ import {
   getSystemHealthColor,
   getSubscriptionStatus,
   getSubscriptionColor,
+  calculateProgress,
 } from "../projectStats";
 
 describe("projectStats utils", () => {
@@ -162,6 +163,55 @@ describe("projectStats utils", () => {
 
     it("should return 'default' for unknown values", () => {
       expect(getSubscriptionColor("Pending")).toBe("default");
+    });
+  });
+
+  describe("calculateProgress", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      // Set fixed date: Jan 15, 2024
+      vi.setSystemTime(new Date("2024-01-15T00:00:00Z"));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("should return 0 if start or end date is missing", () => {
+      expect(calculateProgress("", "2024-01-15")).toBe(0);
+      expect(calculateProgress("2024-01-01", "")).toBe(0);
+    });
+
+    it("should return 0 if start or end date is invalid", () => {
+      expect(calculateProgress("invalid", "2024-01-15")).toBe(0);
+      expect(calculateProgress("2024-01-01", "invalid")).toBe(0);
+    });
+
+    it("should return 100 if total duration is <= 0", () => {
+      expect(calculateProgress("2024-01-15", "2024-01-15")).toBe(100);
+      expect(calculateProgress("2024-01-16", "2024-01-15")).toBe(100);
+    });
+
+    it("should calculate correct progress percentage", () => {
+      // Start: Jan 1, 2024, End: Jan 31, 2024, Today: Jan 15, 2024
+      // Total days: 30, Elapsed: 14. Progress: ~46.6%
+      const start = "2024-01-01T00:00:00Z";
+      const end = "2024-01-31T00:00:00Z";
+      const progress = calculateProgress(start, end);
+      expect(progress).toBeCloseTo(46.66, 1);
+    });
+
+    it("should clamp progress between 0 and 100", () => {
+      // Future start date
+      expect(
+        calculateProgress("2024-02-01T00:00:00Z", "2024-02-28T00:00:00Z"),
+      ).toBe(0);
+
+      // Past end date (already verified via other checks but good to be explicit)
+      // If end date is before today, it means elapsed > total, so > 100, clamped to 100.
+      expect(
+        calculateProgress("2023-01-01T00:00:00Z", "2023-12-31T00:00:00Z"),
+      ).toBe(100);
     });
   });
 });
