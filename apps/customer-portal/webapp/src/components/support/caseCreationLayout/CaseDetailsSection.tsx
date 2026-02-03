@@ -79,7 +79,11 @@ export const CaseDetailsSection = ({
       >
         <Typography variant="h6">Case Details</Typography>
         <IconButton>
-          <PencilLine size={18} onClick={() => setIsEditing(true)} />
+          <PencilLine
+            aria-label="Edit case details"
+            size={18}
+            onClick={() => setIsEditing(true)}
+          />
         </IconButton>
       </Box>
 
