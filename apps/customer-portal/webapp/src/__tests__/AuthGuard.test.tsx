@@ -53,8 +53,12 @@ describe("AuthGuard", () => {
     });
 
     render(
-      <MemoryRouter>
-        <AuthGuard />
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route element={<AuthGuard />}>
+            <Route path="/" element={<div data-testid="app-layout" />} />
+          </Route>
+        </Routes>
       </MemoryRouter>,
     );
 
