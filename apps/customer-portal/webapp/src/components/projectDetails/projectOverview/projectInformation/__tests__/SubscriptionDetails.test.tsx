@@ -72,7 +72,6 @@ describe("SubscriptionDetails", () => {
     render(<SubscriptionDetails {...defaultProps} />);
     const progress = screen.getByTestId("linear-progress");
     expect(progress).toBeInTheDocument();
-    // Default mock behavior for "Active" -> 75
     expect(progress).toHaveAttribute("data-value", "50");
     expect(progress).toHaveAttribute("data-color", "success");
   });
