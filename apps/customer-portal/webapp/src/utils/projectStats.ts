@@ -14,6 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { SubscriptionStatus } from "@/models/responses";
+
 /**
  * Formats a date string into "MMM DD, YYYY" format.
  * Example: "Jan 15, 2024"
@@ -125,13 +127,13 @@ export const getSystemHealthColor = (
  * Determines the subscription status based on the end date.
  *
  * @param {string} endDateString - The subscription end date string.
- * @returns {"Expired" | "Expiring Soon" | "Active"} The status string.
+ * @returns {SubscriptionStatus} The status string.
  */
 export const getSubscriptionStatus = (
   endDateString: string,
-): "Expired" | "Expiring Soon" | "Active" => {
+): SubscriptionStatus => {
   if (!endDateString) {
-    return "Active";
+    return SubscriptionStatus.Active;
   }
 
   const today = new Date();
@@ -143,36 +145,36 @@ export const getSubscriptionStatus = (
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
   if (diffDays < 0) {
-    return "Expired";
+    return SubscriptionStatus.Expired;
   }
 
   if (diffDays <= 30) {
-    return "Expiring Soon";
+    return SubscriptionStatus.ExpiringSoon;
   }
 
-  return "Active";
+  return SubscriptionStatus.Active;
 };
 
 /**
  * Determines the color of the Subscription Status chip based on the status string.
  *
- * @param {string} status - The subscription status string.
+ * @param {SubscriptionStatus | string} status - The subscription status string.
  * @returns {"primary" | "info" | "default" | "success" | "warning" | "error"} The color for the Chip component.
  */
 export const getSubscriptionColor = (
-  status: string,
+  status: SubscriptionStatus | string,
 ): "primary" | "info" | "default" | "success" | "warning" | "error" => {
   const normalizedStatus = status?.toLowerCase();
 
-  if (normalizedStatus === "expired") {
+  if (normalizedStatus === SubscriptionStatus.Expired.toLowerCase()) {
     return "error";
   }
 
-  if (normalizedStatus === "expiring soon") {
+  if (normalizedStatus === SubscriptionStatus.ExpiringSoon.toLowerCase()) {
     return "warning";
   }
 
-  if (normalizedStatus === "active") {
+  if (normalizedStatus === SubscriptionStatus.Active.toLowerCase()) {
     return "success";
   }
 
