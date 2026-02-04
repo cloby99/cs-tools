@@ -34,18 +34,16 @@ import type { SearchProjectsResponse } from "@/models/responses";
  * @returns {UseInfiniteQueryResult<InfiniteData<SearchProjectsResponse>, Error>} The infinite query result object.
  */
 export default function useGetProjects(
-  searchData: SearchProjectsRequest = {},
+  searchData?: SearchProjectsRequest,
   fetchAll: boolean = false,
 ): UseInfiniteQueryResult<InfiniteData<SearchProjectsResponse>, Error> {
   const logger = useLogger();
-  const limit = fetchAll ? 100 : searchData.pagination?.limit || 10;
+  const limit = fetchAll ? 100 : searchData?.pagination?.limit || 10;
 
-  /**
-   * A stable key for the "all projects" query ensures cache sharing
-   */
+  // A stable key for the "all projects" query ensures cache sharing
   const queryKey = fetchAll
     ? [ApiQueryKeys.PROJECTS, "all"]
-    : [ApiQueryKeys.PROJECTS, searchData];
+    : [ApiQueryKeys.PROJECTS, searchData ?? "default"];
 
   return useInfiniteQuery<SearchProjectsResponse, Error>({
     getPreviousPageParam: (firstPage) => {
@@ -62,11 +60,7 @@ export default function useGetProjects(
         `Fetching projects... offset: ${pageParam}, limit: ${limit}, fetchAll: ${fetchAll}`,
       );
 
-      /**
-       * Mock behavior: simulate network latency for the in-memory `mockProjects` data.
-       * This is intended only for development/demo use and should be removed or
-       * replaced when wiring this hook to the real backend API.
-       */
+      // Mock behavior: simulate network latency for the in-memory `mockProjects` data.
       await new Promise((resolve) => setTimeout(resolve, API_MOCK_DELAY));
 
       const offset = typeof pageParam === "number" ? pageParam : 0;

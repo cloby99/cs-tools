@@ -60,6 +60,14 @@ vi.mock("@wso2/oxygen-ui", () => ({
     },
   }),
   alpha: (color: string, opacity: number) => `rgba(${color}, ${opacity})`,
+  colors: {
+    common: { white: "#FFFFFF" },
+    blue: { 500: "#3B82F6" },
+    green: { 500: "#22C55E" },
+    orange: { 500: "#F97316" },
+    red: { 500: "#EF4444" },
+    yellow: { 600: "#EAB308" },
+  },
 }));
 
 // Mock icons
@@ -115,5 +123,10 @@ describe("StatCard", () => {
     expect(screen.getByText("12%")).toBeInTheDocument();
     expect(screen.getByTestId("icon-trending-up")).toBeInTheDocument();
     expect(screen.getByText("vs last month")).toBeInTheDocument();
+  });
+
+  it("should display 'N/A' when value is undefined", () => {
+    render(<StatCard {...defaultProps} value={undefined as any} />);
+    expect(screen.getByText("N/A")).toBeInTheDocument();
   });
 });

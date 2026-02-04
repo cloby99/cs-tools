@@ -21,8 +21,8 @@ import ProjectCardInfo from "@/components/projectHub/projectCard/ProjectCardInfo
 // Mock @wso2/oxygen-ui
 vi.mock("@wso2/oxygen-ui", () => ({
   Form: {
-    CardHeader: ({ title, subheader, sx }: any) => (
-      <div data-testid="card-header" style={sx}>
+    CardHeader: ({ title, subheader }: any) => (
+      <div data-testid="card-header">
         <div data-testid="title">{title}</div>
         <div data-testid="subheader">{subheader}</div>
       </div>

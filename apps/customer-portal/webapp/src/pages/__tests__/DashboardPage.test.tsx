@@ -53,6 +53,12 @@ const mockMockStats = {
     avgResponseTime: {
       trend: { value: "0.5h", direction: "down", color: "error" },
     },
+    casesTrend: {
+      "Type A": 10,
+      "Type B": 20,
+      "Type C": 30,
+      "Type D": 40,
+    },
   },
   isLoading: false,
   isError: false,
@@ -75,6 +81,11 @@ vi.mock("@/api/useGetDashboardMockStats", () => ({
 
 vi.mock("@/api/useGetProjectCasesStats", () => ({
   useGetProjectCasesStats: vi.fn(() => mockCasesStats),
+}));
+
+// Mock ChartLayout
+vi.mock("@/components/dashboard/charts/ChartLayout", () => ({
+  default: () => <div data-testid="chart-layout" />,
 }));
 
 // Mock StatCard
@@ -108,6 +119,14 @@ vi.mock("@wso2/oxygen-ui", () => ({
   LinearProgress: ({ color }: any) => (
     <div data-testid="linear-progress" data-color={color}></div>
   ),
+  colors: {
+    common: { white: "#FFFFFF" },
+    blue: { 500: "#3B82F6" },
+    green: { 500: "#22C55E" },
+    orange: { 500: "#F97316" },
+    red: { 500: "#EF4444" },
+    yellow: { 600: "#EAB308" },
+  },
 }));
 
 // Mock icons
@@ -130,6 +149,7 @@ describe("DashboardPage", () => {
     expect(screen.getAllByTestId("stat-card")).toHaveLength(
       DASHBOARD_STATS.length,
     );
+    expect(screen.getByTestId("chart-layout")).toBeInTheDocument();
     expect(screen.getByText("Get Support")).toBeInTheDocument();
   });
 

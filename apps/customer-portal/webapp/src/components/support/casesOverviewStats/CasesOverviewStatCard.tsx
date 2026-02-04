@@ -19,17 +19,8 @@ import { type JSX } from "react";
 import { SUPPORT_STAT_CONFIGS } from "@/constants/supportConstants";
 import type { ProjectSupportStats } from "@/models/responses";
 
-/**
- * Props for the CasesOverviewStatCard component.
- */
 export interface CasesOverviewStatCardProps {
-  /**
-   * Is the data loading?
-   */
   isLoading: boolean;
-  /**
-   * The support statistics to display.
-   */
   stats: ProjectSupportStats | undefined;
 }
 
@@ -52,12 +43,12 @@ export default function CasesOverviewStatCard({
           mb: 3,
         }}
       >
-        {SUPPORT_STAT_CONFIGS.map((stat, index) => {
+        {SUPPORT_STAT_CONFIGS.map((stat) => {
           const SecondaryIcon = stat.secondaryIcon;
 
           return (
             <Grid
-              key={index}
+              key={stat.key}
               size={{
                 xs: 12,
                 sm: 6,

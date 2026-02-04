@@ -24,12 +24,10 @@ import {
 } from "@wso2/oxygen-ui";
 import { Bot, MessageSquare } from "@wso2/oxygen-ui-icons-react";
 import type { JSX } from "react";
+import type { CaseCreationMetadata } from "@/models/mockData";
 
-/**
- * Interface for conversation summary component.
- */
 interface ConversationSummaryProps {
-  metadata?: any;
+  metadata?: CaseCreationMetadata;
   isLoading: boolean;
 }
 
@@ -61,7 +59,7 @@ export function ConversationSummary({
             <Skeleton variant="text" width="20%" height={20} />
           ) : (
             <Typography variant="body2">
-              {metadata?.conversationSummary?.messagesExchanged}
+              {metadata?.conversationSummary?.messagesExchanged ?? "N/A"}
             </Typography>
           )}
         </Box>
@@ -74,7 +72,7 @@ export function ConversationSummary({
             <Skeleton variant="text" width="60%" height={20} />
           ) : (
             <Typography variant="body2">
-              {metadata?.conversationSummary?.troubleshootingAttempts}
+              {metadata?.conversationSummary?.troubleshootingAttempts ?? "N/A"}
             </Typography>
           )}
         </Box>
@@ -87,7 +85,7 @@ export function ConversationSummary({
             <Skeleton variant="text" width="50%" height={20} />
           ) : (
             <Typography variant="body2">
-              {metadata?.conversationSummary?.kbArticlesReviewed}
+              {metadata?.conversationSummary?.kbArticlesReviewed ?? "N/A"}
             </Typography>
           )}
         </Box>
