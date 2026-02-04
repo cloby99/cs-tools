@@ -14,69 +14,82 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useAsgardeo } from "@asgardeo/react";
 import { render, screen } from "@testing-library/react";
+import { useAsgardeo } from "@asgardeo/react";
 import { MemoryRouter, Route, Routes } from "react-router";
-import { vi, describe, it, expect, beforeEach } from "vitest";
-import AuthGuard from "../AuthGuard";
+import AuthGuard from "@/AuthGuard"; // Corrected path
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import React from "react";
+import { useLoader } from "@/context/linearLoader/LoaderContext";
 
-// Mock @asgardeo/react
+// Mock dependencies
 vi.mock("@asgardeo/react", () => ({
   useAsgardeo: vi.fn(),
+  AsgardeoProvider: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+}));
+
+vi.mock("@/context/linearLoader/LoaderContext", () => ({
+  useLoader: vi.fn(),
 }));
 
 describe("AuthGuard", () => {
+  const mockShowLoader = vi.fn();
+  const mockHideLoader = vi.fn();
+
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it("should render outlet when user is signed in", () => {
-    (useAsgardeo as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      isSignedIn: true,
-      isLoading: false,
+    (useLoader as any).mockReturnValue({
+      showLoader: mockShowLoader,
+      hideLoader: mockHideLoader,
     });
-
-    render(
-      <MemoryRouter initialEntries={["/protected"]}>
-        <Routes>
-          <Route element={<AuthGuard />}>
-            <Route path="/protected" element={<div>Protected Content</div>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByText("Protected Content")).toBeInTheDocument();
   });
 
-  it("should redirect to login when user is not signed in", () => {
-    (useAsgardeo as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      isSignedIn: false,
-      isLoading: false,
-    });
-
-    render(
-      <MemoryRouter initialEntries={["/protected"]}>
-        <Routes>
-          <Route element={<AuthGuard />}>
-            <Route path="/protected" element={<div>Protected Content</div>} />
-          </Route>
-          <Route path="/login" element={<div>Login Page</div>} />
-        </Routes>
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByText("Login Page")).toBeInTheDocument();
-    expect(screen.queryByText("Protected Content")).not.toBeInTheDocument();
-  });
-
-  it("should render nothing (or loading state) when loading", () => {
-    (useAsgardeo as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      isSignedIn: false,
+  it("shows loader and renders app layout when authentication is loading", () => {
+    (useAsgardeo as any).mockReturnValue({
       isLoading: true,
+      isSignedIn: false,
     });
 
-    const { container } = render(
+    render(
+      <MemoryRouter>
+        <AuthGuard />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("app-layout")).toBeInTheDocument();
+    expect(mockShowLoader).toHaveBeenCalled();
+  });
+
+  it("hides loader and redirects to login when user is not signed in and not loading", () => {
+    (useAsgardeo as any).mockReturnValue({
+      isLoading: false,
+      isSignedIn: false,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/protected"]}>
+        <Routes>
+          <Route path="/login" element={<div>Login Page</div>} />
+          <Route element={<AuthGuard />}>
+            <Route path="/protected" element={<div>Protected Content</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(mockHideLoader).toHaveBeenCalled();
+    expect(screen.getByText("Login Page")).toBeInTheDocument();
+  });
+
+  it("hides loader and renders protected content when user is signed in", () => {
+    (useAsgardeo as any).mockReturnValue({
+      isLoading: false,
+      isSignedIn: true,
+    });
+
+    render(
       <MemoryRouter initialEntries={["/protected"]}>
         <Routes>
           <Route element={<AuthGuard />}>
@@ -86,14 +99,7 @@ describe("AuthGuard", () => {
       </MemoryRouter>,
     );
 
-    // Should render Outlet which is empty if no child route matches or if it's just passing through
-    // But in AuthGuard implementation:
-    // if (isLoading) { return <Outlet />; }
-    // If it returns Outlet, it should render the child route?
-    // Wait, if loading, we usually want to show a spinner or nothing, NOT the protected content yet.
-    // The current implementation returns <Outlet /> on loading.
-    // Let's verify the current behavior.
-
+    expect(mockHideLoader).toHaveBeenCalled();
     expect(screen.getByText("Protected Content")).toBeInTheDocument();
   });
 });
