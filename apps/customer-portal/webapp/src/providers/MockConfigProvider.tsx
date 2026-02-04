@@ -14,7 +14,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useLogger } from "@/hooks/useLogger";
 import {
   createContext,
   useContext,
@@ -37,7 +36,6 @@ export const MockConfigProvider = ({
 }: {
   children: ReactNode;
 }): JSX.Element => {
-  const logger = useLogger();
   const [isMockEnabled, setIsMockEnabledState] = useState<boolean>(() => {
     if (
       typeof window === "undefined" ||
@@ -67,7 +65,7 @@ export const MockConfigProvider = ({
     try {
       localStorage.setItem("isMockEnabled", String(enabled));
     } catch (error) {
-      logger.error(
+      console.error(
         "Failed to persist 'isMockEnabled' in localStorage.",
         error,
       );
