@@ -21,7 +21,6 @@ import { useLogger } from "@/hooks/useLogger";
 import ProjectCard from "@/components/projectHub/projectCard/ProjectCard";
 import ProjectCardSkeleton from "@/components/projectHub/projectCard/ProjectCardSkeleton";
 import { FolderOpen } from "@wso2/oxygen-ui-icons-react";
-import { useNavigate } from "react-router";
 import { useMockConfig } from "@/providers/MockConfigProvider";
 import { useAsgardeo } from "@asgardeo/react";
 
@@ -32,7 +31,6 @@ import { useAsgardeo } from "@asgardeo/react";
  */
 export default function ProjectHub(): JSX.Element {
   const logger = useLogger();
-  const navigate = useNavigate();
   const { isLoading: isAuthLoading } = useAsgardeo();
   const { isMockEnabled } = useMockConfig();
   const {
@@ -46,6 +44,7 @@ export default function ProjectHub(): JSX.Element {
     [projectsResponse?.projects],
   );
 
+  // TODO : Uncommnet this on production
   // useEffect(() => {
   //   if (!isLoading && !isError && projects.length === 1) {
   //     navigate(`/${projects[0].id}/dashboard`);
