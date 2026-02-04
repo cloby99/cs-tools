@@ -27,6 +27,7 @@ import {
   getSubscriptionColor,
   calculateProgress,
 } from "@/utils/projectStats";
+import { SubscriptionStatus } from "@/models/responses";
 
 interface SubscriptionDetailsProps {
   startDate: string;
@@ -42,7 +43,7 @@ const SubscriptionDetails = ({
   const subscriptionStatus = getSubscriptionStatus(endDate);
   const subscriptionColor = getSubscriptionColor(subscriptionStatus);
   const progress =
-    subscriptionStatus === "Expired"
+    subscriptionStatus === SubscriptionStatus.Expired
       ? 100
       : calculateProgress(startDate, endDate);
 
@@ -107,7 +108,9 @@ const SubscriptionDetails = ({
             <Skeleton variant="text" width={100} />
           ) : (
             <Typography variant="caption">
-              {subscriptionStatus === "Expired" ? "Expired on" : "Expires on"}{" "}
+              {subscriptionStatus === SubscriptionStatus.Expired
+                ? "Expired on"
+                : "Expires on"}{" "}
               {endDate}
             </Typography>
           )}
