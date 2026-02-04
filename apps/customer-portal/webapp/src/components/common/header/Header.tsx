@@ -24,6 +24,7 @@ import Brand from "@/components/common/header/Brand";
 import Actions from "@/components/common/header/Actions";
 import SearchBar from "@/components/common/header/SearchBar";
 import ProjectSwitcher from "@/components/common/header/ProjectSwitcher";
+import { useAsgardeo } from "@asgardeo/react";
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -43,26 +44,18 @@ export default function Header({ onToggleSidebar }: HeaderProps): JSX.Element {
   const { projectId } = useParams<{
     projectId?: string;
   }>();
+  const { isLoading: isAuthLoading } = useAsgardeo();
 
   const isProjectHub = location.pathname === "/";
   const {
     data: projectsResponse,
-    fetchNextPage,
-    hasNextPage,
     isLoading,
-    isFetchingNextPage,
     isError,
   } = useGetProjects({}, true);
 
-  useEffect(() => {
-    if (hasNextPage && !isFetchingNextPage && !isError) {
-      fetchNextPage();
-    }
-  }, [hasNextPage, isFetchingNextPage, isError, fetchNextPage]);
-
   const projects = useMemo(
-    () => projectsResponse?.pages.flatMap((page) => page.projects) || [],
-    [projectsResponse?.pages],
+    () => projectsResponse?.projects || [],
+    [projectsResponse?.projects],
   );
 
   const projectFromUrl = projects.find((project) => project.id === projectId);
@@ -137,7 +130,8 @@ export default function Header({ onToggleSidebar }: HeaderProps): JSX.Element {
             projects={projects}
             selectedProject={selectedProject}
             onProjectChange={handleProjectChange}
-            isLoading={isLoading}
+            isLoading={isLoading || isAuthLoading}
+            isError={isError}
           />
           {/* header search bar */}
           <SearchBar />
