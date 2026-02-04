@@ -16,7 +16,7 @@
 
 import { notificationBannerConfig } from "@/config/notificationBannerConfig";
 import { AppShell, Box, useAppShell, LinearProgress } from "@wso2/oxygen-ui";
-import { type JSX } from "react";
+import { type JSX, type ReactNode } from "react";
 import { useLoader } from "@/context/linearLoader/LoaderContext";
 import { useLocation, Outlet } from "react-router";
 import GlobalNotificationBanner from "@/components/common/notificationBanner/GlobalNotificationBanner";
@@ -30,7 +30,7 @@ import SideBar from "@/components/common/sideNavBar/SideBar";
  * @returns {JSX.Element} The AppLayout component.
  */
 interface AppLayoutProps {
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 export default function AppLayout({ children }: AppLayoutProps): JSX.Element {
