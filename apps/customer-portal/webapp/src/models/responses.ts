@@ -176,3 +176,13 @@ export interface ProjectStatsResponse {
     totalTimeLogged: number;
   };
 }
+
+// Subscription status enum.
+export const SubscriptionStatus = {
+  Expired: "Expired",
+  ExpiringSoon: "Expiring Soon",
+  Active: "Active",
+} as const;
+
+export type SubscriptionStatus =
+  (typeof SubscriptionStatus)[keyof typeof SubscriptionStatus];
