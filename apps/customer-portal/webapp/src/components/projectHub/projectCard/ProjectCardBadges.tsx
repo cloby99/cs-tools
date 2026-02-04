@@ -17,11 +17,12 @@
 import { Box, Chip, Form } from "@wso2/oxygen-ui";
 import { type JSX } from "react";
 import { getStatusColor } from "@/utils/projectCard";
-
+import ErrorIndicator from "@/components/common/errorIndicator/ErrorIndicator";
 
 interface ProjectCardBadgesProps {
   projectKey: string;
   status: string;
+  isError?: boolean;
 }
 
 /**
@@ -33,17 +34,22 @@ interface ProjectCardBadgesProps {
 export default function ProjectCardBadges({
   projectKey,
   status,
+  isError,
 }: ProjectCardBadgesProps): JSX.Element {
   return (
     <Form.CardContent sx={{ width: "100%", pt: 2, pb: 0 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center">
         <Chip label={projectKey} variant="outlined" size="small" />
-        <Chip
-          label={status}
-          variant="outlined"
-          size="small"
-          color={getStatusColor(status)}
-        />
+        {isError ? (
+          <ErrorIndicator entityName="Status" />
+        ) : (
+          <Chip
+            label={status}
+            variant="outlined"
+            size="small"
+            color={getStatusColor(status)}
+          />
+        )}
       </Box>
     </Form.CardContent>
   );
