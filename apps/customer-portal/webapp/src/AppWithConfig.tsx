@@ -19,25 +19,38 @@ import { OxygenUIThemeProvider } from "@wso2/oxygen-ui";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import App from "@/App";
-import { AuthProvider } from "@asgardeo/auth-react";
-import { authConfig } from "@/config/authConfig";
+import { AsgardeoProvider } from "@asgardeo/react";
 import { themeConfig } from "@/config/themeConfig";
 import { loggerConfig } from "@/config/loggerConfig";
 import LoggerProvider from "@/context/logger/LoggerProvider";
+
+import { MockConfigProvider } from "@/providers/MockConfigProvider";
 
 const queryClient: QueryClient = new QueryClient();
 
 export default function AppWithConfig(): JSX.Element {
   return (
-    <AuthProvider config={authConfig}>
-      <LoggerProvider config={loggerConfig}>
-        <OxygenUIThemeProvider theme={themeConfig}>
-          <QueryClientProvider client={queryClient}>
-            <App />
-            <ReactQueryDevtools initialIsOpen={false} />
-          </QueryClientProvider>
-        </OxygenUIThemeProvider>
-      </LoggerProvider>
-    </AuthProvider>
+    <AsgardeoProvider
+      baseUrl={import.meta.env.CUSTOMER_PORTAL_AUTH_BASE_URL as string}
+      clientId={import.meta.env.CUSTOMER_PORTAL_AUTH_CLIENT_ID as string}
+      afterSignInUrl={
+        import.meta.env.CUSTOMER_PORTAL_AUTH_SIGN_IN_REDIRECT_URL as string
+      }
+      afterSignOutUrl={
+        import.meta.env.CUSTOMER_PORTAL_AUTH_SIGN_OUT_REDIRECT_URL as string
+      }
+      scopes={["openid", "email", "groups"]}
+    >
+      <MockConfigProvider>
+        <LoggerProvider config={loggerConfig}>
+          <OxygenUIThemeProvider theme={themeConfig}>
+            <QueryClientProvider client={queryClient}>
+              <App />
+              <ReactQueryDevtools initialIsOpen={false} />
+            </QueryClientProvider>
+          </OxygenUIThemeProvider>
+        </LoggerProvider>
+      </MockConfigProvider>
+    </AsgardeoProvider>
   );
 }
