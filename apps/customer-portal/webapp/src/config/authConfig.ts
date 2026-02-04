@@ -14,31 +14,51 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { type BaseURLAuthClientConfig } from "@asgardeo/auth-react";
-
-// Configuration for the Auth service.
-const authBaseUrl = import.meta.env.CUSTOMER_PORTAL_AUTH_BASE_URL;
-const authClientId = import.meta.env.CUSTOMER_PORTAL_AUTH_CLIENT_ID;
-const signInRedirectURL = import.meta.env
-  .CUSTOMER_PORTAL_AUTH_SIGN_IN_REDIRECT_URL;
-const signOutRedirectURL = import.meta.env
-  .CUSTOMER_PORTAL_AUTH_SIGN_OUT_REDIRECT_URL;
-
-if (
-  !authBaseUrl ||
-  !authClientId ||
-  !signInRedirectURL ||
-  !signOutRedirectURL
-) {
-  throw new Error(
-    "Missing required auth env variables: baseUrl, clientID, signInRedirectURL, or signOutRedirectURL.",
-  );
+interface AuthConfig {
+  baseUrl: string;
+  clientId: string;
+  signInRedirectURL: string;
+  signOutRedirectURL: string;
 }
 
-export const authConfig: BaseURLAuthClientConfig = {
-  scope: ["openid", "email", "groups"],
-  baseUrl: authBaseUrl,
-  clientID: authClientId,
-  signInRedirectURL,
-  signOutRedirectURL,
+const getAuthConfig = (): AuthConfig => {
+  const baseUrl = import.meta.env.CUSTOMER_PORTAL_AUTH_BASE_URL;
+  const clientId = import.meta.env.CUSTOMER_PORTAL_AUTH_CLIENT_ID;
+  const signInRedirectURL = import.meta.env
+    .CUSTOMER_PORTAL_AUTH_SIGN_IN_REDIRECT_URL;
+  const signOutRedirectURL = import.meta.env
+    .CUSTOMER_PORTAL_AUTH_SIGN_OUT_REDIRECT_URL;
+
+  if (!baseUrl) {
+    console.error(
+      "Auth Config Error: CUSTOMER_PORTAL_AUTH_BASE_URL is not defined in environment variables.",
+    );
+  }
+
+  if (!clientId) {
+    console.error(
+      "Auth Config Error: CUSTOMER_PORTAL_AUTH_CLIENT_ID is not defined in environment variables.",
+    );
+  }
+
+  if (!signInRedirectURL) {
+    console.error(
+      "Auth Config Error: CUSTOMER_PORTAL_AUTH_SIGN_IN_REDIRECT_URL is not defined in environment variables.",
+    );
+  }
+
+  if (!signOutRedirectURL) {
+    console.error(
+      "Auth Config Error: CUSTOMER_PORTAL_AUTH_SIGN_OUT_REDIRECT_URL is not defined in environment variables.",
+    );
+  }
+
+  return {
+    baseUrl: baseUrl as string,
+    clientId: clientId as string,
+    signInRedirectURL: signInRedirectURL as string,
+    signOutRedirectURL: signOutRedirectURL as string,
+  };
 };
+
+export const authConfig = getAuthConfig();

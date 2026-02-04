@@ -18,6 +18,7 @@ import type {
   CaseListItem,
   ProjectListItem,
   ProjectDetails,
+  UserDetails,
   UserProfile,
 } from "@/models/responses";
 import {
@@ -153,12 +154,12 @@ export const mockOpenCasesOptions: number[] = [0, 5, 12, 24, 48, 72];
 // Mock active chats counts for projects.
 export const mockActiveChatsOptions: number[] = [0, 2, 5, 10, 15, 20];
 
-// Sample user for the user menu.
-export const mockUser: UserProfile = {
-  name: "John Doe",
+export const mockUserDetails: UserDetails = {
+  id: "c2d1c8961b2dfe50a002c9d3604bcba0",
   email: "John@example.com",
-  avatar: "JD",
-  role: "Admin",
+  lastName: "Doe",
+  firstName: "John",
+  timeZone: "--None--",
 };
 
 // Mock metadata for case creation.

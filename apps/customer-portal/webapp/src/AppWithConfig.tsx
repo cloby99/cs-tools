@@ -19,25 +19,34 @@ import { OxygenUIThemeProvider } from "@wso2/oxygen-ui";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import App from "@/App";
-import { AuthProvider } from "@asgardeo/auth-react";
-import { authConfig } from "@/config/authConfig";
+import { AsgardeoProvider } from "@asgardeo/react";
 import { themeConfig } from "@/config/themeConfig";
 import { loggerConfig } from "@/config/loggerConfig";
 import LoggerProvider from "@/context/logger/LoggerProvider";
+import { MockConfigProvider } from "@/providers/MockConfigProvider";
+import { authConfig } from "@/config/AuthConfig";
 
 const queryClient: QueryClient = new QueryClient();
 
 export default function AppWithConfig(): JSX.Element {
   return (
-    <AuthProvider config={authConfig}>
-      <LoggerProvider config={loggerConfig}>
-        <OxygenUIThemeProvider theme={themeConfig}>
-          <QueryClientProvider client={queryClient}>
-            <App />
-            <ReactQueryDevtools initialIsOpen={false} />
-          </QueryClientProvider>
-        </OxygenUIThemeProvider>
-      </LoggerProvider>
-    </AuthProvider>
+    <AsgardeoProvider
+      baseUrl={authConfig.baseUrl}
+      clientId={authConfig.clientId}
+      afterSignInUrl={authConfig.signInRedirectURL}
+      afterSignOutUrl={authConfig.signOutRedirectURL}
+      scopes={["openid", "email", "groups"]}
+    >
+      <MockConfigProvider>
+        <LoggerProvider config={loggerConfig}>
+          <OxygenUIThemeProvider theme={themeConfig}>
+            <QueryClientProvider client={queryClient}>
+              <App />
+              <ReactQueryDevtools initialIsOpen={false} />
+            </QueryClientProvider>
+          </OxygenUIThemeProvider>
+        </LoggerProvider>
+      </MockConfigProvider>
+    </AsgardeoProvider>
   );
 }
