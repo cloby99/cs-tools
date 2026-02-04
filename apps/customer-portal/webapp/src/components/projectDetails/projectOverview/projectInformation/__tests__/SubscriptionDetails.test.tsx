@@ -17,6 +17,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import SubscriptionDetails from "../SubscriptionDetails";
+import { SubscriptionStatus } from "@/models/responses";
 
 // Mock @wso2/oxygen-ui components
 vi.mock("@wso2/oxygen-ui", () => ({
@@ -36,10 +37,12 @@ vi.mock("@wso2/oxygen-ui", () => ({
 // Mock utils
 vi.mock("@/utils/projectStats", () => ({
   getSubscriptionStatus: vi.fn((date) =>
-    date === "expired-date" ? "Expired" : "Active",
+    date === "expired-date"
+      ? SubscriptionStatus.Expired
+      : SubscriptionStatus.Active,
   ),
   getSubscriptionColor: vi.fn((status) =>
-    status === "Expired" ? "error" : "success",
+    status === SubscriptionStatus.Expired ? "error" : "success",
   ),
   calculateProgress: vi.fn((_start, end) =>
     end === "expired-date" ? 100 : 50,
@@ -57,7 +60,7 @@ describe("SubscriptionDetails", () => {
     render(<SubscriptionDetails {...defaultProps} />);
 
     expect(screen.getByText("Subscription Period")).toBeInTheDocument();
-    expect(screen.getByText("Active")).toBeInTheDocument();
+    expect(screen.getByText(SubscriptionStatus.Active)).toBeInTheDocument();
     expect(screen.getByText("Start")).toBeInTheDocument();
     expect(screen.getByText("Jan 1, 2023")).toBeInTheDocument();
     expect(screen.getByText("End")).toBeInTheDocument();
@@ -83,7 +86,7 @@ describe("SubscriptionDetails", () => {
       />,
     );
 
-    expect(screen.getByText("Expired")).toBeInTheDocument();
+    expect(screen.getByText(SubscriptionStatus.Expired)).toBeInTheDocument();
     expect(screen.getByText(/Expired on/)).toBeInTheDocument();
 
     const progress = screen.getByTestId("linear-progress");
