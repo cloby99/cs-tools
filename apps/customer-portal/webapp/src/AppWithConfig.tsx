@@ -24,7 +24,7 @@ import { themeConfig } from "@/config/themeConfig";
 import { loggerConfig } from "@/config/loggerConfig";
 import LoggerProvider from "@/context/logger/LoggerProvider";
 import { MockConfigProvider } from "@/providers/MockConfigProvider";
-import { authConfig } from "@/config/AuthConfig";
+import { authConfig } from "@/config/authConfig";
 
 const queryClient: QueryClient = new QueryClient();
 
