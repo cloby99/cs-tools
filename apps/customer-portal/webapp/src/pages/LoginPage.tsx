@@ -20,12 +20,14 @@ import LoginBackground from "@/components/login-page/LoginBackground";
 import LoginBox from "@/components/login-page/LoginBox";
 import LoginFooter from "@/components/login-page/LoginFooter";
 import LoginSlogan from "@/components/login-page/LoginSlogan";
+import ParticleBackground from "@/components/login-page/ParticleBackground";
 import { Box, Grid, Header as HeaderUI, Paper, Stack } from "@wso2/oxygen-ui";
 import { type JSX } from "react";
 
 export default function LoginPage(): JSX.Element {
   return (
     <Box sx={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+      <ParticleBackground />
       <HeaderUI>
         <Brand />
         <HeaderUI.Spacer />
