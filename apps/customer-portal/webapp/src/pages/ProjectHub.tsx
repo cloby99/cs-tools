@@ -21,7 +21,6 @@ import { useLogger } from "@/hooks/useLogger";
 import ProjectCard from "@/components/projectHub/projectCard/ProjectCard";
 import ProjectCardSkeleton from "@/components/projectHub/projectCard/ProjectCardSkeleton";
 import { FolderOpen } from "@wso2/oxygen-ui-icons-react";
-import { useMockConfig } from "@/providers/MockConfigProvider";
 import { useAsgardeo } from "@asgardeo/react";
 import ErrorIndicator from "@/components/common/errorIndicator/ErrorIndicator";
 
@@ -33,7 +32,6 @@ import ErrorIndicator from "@/components/common/errorIndicator/ErrorIndicator";
 export default function ProjectHub(): JSX.Element {
   const logger = useLogger();
   const { isLoading: isAuthLoading } = useAsgardeo();
-  useMockConfig();
   const {
     data: projectsResponse,
     isLoading,

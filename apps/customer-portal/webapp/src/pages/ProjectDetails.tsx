@@ -69,8 +69,10 @@ export default function ProjectDetails(): JSX.Element {
   useEffect(() => {
     if (isDetailsLoading) {
       showLoader();
-      return () => hideLoader();
+    } else {
+      hideLoader();
     }
+    return () => hideLoader();
   }, [isDetailsLoading, showLoader, hideLoader]);
 
   useEffect(() => {
