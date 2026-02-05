@@ -59,10 +59,8 @@ export default function CreateCasePage(): JSX.Element {
   useEffect(() => {
     if (isLoading || isProjectLoading) {
       showLoader();
-    } else {
-      hideLoader();
+      return () => hideLoader();
     }
-    return () => hideLoader();
   }, [isLoading, isProjectLoading, showLoader, hideLoader]);
 
   useEffect(() => {
