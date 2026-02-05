@@ -23,6 +23,7 @@ import {
 import { FolderOpen } from "@wso2/oxygen-ui-icons-react";
 import type { JSX } from "react";
 import type { ProjectListItem } from "@/models/responses";
+import ErrorIndicator from "@/components/common/errorIndicator/ErrorIndicator";
 
 // Props for the ProjectSwitcher component.
 interface ProjectSwitcherProps {
@@ -30,6 +31,7 @@ interface ProjectSwitcherProps {
   selectedProject?: ProjectListItem;
   onProjectChange: (projectId: string) => void;
   isLoading?: boolean;
+  isError?: boolean;
 }
 
 /**
@@ -43,6 +45,7 @@ export default function ProjectSwitcher({
   selectedProject,
   onProjectChange,
   isLoading,
+  isError,
 }: ProjectSwitcherProps): JSX.Element {
   if (isLoading) {
     return (
@@ -61,6 +64,30 @@ export default function ProjectSwitcher({
         >
           <FolderOpen size={16} />
           <Skeleton variant="rounded" width={150} height={20} />
+        </Box>
+      </HeaderUI.Switchers>
+    );
+  }
+
+  if (isError) {
+    return (
+      <HeaderUI.Switchers showDivider={false}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 1,
+            height: 40,
+            width: 200,
+            px: 1.5,
+            border: "1px solid",
+            borderColor: "error.main",
+            borderRadius: "4px",
+            color: "error.main",
+          }}
+        >
+          <ErrorIndicator entityName="Projects" />
         </Box>
       </HeaderUI.Switchers>
     );

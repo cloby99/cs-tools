@@ -14,11 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import {
-  useInfiniteQuery,
-  type UseInfiniteQueryResult,
-  type InfiniteData,
-} from "@tanstack/react-query";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useAsgardeo } from "@asgardeo/react";
+import { useMockConfig } from "@/providers/MockConfigProvider";
 import { useLogger } from "@/hooks/useLogger";
 import { mockProjects } from "@/models/mockData";
 import { ApiQueryKeys, API_MOCK_DELAY } from "@/constants/apiConstants";
@@ -27,62 +25,95 @@ import type { SearchProjectsResponse } from "@/models/responses";
 
 /**
  * Custom hook to search projects.
- * This hook uses an infinite query to fetch projects in pages.
+ * This hook uses a standard query to fetch projects.
  *
  * @param {SearchProjectsRequest} searchData - The search and pagination parameters.
  * @param {boolean} fetchAll - If true, treats this as a shared "all projects" query.
- * @returns {UseInfiniteQueryResult<InfiniteData<SearchProjectsResponse>, Error>} The infinite query result object.
+ * @returns {UseQueryResult<SearchProjectsResponse, Error>} The query result object.
  */
 export default function useGetProjects(
   searchData?: SearchProjectsRequest,
   fetchAll: boolean = false,
-): UseInfiniteQueryResult<InfiniteData<SearchProjectsResponse>, Error> {
+): UseQueryResult<SearchProjectsResponse, Error> {
   const logger = useLogger();
+  const { getIdToken, isSignedIn, isLoading: isAuthLoading } = useAsgardeo();
+  const { isMockEnabled } = useMockConfig();
   const limit = fetchAll ? 100 : searchData?.pagination?.limit || 10;
+  const offset = searchData?.pagination?.offset || 0;
 
   // A stable key for the "all projects" query ensures cache sharing
   const queryKey = fetchAll
-    ? [ApiQueryKeys.PROJECTS, "all"]
-    : [ApiQueryKeys.PROJECTS, searchData ?? "default"];
+    ? [ApiQueryKeys.PROJECTS, "all", isMockEnabled]
+    : [ApiQueryKeys.PROJECTS, searchData ?? "default", isMockEnabled];
 
-  return useInfiniteQuery<SearchProjectsResponse, Error>({
-    getPreviousPageParam: (firstPage) => {
-      const prevOffset = firstPage.offset - limit;
-      return prevOffset >= 0 ? prevOffset : undefined;
-    },
-    getNextPageParam: (lastPage) => {
-      const nextOffset = lastPage.offset + limit;
-      return nextOffset < lastPage.totalRecords ? nextOffset : undefined;
-    },
-    initialPageParam: 0,
-    queryFn: async ({ pageParam = 0 }): Promise<SearchProjectsResponse> => {
+  return useQuery<SearchProjectsResponse, Error>({
+    queryKey,
+    queryFn: async (): Promise<SearchProjectsResponse> => {
       logger.debug(
-        `Fetching projects... offset: ${pageParam}, limit: ${limit}, fetchAll: ${fetchAll}`,
+        `Fetching projects... offset: ${offset}, limit: ${limit}, fetchAll: ${fetchAll}, mock: ${isMockEnabled}`,
       );
 
-      // Mock behavior: simulate network latency for the in-memory `mockProjects` data.
-      await new Promise((resolve) => setTimeout(resolve, API_MOCK_DELAY));
+      if (isMockEnabled) {
+        // Mock behavior: simulate network latency for the in-memory `mockProjects` data.
+        await new Promise((resolve) => setTimeout(resolve, API_MOCK_DELAY));
 
-      const offset = typeof pageParam === "number" ? pageParam : 0;
+        const results: SearchProjectsResponse = {
+          limit,
+          offset,
+          projects: mockProjects
+            .slice(offset, offset + limit)
+            .map((project) => ({
+              createdOn: project.createdOn,
+              description: project.description,
+              id: project.id,
+              key: project.key,
+              name: project.name,
+            })),
+          totalRecords: mockProjects.length,
+        };
 
-      const results: SearchProjectsResponse = {
-        limit,
-        offset,
-        projects: mockProjects.slice(offset, offset + limit).map((project) => ({
-          createdOn: project.createdOn,
-          description: project.description,
-          id: project.id,
-          key: project.key,
-          name: project.name,
-        })),
-        totalRecords: mockProjects.length,
-      };
+        logger.debug("Projects fetched successfully (mock)", results);
 
-      logger.debug("Projects fetched successfully", results);
+        return results;
+      }
 
-      return results;
+      try {
+        const idToken = await getIdToken();
+        const baseUrl = import.meta.env.CUSTOMER_PORTAL_BACKEND_BASE_URL;
+
+        if (!baseUrl) {
+          throw new Error("CUSTOMER_PORTAL_BACKEND_BASE_URL is not configured");
+        }
+
+        const requestUrl = `${baseUrl}/projects/search`;
+        const body = {};
+
+        const response = await fetch(requestUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${idToken}`,
+            "x-user-id-token": idToken,
+          },
+          body: JSON.stringify(body),
+        });
+
+        logger.debug(`[useGetProjects] Response status: ${response.status}`);
+
+        if (!response.ok) {
+          throw new Error(`Error fetching projects: ${response.statusText}`);
+        }
+
+        const data: SearchProjectsResponse = await response.json();
+        logger.debug("[useGetProjects] Data received:", data);
+        return data;
+      } catch (error) {
+        logger.error("[useGetProjects] Error:", error);
+        throw error;
+      }
     },
-    queryKey,
     staleTime: Infinity,
+    enabled: isMockEnabled || (isSignedIn && !isAuthLoading),
   });
 }

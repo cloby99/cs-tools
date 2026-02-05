@@ -29,12 +29,9 @@ import ErrorIndicator from "@/components/common/errorIndicator/ErrorIndicator";
  * @returns {JSX.Element} The User profile component.
  */
 export default function UserProfile(): JSX.Element {
-  // Navigation hook.
   const navigate = useNavigate();
-  const { signOut } = useAsgardeo();
+  const { signOut, isLoading: isAuthLoading } = useAsgardeo();
   const { data: userDetails, isLoading, isError } = useGetUserDetails();
-
-  // Logger hook.
   const logger = useLogger();
 
   const user = userDetails
@@ -68,7 +65,12 @@ export default function UserProfile(): JSX.Element {
     avatar: <User />,
   };
 
-  const userToRender = isLoading ? loadingUser : isError ? errorUser : user;
+  const userToRender =
+    isLoading || isAuthLoading
+      ? loadingUser
+      : isError
+        ? errorUser
+        : user || errorUser;
 
   return (
     <>

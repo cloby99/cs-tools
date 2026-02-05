@@ -21,6 +21,8 @@ import { useLogger } from "@/hooks/useLogger";
 import ProjectCard from "@/components/projectHub/projectCard/ProjectCard";
 import ProjectCardSkeleton from "@/components/projectHub/projectCard/ProjectCardSkeleton";
 import { FolderOpen } from "@wso2/oxygen-ui-icons-react";
+import { useMockConfig } from "@/providers/MockConfigProvider";
+import { useAsgardeo } from "@asgardeo/react";
 
 /**
  * ProjectHub component.
@@ -29,25 +31,25 @@ import { FolderOpen } from "@wso2/oxygen-ui-icons-react";
  */
 export default function ProjectHub(): JSX.Element {
   const logger = useLogger();
+  const { isLoading: isAuthLoading } = useAsgardeo();
+  const { isMockEnabled } = useMockConfig();
   const {
     data: projectsResponse,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
     isLoading,
     isError,
   } = useGetProjects({}, true);
 
-  useEffect(() => {
-    if (hasNextPage && !isFetchingNextPage && !isError) {
-      fetchNextPage();
-    }
-  }, [hasNextPage, isFetchingNextPage, isError, fetchNextPage]);
-
   const projects = useMemo(
-    () => projectsResponse?.pages.flatMap((page) => page.projects) || [],
-    [projectsResponse?.pages],
+    () => projectsResponse?.projects || [],
+    [projectsResponse?.projects],
   );
+
+  // TODO : Uncommnet this on production
+  // useEffect(() => {
+  //   if (!isLoading && !isError && projects.length === 1) {
+  //     navigate(`/${projects[0].id}/dashboard`);
+  //   }
+  // }, [projects, isLoading, isError, navigate]);
 
   useEffect(() => {
     if (isError) {
@@ -62,7 +64,7 @@ export default function ProjectHub(): JSX.Element {
   }, [projects.length, logger]);
 
   const renderContent = () => {
-    if (isLoading) {
+    if (isLoading || isAuthLoading) {
       return (
         <Box
           sx={{
@@ -153,6 +155,7 @@ export default function ProjectHub(): JSX.Element {
               title={project.name}
               subtitle={project.description}
               date={project.createdOn}
+              isStatsError={!isMockEnabled}
             />
           </Box>
         ))}

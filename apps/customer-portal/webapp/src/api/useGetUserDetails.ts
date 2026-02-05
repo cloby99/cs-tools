@@ -27,7 +27,7 @@ import { useLogger } from "@/hooks/useLogger";
  * @returns {UseQueryResult<UserDetails, Error>} The user details.
  */
 const useGetUserDetails = (): UseQueryResult<UserDetails, Error> => {
-  const { getIdToken } = useAsgardeo();
+  const { getIdToken, isSignedIn, isLoading: isAuthLoading } = useAsgardeo();
   const { isMockEnabled } = useMockConfig();
   const logger = useLogger();
 
@@ -77,7 +77,7 @@ const useGetUserDetails = (): UseQueryResult<UserDetails, Error> => {
         throw error;
       }
     },
-    enabled: true,
+    enabled: isMockEnabled || (isSignedIn && !isAuthLoading),
   });
 };
 
