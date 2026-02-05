@@ -51,7 +51,7 @@ vi.mock("@wso2/oxygen-ui", () => ({
   Divider: () => <hr />,
   colors: {
     orange: {
-      700: "#c2410c",
+      700: "#C2410C",
     },
   },
 }));

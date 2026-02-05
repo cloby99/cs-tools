@@ -46,9 +46,9 @@ vi.mock("@wso2/oxygen-ui", () => ({
     </div>
   ),
   colors: {
-    orange: { 700: "#c2410c" },
-    blue: { 700: "#1d4ed8" },
-    purple: { 400: "#a78bfa" },
+    orange: { 700: "#C2410C" },
+    blue: { 700: "#1D4ED8" },
+    purple: { 400: "#A78BFA" },
   },
   ComplexSelect: Object.assign(
     ({ children, value }: any) => <select value={value}>{children}</select>,
