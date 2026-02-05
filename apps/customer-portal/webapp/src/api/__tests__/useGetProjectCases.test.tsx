@@ -1,8 +1,8 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import useGetProjectCases from "../useGetProjectCases";
-import type { JSX } from "react";
+import React, { type JSX } from "react";
 
 // Mock @asgardeo/react
 vi.mock("@asgardeo/react", () => ({
@@ -55,7 +55,7 @@ describe("useGetProjectCases", () => {
   });
 
   it("should have correct query options", () => {
-    const requestBody = { page: 1, limit: 10 };
+    const requestBody = { pagination: { limit: 10, offset: 0 } };
     renderHook(() => useGetProjectCases("project-1", requestBody), {
       wrapper,
     });
@@ -70,7 +70,7 @@ describe("useGetProjectCases", () => {
 
   it("should not fetch if projectId is missing", () => {
     const { result } = renderHook(
-      () => useGetProjectCases("", { page: 1, limit: 10 }),
+      () => useGetProjectCases("", { pagination: { limit: 10, offset: 0 } }),
       {
         wrapper,
       },
