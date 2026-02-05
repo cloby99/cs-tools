@@ -33,7 +33,7 @@ import ErrorIndicator from "@/components/common/errorIndicator/ErrorIndicator";
 export default function ProjectHub(): JSX.Element {
   const logger = useLogger();
   const { isLoading: isAuthLoading } = useAsgardeo();
-  const { isMockEnabled } = useMockConfig();
+  useMockConfig();
   const {
     data: projectsResponse,
     isLoading,
@@ -156,7 +156,6 @@ export default function ProjectHub(): JSX.Element {
               title={project.name}
               subtitle={project.description}
               date={project.createdOn}
-              isStatsError={!isMockEnabled}
             />
           </Box>
         ))}

@@ -17,6 +17,7 @@
 import { Form } from "@wso2/oxygen-ui";
 import { useMemo, type JSX } from "react";
 import { useNavigate } from "react-router";
+import { useGetProjectStat } from "@/api/useGetProjectStat";
 import ProjectCardActions from "@/components/projectHub/projectCard/ProjectCardActions";
 import ProjectCardBadges from "@/components/projectHub/projectCard/ProjectCardBadges";
 import ProjectCardInfo from "@/components/projectHub/projectCard/ProjectCardInfo";
@@ -70,12 +71,25 @@ export default function ProjectCard({
     }
   };
 
+  // Hook to fetch project statistics.
+  const {
+    data: statsData,
+    isLoading: isStatsLoading,
+    isError: isStatsQueryError,
+  } = useGetProjectStat(id);
+
   const mockStatus = useMemo(() => getMockStatus(), []);
   const mockOpenCases = useMemo(() => getMockOpenCases(), []);
   const mockActiveChats = useMemo(() => getMockActiveChats(), []);
-  const resolvedStatus = status ?? mockStatus;
-  const resolvedOpenCases = openCases ?? mockOpenCases;
-  const resolvedActiveChats = activeChats ?? mockActiveChats;
+
+  const resolvedStatus =
+    status ?? statsData?.projectStats?.slaStatus ?? mockStatus;
+  const resolvedOpenCases =
+    openCases ?? statsData?.projectStats?.openCases ?? mockOpenCases;
+  const resolvedActiveChats =
+    activeChats ?? statsData?.projectStats?.activeChats ?? mockActiveChats;
+
+  const resolvedIsStatsError = isStatsError || isStatsQueryError;
 
   return (
     <Form.CardButton
@@ -90,7 +104,8 @@ export default function ProjectCard({
       <ProjectCardBadges
         projectKey={projectKey}
         status={resolvedStatus}
-        isError={isStatsError}
+        isError={resolvedIsStatsError}
+        isLoading={isStatsLoading}
       />
       {/* project card info */}
       <ProjectCardInfo subtitle={subtitle} title={title} />
@@ -99,7 +114,8 @@ export default function ProjectCard({
         activeChats={resolvedActiveChats}
         date={date}
         openCases={resolvedOpenCases}
-        isError={isStatsError}
+        isError={resolvedIsStatsError}
+        isLoading={isStatsLoading}
       />
       {/* project card actions */}
       <ProjectCardActions onViewDashboard={handleViewDashboard} />
