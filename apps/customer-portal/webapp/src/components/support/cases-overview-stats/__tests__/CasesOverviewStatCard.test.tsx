@@ -16,7 +16,7 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import CasesOverviewStatCard from "@/components/support/casesOverviewStats/CasesOverviewStatCard";
+import CasesOverviewStatCard from "@/components/support/cases-overview-stats/CasesOverviewStatCard";
 import { SUPPORT_STAT_CONFIGS } from "@/constants/supportConstants";
 
 // Mock @wso2/oxygen-ui components
