@@ -43,15 +43,21 @@ const SubscriptionDetails = ({
   isLoading,
   isError,
 }: SubscriptionDetailsProps): JSX.Element => {
+  const isDateInvalid =
+    isError || !startDate || startDate === "--" || !endDate || endDate === "--";
+
   const subscriptionStatus = getSubscriptionStatus(endDate || "");
   const subscriptionColor = getSubscriptionColor(subscriptionStatus);
-  const progress =
-    subscriptionStatus === SUBSCRIPTION_STATUS.EXPIRED
+
+  const progress = isDateInvalid
+    ? 0
+    : subscriptionStatus === SUBSCRIPTION_STATUS.EXPIRED
       ? 100
-      : calculateProgress(startDate || "", endDate || "");
+      : calculateProgress(startDate, endDate);
 
   return (
     <Box sx={{ pt: 3, borderTop: 1, borderColor: "divider" }}>
+      {/* Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
         <Typography
           variant="body2"
@@ -60,13 +66,10 @@ const SubscriptionDetails = ({
         >
           Subscription Period
         </Typography>
+
         {isLoading ? (
           <Skeleton variant="rounded" width={70} height={24} />
-        ) : isError ||
-          !startDate ||
-          startDate === "--" ||
-          !endDate ||
-          endDate === "--" ? (
+        ) : isDateInvalid ? (
           <ErrorIndicator entityName="subscription status" />
         ) : (
           <Chip
@@ -78,6 +81,7 @@ const SubscriptionDetails = ({
         )}
       </Box>
 
+      {/* Progress bar */}
       <Box sx={{ mb: 2 }}>
         {isLoading ? (
           <Skeleton variant="rounded" width="100%" height={10} />
@@ -86,11 +90,7 @@ const SubscriptionDetails = ({
             variant="determinate"
             value={progress}
             color={
-              isError ||
-              !startDate ||
-              startDate === "--" ||
-              !endDate ||
-              endDate === "--"
+              isDateInvalid
                 ? "error"
                 : subscriptionColor === "default"
                   ? "primary"
@@ -107,29 +107,28 @@ const SubscriptionDetails = ({
           alignItems: "flex-end",
         }}
       >
+        {/* Start Date*/}
         <Box>
           <Typography variant="body2" sx={{ display: "block" }}>
             Start
           </Typography>
           {isLoading ? (
             <Skeleton variant="text" width="60%" />
-          ) : isError ? (
+          ) : isDateInvalid ? (
             <ErrorIndicator entityName="subscription details" />
           ) : (
-            <Typography variant="caption">{startDate || "--"}</Typography>
+            <Typography variant="caption">{startDate}</Typography>
           )}
         </Box>
+
+        {/* Status */}
         <Box sx={{ textAlign: "center" }}>
           <Typography variant="body2" sx={{ display: "block" }}>
             Status
           </Typography>
           {isLoading ? (
             <Skeleton variant="text" width={100} />
-          ) : isError ||
-            !startDate ||
-            startDate === "--" ||
-            !endDate ||
-            endDate === "--" ? (
+          ) : isDateInvalid ? (
             <ErrorIndicator entityName="subscription status" />
           ) : (
             <Typography variant="caption">
@@ -140,14 +139,18 @@ const SubscriptionDetails = ({
             </Typography>
           )}
         </Box>
+
+        {/* End Date */}
         <Box sx={{ textAlign: "right" }}>
           <Typography variant="body2" sx={{ display: "block" }}>
             End
           </Typography>
           {isLoading ? (
             <Skeleton variant="text" width={80} />
+          ) : isDateInvalid ? (
+            <ErrorIndicator entityName="subscription details" />
           ) : (
-            <Typography variant="caption">{endDate || "--"}</Typography>
+            <Typography variant="caption">{endDate}</Typography>
           )}
         </Box>
       </Box>
