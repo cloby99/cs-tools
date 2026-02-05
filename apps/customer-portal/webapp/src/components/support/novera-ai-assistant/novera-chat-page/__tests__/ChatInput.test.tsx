@@ -16,7 +16,7 @@
 
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import ChatInput from "@/components/support/novera-ai-assistant/novera-chat-page/ChatInput";
+import ChatInput from "@components/support/novera-ai-assistant/novera-chat-page/ChatInput";
 
 // Mock @wso2/oxygen-ui components
 vi.mock("@wso2/oxygen-ui", () => ({
