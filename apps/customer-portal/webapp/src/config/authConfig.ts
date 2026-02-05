@@ -14,31 +14,44 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { type BaseURLAuthClientConfig } from "@asgardeo/auth-react";
-
-// Configuration for the Auth service.
-const authBaseUrl = import.meta.env.CUSTOMER_PORTAL_AUTH_BASE_URL;
-const authClientId = import.meta.env.CUSTOMER_PORTAL_AUTH_CLIENT_ID;
-const signInRedirectURL = import.meta.env
-  .CUSTOMER_PORTAL_AUTH_SIGN_IN_REDIRECT_URL;
-const signOutRedirectURL = import.meta.env
-  .CUSTOMER_PORTAL_AUTH_SIGN_OUT_REDIRECT_URL;
-
-if (
-  !authBaseUrl ||
-  !authClientId ||
-  !signInRedirectURL ||
-  !signOutRedirectURL
-) {
-  throw new Error(
-    "Missing required auth env variables: baseUrl, clientID, signInRedirectURL, or signOutRedirectURL.",
-  );
+interface AuthConfig {
+  baseUrl: string;
+  clientId: string;
+  signInRedirectURL: string;
+  signOutRedirectURL: string;
 }
 
-export const authConfig: BaseURLAuthClientConfig = {
-  scope: ["openid", "email", "groups"],
-  baseUrl: authBaseUrl,
-  clientID: authClientId,
-  signInRedirectURL,
-  signOutRedirectURL,
+const getAuthConfig = (): AuthConfig => {
+  const baseUrl = import.meta.env.CUSTOMER_PORTAL_AUTH_BASE_URL;
+  const clientId = import.meta.env.CUSTOMER_PORTAL_AUTH_CLIENT_ID;
+  const signInRedirectURL = import.meta.env
+    .CUSTOMER_PORTAL_AUTH_SIGN_IN_REDIRECT_URL;
+  const signOutRedirectURL = import.meta.env
+    .CUSTOMER_PORTAL_AUTH_SIGN_OUT_REDIRECT_URL;
+
+  const missingVars: string[] = [];
+
+  if (!baseUrl) missingVars.push("CUSTOMER_PORTAL_AUTH_BASE_URL");
+  if (!clientId) missingVars.push("CUSTOMER_PORTAL_AUTH_CLIENT_ID");
+  if (!signInRedirectURL)
+    missingVars.push("CUSTOMER_PORTAL_AUTH_SIGN_IN_REDIRECT_URL");
+  if (!signOutRedirectURL)
+    missingVars.push("CUSTOMER_PORTAL_AUTH_SIGN_OUT_REDIRECT_URL");
+
+  if (missingVars.length > 0) {
+    throw new Error(
+      `Auth Config Error: Missing required environment variables: ${missingVars.join(
+        ", ",
+      )}`,
+    );
+  }
+
+  return {
+    baseUrl,
+    clientId,
+    signInRedirectURL,
+    signOutRedirectURL,
+  };
 };
+
+export const authConfig = getAuthConfig();
