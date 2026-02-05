@@ -16,7 +16,7 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { OutstandingIncidentsChart } from "../OutstandingIncidentsChart";
+import { OutstandingIncidentsChart } from "@components/dashboard/charts/OutstandingIncidentsChart";
 
 // Mock @wso2/oxygen-ui
 vi.mock("@wso2/oxygen-ui", () => ({
