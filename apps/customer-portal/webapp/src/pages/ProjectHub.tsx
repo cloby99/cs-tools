@@ -23,6 +23,7 @@ import ProjectCardSkeleton from "@/components/projectHub/projectCard/ProjectCard
 import { FolderOpen } from "@wso2/oxygen-ui-icons-react";
 import { useMockConfig } from "@/providers/MockConfigProvider";
 import { useAsgardeo } from "@asgardeo/react";
+import ErrorIndicator from "@/components/common/errorIndicator/ErrorIndicator";
 
 /**
  * ProjectHub component.
@@ -104,9 +105,9 @@ export default function ProjectHub(): JSX.Element {
 
     if (isError) {
       return (
-        <Typography variant="h6" color="error">
-          Error loading projects. Please try again later.
-        </Typography>
+        <Box sx={{ py: 5 }}>
+          <ErrorIndicator entityName="projects" />
+        </Box>
       );
     }
 
