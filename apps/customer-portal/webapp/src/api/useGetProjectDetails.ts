@@ -20,6 +20,7 @@ import { useMockConfig } from "@providers/MockConfigProvider";
 import { useLogger } from "@hooks/useLogger";
 import { mockProjectDetails } from "@models/mockData";
 import { ApiQueryKeys, API_MOCK_DELAY } from "@constants/apiConstants";
+import { addApiHeaders } from "@utils/apiUtils";
 import type { ProjectDetails } from "@models/responses";
 
 /**
@@ -74,12 +75,7 @@ export default function useGetProjectDetails(
 
         const response = await fetch(requestUrl, {
           method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${idToken}`,
-            "x-user-id-token": idToken,
-          },
+          headers: addApiHeaders(idToken),
         });
 
         logger.debug(

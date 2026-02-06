@@ -20,6 +20,7 @@ import { useMockConfig } from "@providers/MockConfigProvider";
 import { mockUserDetails } from "@models/mockData";
 import { type UserDetails } from "@models/responses";
 import { useLogger } from "@hooks/useLogger";
+import { addApiHeaders } from "@utils/apiUtils";
 
 /**
  * Hook to get user details.
@@ -54,11 +55,7 @@ const useGetUserDetails = (): UseQueryResult<UserDetails, Error> => {
 
         const response = await fetch(requestUrl, {
           method: "GET",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${idToken}`,
-            "x-user-id-token": idToken,
-          },
+          headers: addApiHeaders(idToken),
         });
 
         logger.debug(`[useGetUserDetails] Response status: ${response.status}`);
