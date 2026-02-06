@@ -20,6 +20,7 @@ import { useMockConfig } from "@providers/MockConfigProvider";
 import { useLogger } from "@hooks/useLogger";
 import { mockCaseMetadata } from "@models/mockData";
 import { ApiQueryKeys, API_MOCK_DELAY } from "@constants/apiConstants";
+import { addApiHeaders } from "@utils/apiUtils";
 import type { CaseMetadataResponse } from "@models/responses";
 
 /**
@@ -63,12 +64,7 @@ export default function useGetCasesFilters(
 
         const response = await fetch(requestUrl, {
           method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${idToken}`,
-            "x-user-id-token": idToken,
-          },
+          headers: addApiHeaders(idToken),
         });
 
         if (!response.ok) {

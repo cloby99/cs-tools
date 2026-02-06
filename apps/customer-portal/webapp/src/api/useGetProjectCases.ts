@@ -20,6 +20,7 @@ import { useMockConfig } from "@providers/MockConfigProvider";
 import { useLogger } from "@hooks/useLogger";
 import { mockCases } from "@models/mockData";
 import { ApiQueryKeys, API_MOCK_DELAY } from "@constants/apiConstants";
+import { addApiHeaders } from "@utils/apiUtils";
 import type { CaseSearchRequest } from "@models/requests";
 import type { CaseSearchResponse } from "@models/responses";
 
@@ -90,12 +91,7 @@ export default function useGetProjectCases(
 
         const response = await fetch(requestUrl, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${idToken}`,
-            "x-user-id-token": idToken,
-          },
+          headers: addApiHeaders(idToken),
           body: JSON.stringify(requestBody),
         });
 
