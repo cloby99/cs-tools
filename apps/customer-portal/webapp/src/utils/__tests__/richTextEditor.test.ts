@@ -80,6 +80,18 @@ describe("richTextEditor utils", () => {
       );
       expect(html).not.toContain("<p>function test()");
     });
+
+    it("should not italicize underscores in identifiers or URLs", () => {
+      const md =
+        "This is a `my_variable_name` and a path like /var/local_storage/data. But _this_ should be italic.";
+      const html = markdownToHtml(md);
+
+      expect(html).toContain("my_variable_name");
+      expect(html).not.toContain("my<em>variable</em>name");
+      expect(html).toContain("/var/local_storage/data");
+      expect(html).not.toContain("/var/local<em>storage</em>data");
+      expect(html).toContain("<em>this</em>");
+    });
   });
 
   describe("htmlToMarkdown", () => {

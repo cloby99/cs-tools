@@ -53,7 +53,7 @@ vi.mock("@hooks/useLogger", () => ({
 }));
 
 // Mock useLoader
-vi.mock("../../context/linear-loader/LoaderContext", async (importOriginal) => {
+vi.mock("@context/linear-loader/LoaderContext", async (importOriginal) => {
   const actual = (await importOriginal()) as any;
   return {
     ...actual,

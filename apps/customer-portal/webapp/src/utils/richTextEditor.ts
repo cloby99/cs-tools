@@ -141,7 +141,7 @@ export function markdownToHtml(md: string): string {
   html = html.replace(/^#\s+(.+)$/gm, "<h1>$1</h1>");
   html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  html = html.replace(/_(.+?)_/g, "<em>$1</em>");
+  html = html.replace(/(^|\W)_(.+?)_(?=\W|$)/g, "$1<em>$2</em>");
   html = html.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
     '<a href="$2" target="_blank" rel="noopener">$1</a>',
@@ -463,7 +463,9 @@ export function toggleList(type: "ul" | "ol"): void {
       // If there are next siblings, we move them to a new list of the same type
       if (nextSiblings.length > 0) {
         const newList = document.createElement(parentList.tagName);
-        nextSiblings.forEach((s) => newList.appendChild(s));
+        nextSiblings.forEach((s) => {
+          newList.appendChild(s);
+        });
         outerParent.insertBefore(newList, parentList.nextSibling);
       }
 

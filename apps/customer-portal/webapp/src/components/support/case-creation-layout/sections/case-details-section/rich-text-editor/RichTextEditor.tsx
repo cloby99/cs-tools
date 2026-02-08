@@ -81,13 +81,19 @@ export function RichTextEditor({
 }: RichTextEditorProps): JSX.Element {
   const logger = useLogger();
   const editorRef = useRef<HTMLDivElement>(null);
-  const isInternalChange = useRef(false);
+  const internalChangeCountRef = useRef(0);
   const undoDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasRestoredRef = useRef(false);
   const savedRangeRef = useRef<Range | null>(null);
 
   const [history, setHistory] = useState<string[]>([value || ""]);
   const [historyIndex, setHistoryIndex] = useState(0);
+  const historyIndexRef = useRef(0);
+
+  const updateHistoryIndex = useCallback((index: number) => {
+    setHistoryIndex(index);
+    historyIndexRef.current = index;
+  }, []);
   const [linkPopup, setLinkPopup] = useState<{
     url: string;
     text: string;
@@ -141,18 +147,18 @@ export function RichTextEditor({
   const pushHistory = useCallback(
     (nextHtml: string) => {
       setHistory((prev) => {
-        const trimmed = prev.slice(0, historyIndex + 1);
+        const trimmed = prev.slice(0, historyIndexRef.current + 1);
         if (trimmed[trimmed.length - 1] === nextHtml) return prev;
         const next = [...trimmed, nextHtml].slice(-RICH_TEXT_HISTORY_LIMIT);
-        setHistoryIndex(next.length - 1);
+        updateHistoryIndex(next.length - 1);
         return next;
       });
     },
-    [historyIndex],
+    [updateHistoryIndex],
   );
 
   const syncFromValue = useCallback(() => {
-    if (!editorRef.current || isInternalChange.current) return;
+    if (!editorRef.current || internalChangeCountRef.current > 0) return;
     const html = value ?? "";
     if (editorRef.current.innerHTML !== html) {
       editorRef.current.innerHTML = html;
@@ -175,7 +181,7 @@ export function RichTextEditor({
         }
         setTimeout(() => {
           setHistory([stored]);
-          setHistoryIndex(0);
+          updateHistoryIndex(0);
         }, 0);
       }
     } catch (error) {
@@ -198,7 +204,7 @@ export function RichTextEditor({
 
   const emitChange = useCallback(
     (html: string, pushToHistory = true) => {
-      isInternalChange.current = true;
+      internalChangeCountRef.current += 1;
       onChange(html);
       saveToStorage(html);
       if (pushToHistory) {
@@ -212,7 +218,7 @@ export function RichTextEditor({
         }, RICH_TEXT_UNDO_DEBOUNCE_MS);
       }
       setTimeout(() => {
-        isInternalChange.current = false;
+        internalChangeCountRef.current -= 1;
       }, 0);
     },
     [onChange, saveToStorage, pushHistory],
@@ -229,7 +235,7 @@ export function RichTextEditor({
   const handleInput = useCallback(() => {
     if (!editorRef.current || disabled) return;
     const html = editorRef.current.innerHTML;
-    isInternalChange.current = true;
+    internalChangeCountRef.current += 1;
     onChange(html);
     saveToStorage(html);
     if (undoDebounceRef.current) clearTimeout(undoDebounceRef.current);
@@ -237,7 +243,7 @@ export function RichTextEditor({
       undoDebounceRef.current = null;
       pushHistory(html);
     }, RICH_TEXT_UNDO_DEBOUNCE_MS);
-    isInternalChange.current = false;
+    internalChangeCountRef.current -= 1;
     updateActiveFormat();
   }, [disabled, onChange, saveToStorage, pushHistory, updateActiveFormat]);
 
@@ -249,29 +255,29 @@ export function RichTextEditor({
     }
     const nextIndex = historyIndex - 1;
     const html = history[nextIndex];
-    setHistoryIndex(nextIndex);
+    updateHistoryIndex(nextIndex);
     if (editorRef.current) {
       editorRef.current.innerHTML = html;
-      isInternalChange.current = true;
+      internalChangeCountRef.current += 1;
       onChange(html);
       saveToStorage(html);
-      isInternalChange.current = false;
+      internalChangeCountRef.current -= 1;
     }
-  }, [history, historyIndex, onChange, saveToStorage]);
+  }, [history, historyIndex, onChange, saveToStorage, updateHistoryIndex]);
 
   const handleRedo = useCallback(() => {
     if (historyIndex >= history.length - 1) return;
     const nextIndex = historyIndex + 1;
     const html = history[nextIndex];
-    setHistoryIndex(nextIndex);
+    updateHistoryIndex(nextIndex);
     if (editorRef.current) {
       editorRef.current.innerHTML = html;
-      isInternalChange.current = true;
+      internalChangeCountRef.current += 1;
       onChange(html);
       saveToStorage(html);
-      isInternalChange.current = false;
+      internalChangeCountRef.current -= 1;
     }
-  }, [history, historyIndex, onChange, saveToStorage]);
+  }, [history, historyIndex, onChange, saveToStorage, updateHistoryIndex]);
 
   const exec = useCallback(
     (cmd: string) => {
