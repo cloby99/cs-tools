@@ -34,14 +34,16 @@ export function MarkdownControl({
 }: MarkdownControlProps): JSX.Element {
   return (
     <Tooltip title="Edit as Markdown">
-      <IconButton
-        size="small"
-        onClick={onClick}
-        disabled={disabled}
-        aria-label="Edit as Markdown"
-      >
-        <FileCode size={18} />
-      </IconButton>
+      <span>
+        <IconButton
+          size="small"
+          onClick={onClick}
+          disabled={disabled}
+          aria-label="Edit as Markdown"
+        >
+          <FileCode size={18} />
+        </IconButton>
+      </span>
     </Tooltip>
   );
 }

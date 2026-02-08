@@ -95,14 +95,16 @@ export function TextFormattingControls({
         </span>
       </Tooltip>
       <Tooltip title="Strikethrough">
-        <IconButton
-          size="small"
-          onClick={() => onFormat("strikeThrough")}
-          disabled={disabled}
-          aria-label="Strikethrough"
-        >
-          <Strikethrough size={18} />
-        </IconButton>
+        <span>
+          <IconButton
+            size="small"
+            onClick={() => onFormat("strikeThrough")}
+            disabled={disabled}
+            aria-label="Strikethrough"
+          >
+            <Strikethrough size={18} />
+          </IconButton>
+        </span>
       </Tooltip>
     </>
   );

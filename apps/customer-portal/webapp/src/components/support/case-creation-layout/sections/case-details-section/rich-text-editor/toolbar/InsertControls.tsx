@@ -49,24 +49,28 @@ export function InsertControls({
   return (
     <>
       <Tooltip title="Insert link">
-        <IconButton
-          size="small"
-          onClick={(e) => onInsertLink(e.currentTarget)}
-          disabled={disabled}
-          aria-label="Insert or edit link"
-        >
-          <Link size={18} />
-        </IconButton>
+        <span>
+          <IconButton
+            size="small"
+            onClick={(e) => onInsertLink(e.currentTarget)}
+            disabled={disabled}
+            aria-label="Insert or edit link"
+          >
+            <Link size={18} />
+          </IconButton>
+        </span>
       </Tooltip>
       <Tooltip title="Insert code block">
-        <IconButton
-          size="small"
-          onClick={onOpenCodeDialog}
-          disabled={disabled}
-          aria-label="Insert code block"
-        >
-          <Code size={18} />
-        </IconButton>
+        <span>
+          <IconButton
+            size="small"
+            onClick={onOpenCodeDialog}
+            disabled={disabled}
+            aria-label="Insert code block"
+          >
+            <Code size={18} />
+          </IconButton>
+        </span>
       </Tooltip>
       <Tooltip title="Insert image">
         <span>
@@ -82,7 +86,10 @@ export function InsertControls({
               type="file"
               accept="image/*"
               hidden
-              onChange={onImageSelect}
+              onChange={(e) => {
+                onImageSelect(e);
+                e.currentTarget.value = "";
+              }}
             />
           </IconButton>
         </span>
@@ -100,7 +107,10 @@ export function InsertControls({
               ref={fileInputRef}
               type="file"
               hidden
-              onChange={onFileSelect}
+              onChange={(e) => {
+                onFileSelect(e);
+                e.currentTarget.value = "";
+              }}
             />
           </IconButton>
         </span>

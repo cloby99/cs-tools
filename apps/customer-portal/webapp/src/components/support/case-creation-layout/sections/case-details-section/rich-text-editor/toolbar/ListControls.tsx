@@ -40,44 +40,52 @@ export function ListControls({
   return (
     <>
       <Tooltip title="Bullet list">
-        <IconButton
-          size="small"
-          onClick={() => onCommand("insertUnorderedList")}
-          disabled={disabled}
-          aria-label="Bullet list"
-        >
-          <List size={18} />
-        </IconButton>
+        <span>
+          <IconButton
+            size="small"
+            onClick={() => onCommand("insertUnorderedList")}
+            disabled={disabled}
+            aria-label="Bullet list"
+          >
+            <List size={18} />
+          </IconButton>
+        </span>
       </Tooltip>
       <Tooltip title="Numbered list">
-        <IconButton
-          size="small"
-          onClick={() => onCommand("insertOrderedList")}
-          disabled={disabled}
-          aria-label="Numbered list"
-        >
-          <ListOrdered size={18} />
-        </IconButton>
+        <span>
+          <IconButton
+            size="small"
+            onClick={() => onCommand("insertOrderedList")}
+            disabled={disabled}
+            aria-label="Numbered list"
+          >
+            <ListOrdered size={18} />
+          </IconButton>
+        </span>
       </Tooltip>
       <Tooltip title="Decrease indent">
-        <IconButton
-          size="small"
-          onClick={() => onCommand("outdent")}
-          disabled={disabled}
-          aria-label="Decrease indent"
-        >
-          <IndentDecrease size={18} />
-        </IconButton>
+        <span>
+          <IconButton
+            size="small"
+            onClick={() => onCommand("outdent")}
+            disabled={disabled}
+            aria-label="Decrease indent"
+          >
+            <IndentDecrease size={18} />
+          </IconButton>
+        </span>
       </Tooltip>
       <Tooltip title="Increase indent">
-        <IconButton
-          size="small"
-          onClick={() => onCommand("indent")}
-          disabled={disabled}
-          aria-label="Increase indent"
-        >
-          <IndentIncrease size={18} />
-        </IconButton>
+        <span>
+          <IconButton
+            size="small"
+            onClick={() => onCommand("indent")}
+            disabled={disabled}
+            aria-label="Increase indent"
+          >
+            <IndentIncrease size={18} />
+          </IconButton>
+        </span>
       </Tooltip>
     </>
   );
