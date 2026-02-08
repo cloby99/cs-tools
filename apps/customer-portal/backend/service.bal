@@ -981,7 +981,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + return - Deployed products response or error response
     resource function get deployments/[string id]/products(http:RequestContext ctx)
         returns DeployedProduct[]|http:BadRequest|http:Forbidden|http:InternalServerError {
-
+    
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
             return <http:InternalServerError>{
@@ -1057,7 +1057,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + payload - Update search payload containing filters
     # + return - List of updates matching or an error
     resource function post updates/search(http:RequestContext ctx, updates:UpdateSearchPayload payload)
-        returns updates:UpdateResponse|http:InternalServerError {
+        returns updates:UpdateResponse|http:BadRequest|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {

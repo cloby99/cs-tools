@@ -13,6 +13,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+import ballerina/constraint;
 
 # [Configurable] Client credentials grant type oauth2 configuration.
 type ClientCredentialsOauth2Config record {|
@@ -26,34 +27,51 @@ type ClientCredentialsOauth2Config record {|
     string[] scopes = [];
 |};
 
-# Updates payload.
-public type UpdatesPayload record {|
+# Basic product information.
+public type BasicProductInfo record {|
     # Product name
+    @constraint:String {minLength: 1}
     string productName;
     # Product base version
+    @constraint:String {minLength: 1}
     string productBaseVersion;
     # Channel
+    @constraint:String {minLength: 1}
     string channel;
+|};
+
+# Updates payload.
+public type UpdatesPayload record {|
+    *BasicProductInfo;
     # Update level
-    int updateLevel = 0;
+    @constraint:Int {minValue: 1}
+    int updateLevel;
     # Added files
+    @constraint:String {minLength: 1}
     string filesAdded;
     # Modified files
+    @constraint:String {minLength: 1}
     string filesModified;
     # Removed files
+    @constraint:String {minLength: 1}
     string filesRemoved;
     # Changes in bundles info
+    @constraint:String {minLength: 1}
     string bundlesInfoChanges;
     # Dependant releases
     DependantRelease[] dependantReleases;
     # Update descriptions
+    @constraint:Array {minLength: 1}
     UpdateDescription[] updateDescriptions;
     # Life cycle state
+    @constraint:String {minLength: 1}
     string lifeCycleState;
     # Updates count
-    int updatesCount = 0;
+    @constraint:Int {minValue: 1}
+    int updatesCount;
     # Security updates count
-    int securityUpdatesCount = 0;
+    @constraint:Int {minValue: 0}
+    int securityUpdatesCount;
 |};
 
 # Dependant release.
@@ -66,21 +84,19 @@ public type DependantRelease record {|
 
 # Update description.
 public type UpdateDescription record {|
-    # Product name
-    string productName;
-    # Product base version
-    string productBaseVersion;
-    # Channel
-    string channel;
+    *BasicProductInfo;
     # Update level
-    string updateLevel;
+    int updateLevel;
     # Update number
-    string updateNumber;
+    @constraint:Int {minValue: 1}
+    int updateNumber;
     # Description
+    @constraint:String {minLength: 1}
     string description;
     # Instructions
     string instructions;
     # Bug fixes
+    @constraint:String {minLength: 1}
     string bugFixes;
     # Added files
     string filesAdded;
@@ -95,24 +111,32 @@ public type UpdateDescription record {|
     # Security advisory descriptions
     SecurityAdvisoryDescription[] securityAdvisoryDescriptions;
     # Update type
+    @constraint:String {minLength: 1}
     string updateType;
     # Timestamp
-    int timestamp = 0;
+    @constraint:Int {minValue: 1}
+    int timestamp;
 |};
 
 # Security advisory description.
 public type SecurityAdvisoryDescription record {|
     # ID
+    @constraint:String {minLength: 1}
     string id;
     # Overview
+    @constraint:String {minLength: 1}
     string overview;
     # Severity
+    @constraint:String {minLength: 1}
     string severity;
     # Description
+    @constraint:String {minLength: 1}
     string description;
     # Impact
+    @constraint:String {minLength: 1}
     string impact;
     # Solution
+    @constraint:String {minLength: 1}
     string solution;
     # Notes
     string notes;
@@ -230,15 +254,12 @@ public type UpdateResponse record {|
 
 # Update payload for listing updates.
 public type ListUpdatePayload record {|
-    # Product name
-    string productName;
-    # Product base version
-    string productBaseVersion;
-    # Channel
-    string channel;
+    *BasicProductInfo;
     # Starting update level
+    @constraint:String {minLength: 1}
     string startingUpdateLevel;
     # Ending update level
+    @constraint:String {minLength: 1}
     string endingUpdateLevel;
     # Hotfixes
     string[] hotfixes;
