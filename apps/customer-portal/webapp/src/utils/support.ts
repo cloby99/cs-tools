@@ -14,14 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { ChatAction, ChatStatus } from "@constants/supportConstants";
 import type { Theme } from "@wso2/oxygen-ui";
-
-export const ChatAction = {
-  VIEW: "view",
-  RESUME: "resume",
-} as const;
-
-export type ChatAction = (typeof ChatAction)[keyof typeof ChatAction];
 
 export type ChatActionState =
   | "primary"
@@ -30,15 +24,13 @@ export type ChatActionState =
   | "warning"
   | "error";
 
-export type ChatStatusAction = "view" | "resume";
-
 /**
  * Returns whether to show View or Resume for a chat status.
  *
  * @param status - Chat status string (e.g. Resolved, Still Open, Abandoned).
- * @returns {ChatStatusAction} "view" or "resume".
+ * @returns {ChatActionType} "view" or "resume".
  */
-export function getChatStatusAction(status: string): ChatStatusAction {
+export function getChatStatusAction(status: string): ChatAction {
   const normalized = status?.toLowerCase() || "";
   if (normalized.includes("open")) return ChatAction.RESUME;
   return ChatAction.VIEW;
@@ -48,9 +40,9 @@ export function getChatStatusAction(status: string): ChatStatusAction {
  * Returns the color for a chat action button.
  *
  * @param action - The action type ("view" or "resume").
- * @returns {string} Palette color path.
+ * @returns {ChatActionState} Palette color path.
  */
-export function getChatActionColor(action: ChatStatusAction): ChatActionState {
+export function getChatActionColor(action: ChatAction): ChatActionState {
   if (action === ChatAction.RESUME) {
     return "info";
   }
@@ -63,15 +55,21 @@ export function getChatActionColor(action: ChatStatusAction): ChatActionState {
  * @param status - Chat status string.
  * @returns {string} Palette color path.
  */
+/**
+ * Returns the color for a chat status chip.
+ *
+ * @param status - Chat status string (e.g. Resolved, Still Open, Abandoned).
+ * @returns {string} Palette color path.
+ */
 export function getChatStatusColor(status: string): string {
   const normalized = status?.toLowerCase() || "";
-  if (normalized.includes("resolved")) {
+  if (normalized.includes(ChatStatus.RESOLVED)) {
     return "success.main";
   }
-  if (normalized.includes("open")) {
+  if (normalized.includes(ChatStatus.STILL_OPEN)) {
     return "info.main";
   }
-  if (normalized.includes("abandoned")) {
+  if (normalized.includes(ChatStatus.ABANDONED)) {
     return "error.main";
   }
   return "secondary.main";

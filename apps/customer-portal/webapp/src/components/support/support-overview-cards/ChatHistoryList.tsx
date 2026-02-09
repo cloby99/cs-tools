@@ -17,12 +17,14 @@
 import {
   Box,
   Button,
+  Card,
+  CardActions,
+  CardContent,
   Chip,
-  Form,
   Stack,
   Typography,
   alpha,
-  useTheme,
+  type Theme,
 } from "@wso2/oxygen-ui";
 import {
   Bot,
@@ -33,8 +35,8 @@ import {
 } from "@wso2/oxygen-ui-icons-react";
 import type { JSX } from "react";
 import type { ChatHistoryItem } from "@models/responses";
+import { ChatAction } from "@constants/supportConstants";
 import {
-  ChatAction,
   getChatActionColor,
   getChatStatusAction,
   getChatStatusColor,
@@ -45,7 +47,7 @@ import ChatHistorySkeleton from "@/components/support/support-overview-cards/Cha
 export interface ChatHistoryListProps {
   items: ChatHistoryItem[];
   isLoading?: boolean;
-  onItemAction?: (chatId: string, action: "view" | "resume") => void;
+  onItemAction?: (chatId: string, action: ChatAction) => void;
 }
 
 /**
@@ -59,8 +61,6 @@ export default function ChatHistoryList({
   isLoading,
   onItemAction,
 }: ChatHistoryListProps): JSX.Element {
-  const theme = useTheme();
-
   if (isLoading) {
     return <ChatHistorySkeleton />;
   }
@@ -81,10 +81,9 @@ export default function ChatHistoryList({
         const action = getChatStatusAction(item.status);
         const StatusIcon = action === ChatAction.VIEW ? CircleCheck : Clock;
         const chipColorPath = getChatStatusColor(item.status);
-        const resolvedColor = resolveColorFromTheme(chipColorPath, theme);
 
         return (
-          <Form.CardButton
+          <Card
             key={item.chatId}
             onClick={() => onItemAction?.(item.chatId, action)}
             sx={{
@@ -93,9 +92,13 @@ export default function ChatHistoryList({
               flexDirection: "column",
               alignItems: "stretch",
               gap: 1,
+              cursor: "pointer",
+              "&:hover": {
+                bgcolor: "action.hover",
+              },
             }}
           >
-            <Form.CardContent
+            <CardContent
               sx={{
                 p: 0,
                 display: "flex",
@@ -145,17 +148,18 @@ export default function ChatHistoryList({
                   </Typography>
                 </Stack>
               </Box>
-            </Form.CardContent>
+            </CardContent>
 
-            <Form.CardActions sx={{ p: 0, justifyContent: "space-between" }}>
+            <CardActions sx={{ p: 0, justifyContent: "space-between" }}>
               <Chip
                 size="small"
                 variant="outlined"
                 label={item.status}
                 sx={{
                   px: 0.5,
-                  bgcolor: alpha(resolvedColor, 0.1),
-                  color: resolvedColor,
+                  bgcolor: (theme: Theme) =>
+                    alpha(resolveColorFromTheme(chipColorPath, theme), 0.1),
+                  color: chipColorPath,
                   "& .MuiChip-icon": {
                     color: "inherit",
                   },
@@ -187,8 +191,8 @@ export default function ChatHistoryList({
               >
                 {action === ChatAction.VIEW ? "View" : "Resume"}
               </Button>
-            </Form.CardActions>
-          </Form.CardButton>
+            </CardActions>
+          </Card>
         );
       })}
     </Box>

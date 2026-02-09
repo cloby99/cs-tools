@@ -15,37 +15,53 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
+import { ChatAction, ChatStatus } from "@constants/supportConstants";
 import {
   getChatStatusAction,
   getChatStatusColor,
+  getChatActionColor,
   formatRelativeTime,
 } from "@utils/support";
 
 describe("support utils", () => {
   describe("getChatStatusAction", () => {
-    it("should return 'resume' for Still Open", () => {
-      expect(getChatStatusAction("Still Open")).toBe("resume");
-      expect(getChatStatusAction("still open")).toBe("resume");
+    it("should return resume for Still Open", () => {
+      expect(getChatStatusAction(ChatStatus.STILL_OPEN)).toBe(
+        ChatAction.RESUME,
+      );
+      expect(getChatStatusAction(ChatStatus.STILL_OPEN.toLowerCase())).toBe(
+        ChatAction.RESUME,
+      );
     });
 
-    it("should return 'view' for Resolved and Abandoned", () => {
-      expect(getChatStatusAction("Resolved")).toBe("view");
-      expect(getChatStatusAction("Abandoned")).toBe("view");
-      expect(getChatStatusAction("")).toBe("view");
+    it("should return view for Resolved and Abandoned", () => {
+      expect(getChatStatusAction(ChatStatus.RESOLVED)).toBe(ChatAction.VIEW);
+      expect(getChatStatusAction(ChatStatus.ABANDONED)).toBe(ChatAction.VIEW);
+      expect(getChatStatusAction("")).toBe(ChatAction.VIEW);
+    });
+  });
+
+  describe("getChatActionColor", () => {
+    it("should return info for RESUME", () => {
+      expect(getChatActionColor(ChatAction.RESUME)).toBe("info");
+    });
+
+    it("should return primary for VIEW", () => {
+      expect(getChatActionColor(ChatAction.VIEW)).toBe("primary");
     });
   });
 
   describe("getChatStatusColor", () => {
     it("should return success.main for Resolved", () => {
-      expect(getChatStatusColor("Resolved")).toBe("success.main");
+      expect(getChatStatusColor(ChatStatus.RESOLVED)).toBe("success.main");
     });
 
     it("should return info.main for Still Open", () => {
-      expect(getChatStatusColor("Still Open")).toBe("info.main");
+      expect(getChatStatusColor(ChatStatus.STILL_OPEN)).toBe("info.main");
     });
 
     it("should return error.main for Abandoned", () => {
-      expect(getChatStatusColor("Abandoned")).toBe("error.main");
+      expect(getChatStatusColor(ChatStatus.ABANDONED)).toBe("error.main");
     });
 
     it("should return secondary.main for others", () => {

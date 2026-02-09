@@ -25,6 +25,23 @@ import {
 import { type ComponentType } from "react";
 import type { ProjectSupportStats } from "@models/responses";
 
+// Chat actions for the history list.
+export const ChatAction = {
+  VIEW: "view",
+  RESUME: "resume",
+} as const;
+
+export type ChatAction = (typeof ChatAction)[keyof typeof ChatAction];
+
+// Chat status types.
+export const ChatStatus = {
+  RESOLVED: "Resolved",
+  STILL_OPEN: "Still Open",
+  ABANDONED: "Abandoned",
+} as const;
+
+export type ChatStatus = (typeof ChatStatus)[keyof typeof ChatStatus];
+
 // Interface for support statistics card configuration.
 export interface SupportStatConfig {
   iconColor: "primary" | "secondary" | "success" | "error" | "info" | "warning";
