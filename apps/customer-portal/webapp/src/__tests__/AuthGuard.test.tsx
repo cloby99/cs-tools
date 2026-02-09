@@ -30,7 +30,7 @@ vi.mock("@asgardeo/react", () => ({
   ),
 }));
 
-vi.mock("@/context/linearLoader/LoaderContext", () => ({
+vi.mock("@context/linear-loader/LoaderContext", () => ({
   useLoader: vi.fn(),
 }));
 
