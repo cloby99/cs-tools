@@ -133,3 +133,25 @@ export function formatRelativeTime(date: string | Date | undefined): string {
   const diffInYears = Math.floor(diffInMonths / 12);
   return `${diffInYears} year${diffInYears === 1 ? "" : "s"} ago`;
 }
+
+/**
+ * Derives the label and pluralized "all" label from a filter ID.
+ *
+ * @param id - The filter ID (e.g., "status").
+ * @returns { label: string; allLabel: string } The derived labels.
+ */
+export function deriveFilterLabels(id: string): {
+  label: string;
+  allLabel: string;
+} {
+  const label = id.charAt(0).toUpperCase() + id.slice(1);
+  const allLabel = `All ${
+    label.endsWith("s")
+      ? `${label}es`
+      : label.endsWith("y")
+        ? `${label.slice(0, -1)}ies`
+        : `${label}s`
+  }`;
+
+  return { allLabel, label };
+}

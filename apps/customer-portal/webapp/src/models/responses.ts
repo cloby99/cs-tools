@@ -212,3 +212,11 @@ export interface ChatHistoryItem {
 export interface ChatHistoryResponse {
   chatHistory: ChatHistoryItem[];
 }
+
+// Interface for all cases filters state
+export interface AllCasesFilterValues {
+  statusId?: string;
+  severityId?: string;
+  caseTypes?: string;
+  deploymentId?: string;
+}

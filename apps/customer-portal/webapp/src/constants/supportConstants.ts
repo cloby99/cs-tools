@@ -26,7 +26,12 @@ import {
   TrendingUp,
 } from "@wso2/oxygen-ui-icons-react";
 import { type ComponentType } from "react";
-import type { ProjectSupportStats, ProjectCasesStats } from "@models/responses";
+import type {
+  ProjectSupportStats,
+  ProjectCasesStats,
+  CaseMetadataResponse,
+  AllCasesFilterValues,
+} from "@models/responses";
 
 // Chat actions for the history list.
 export const ChatAction = {
@@ -175,6 +180,43 @@ export const RICH_TEXT_BLOCK_TAGS: Array<{
   { value: "subtitle1", label: "Subtitle 1", variant: "subtitle1" },
   { value: "subtitle2", label: "Subtitle 2", variant: "subtitle2" },
   { value: "body1", label: "Body 1", variant: "body1" },
-  { value: "body2", label: "Body 2", variant: "body2" },
   { value: "caption", label: "Caption", variant: "caption" },
+];
+
+/**
+ * Interface for all cases filter configuration.
+ */
+export interface AllCasesFilterDefinition {
+  id: string;
+  metadataKey: keyof CaseMetadataResponse;
+  filterKey: keyof AllCasesFilterValues;
+  useLabelAsValue?: boolean;
+}
+
+/**
+ * Configuration for the all cases filters.
+ */
+export const ALL_CASES_FILTER_DEFINITIONS: AllCasesFilterDefinition[] = [
+  {
+    filterKey: "statusId",
+    id: "status",
+    metadataKey: "statuses",
+  },
+  {
+    filterKey: "severityId",
+    id: "severity",
+    metadataKey: "severities",
+  },
+  {
+    filterKey: "caseTypes",
+    id: "category",
+    metadataKey: "caseTypes",
+    useLabelAsValue: true,
+  },
+  {
+    filterKey: "deploymentId",
+    id: "deployment",
+    metadataKey: "deployments",
+    useLabelAsValue: true,
+  },
 ];
