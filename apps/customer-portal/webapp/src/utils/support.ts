@@ -23,6 +23,13 @@ export const ChatAction = {
 
 export type ChatAction = (typeof ChatAction)[keyof typeof ChatAction];
 
+export type ChatActionState =
+  | "primary"
+  | "info"
+  | "success"
+  | "warning"
+  | "error";
+
 export type ChatStatusAction = "view" | "resume";
 
 /**
@@ -43,9 +50,7 @@ export function getChatStatusAction(status: string): ChatStatusAction {
  * @param action - The action type ("view" or "resume").
  * @returns {string} Palette color path.
  */
-export function getChatActionColor(
-  action: ChatStatusAction,
-): "primary" | "info" | "success" | "warning" | "error" {
+export function getChatActionColor(action: ChatStatusAction): ChatActionState {
   if (action === ChatAction.RESUME) {
     return "info";
   }
