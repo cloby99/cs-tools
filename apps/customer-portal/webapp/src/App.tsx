@@ -21,6 +21,7 @@ import ProjectPage from "@pages/ProjectPage";
 import ProjectDetails from "@pages/ProjectDetails";
 import DashboardPage from "@pages/DashboardPage";
 import SupportPage from "@pages/SupportPage";
+import AllCasesPage from "@pages/AllCasesPage";
 import NoveraChatPage from "@pages/NoveraChatPage";
 import CreateCasePage from "@pages/CreateCasePage";
 import AppLayout from "@layouts/AppLayout";
@@ -53,6 +54,7 @@ export default function App(): JSX.Element {
                 {/* Support */}
                 <Route path="support">
                   <Route index element={<SupportPage />} />
+                  <Route path="cases" element={<AllCasesPage />} />
                   <Route path="chat">
                     <Route index element={<NoveraChatPage />} />
                     <Route path="create-case" element={<CreateCasePage />} />
