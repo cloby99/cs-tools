@@ -63,3 +63,6 @@ export const SUPPORT_STAT_CONFIGS: SupportStatConfig[] = [
     label: "Active Chats",
   },
 ];
+
+/** Number of outstanding cases to show on support overview cards. */
+export const SUPPORT_OVERVIEW_CASES_LIMIT = 5;
