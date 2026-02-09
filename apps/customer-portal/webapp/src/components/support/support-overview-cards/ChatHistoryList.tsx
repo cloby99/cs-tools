@@ -17,10 +17,10 @@
 import {
   Box,
   Button,
-  Card,
   CardActions,
   CardContent,
   Chip,
+  Form,
   Stack,
   Typography,
   alpha,
@@ -43,6 +43,7 @@ import {
   resolveColorFromTheme,
 } from "@utils/support";
 import ChatHistorySkeleton from "@/components/support/support-overview-cards/ChatHistorySkeleton";
+import { CardButton } from "@wso2/oxygen-ui/components/Form/CardButton";
 
 export interface ChatHistoryListProps {
   items: ChatHistoryItem[];
@@ -83,7 +84,7 @@ export default function ChatHistoryList({
         const chipColorPath = getChatStatusColor(item.status);
 
         return (
-          <Card
+          <Form.CardButton
             key={item.chatId}
             onClick={() => onItemAction?.(item.chatId, action)}
             sx={{
@@ -192,7 +193,7 @@ export default function ChatHistoryList({
                 {action === ChatAction.VIEW ? "View" : "Resume"}
               </Button>
             </CardActions>
-          </Card>
+          </Form.CardButton>
         );
       })}
     </Box>
