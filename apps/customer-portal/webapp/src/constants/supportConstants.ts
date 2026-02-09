@@ -66,3 +66,6 @@ export const SUPPORT_STAT_CONFIGS: SupportStatConfig[] = [
 
 /** Number of outstanding cases to show on support overview cards. */
 export const SUPPORT_OVERVIEW_CASES_LIMIT = 5;
+
+/** Number of chat history items to show on support overview cards. */
+export const SUPPORT_OVERVIEW_CHAT_LIMIT = 5;
