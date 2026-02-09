@@ -75,7 +75,6 @@ export default function OutstandingCasesList({
               flexDirection: "column",
               alignItems: "stretch",
               gap: 1,
-              cursor: "pointer",
             }}
           >
             <Form.CardHeader
@@ -111,7 +110,6 @@ export default function OutstandingCasesList({
                 color="text.primary"
                 sx={{
                   overflow: "hidden",
-                  textOverflow: "ellipsis",
                 }}
               >
                 {c.title}
@@ -138,7 +136,7 @@ export default function OutstandingCasesList({
                 {c.assignedEngineer && (
                   <Tooltip title={`Assigned to ${c.assignedEngineer}`}>
                     <Typography variant="caption" color="text.secondary">
-                      {c.assignedEngineer}
+                      Assigned to {c.assignedEngineer}
                     </Typography>
                   </Tooltip>
                 )}

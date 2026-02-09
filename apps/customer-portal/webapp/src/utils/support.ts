@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { colors, type SxProps, type Theme } from "@wso2/oxygen-ui";
 /**
  * Resolves a color from the theme palette for the alpha() utility.
  *

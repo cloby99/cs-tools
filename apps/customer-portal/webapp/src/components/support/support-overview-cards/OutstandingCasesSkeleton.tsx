@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { SUPPORT_OVERVIEW_CASES_LIMIT } from "@/constants/supportConstants";
 import { Box, Form, Skeleton } from "@wso2/oxygen-ui";
 import { type JSX } from "react";
 
@@ -25,7 +26,7 @@ import { type JSX } from "react";
 export default function OutstandingCasesSkeleton(): JSX.Element {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-      {Array.from({ length: 5 }).map((_, index) => (
+      {Array.from({ length: SUPPORT_OVERVIEW_CASES_LIMIT }).map((_, index) => (
         <Form.CardButton
           key={`skeleton-${index}`}
           sx={{
@@ -34,7 +35,6 @@ export default function OutstandingCasesSkeleton(): JSX.Element {
             flexDirection: "column",
             alignItems: "stretch",
             gap: 1.5,
-            cursor: "default",
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>

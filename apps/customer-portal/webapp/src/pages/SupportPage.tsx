@@ -22,6 +22,7 @@ import { useAsgardeo } from "@asgardeo/react";
 import CasesOverviewStatCard from "@components/support/cases-overview-stats/CasesOverviewStatCard";
 import NoveraChatBanner from "@components/support/novera-ai-assistant/novera-chat-banner/NoveraChatBanner";
 import SupportOverviewCard from "@components/support/support-overview-cards/SupportOverviewCard";
+import OutstandingCasesList from "@components/support/support-overview-cards/OutstandingCasesList";
 import { useGetProjectSupportStats } from "@api/useGetProjectSupportStats";
 import useGetProjectCases from "@api/useGetProjectCases";
 import { useLogger } from "@hooks/useLogger";
