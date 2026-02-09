@@ -25,7 +25,9 @@ import { type JSX } from "react";
  */
 export default function OutstandingCasesSkeleton(): JSX.Element {
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+    <Box
+      sx={{ display: "flex", flexDirection: "column", gap: 1.5, width: "100%" }}
+    >
       {Array.from({ length: SUPPORT_OVERVIEW_CASES_LIMIT }).map((_, index) => (
         <Form.CardButton
           key={`skeleton-${index}`}
