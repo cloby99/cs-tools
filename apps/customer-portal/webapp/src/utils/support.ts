@@ -14,11 +14,68 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { colors, type SxProps, type Theme } from "@wso2/oxygen-ui";
+import type { Theme } from "@wso2/oxygen-ui";
+
+export const ChatAction = {
+  VIEW: "view",
+  RESUME: "resume",
+} as const;
+
+export type ChatAction = (typeof ChatAction)[keyof typeof ChatAction];
+
+export type ChatStatusAction = "view" | "resume";
+
+/**
+ * Returns whether to show View or Resume for a chat status.
+ *
+ * @param status - Chat status string (e.g. Resolved, Still Open, Abandoned).
+ * @returns {ChatStatusAction} "view" or "resume".
+ */
+export function getChatStatusAction(status: string): ChatStatusAction {
+  const normalized = status?.toLowerCase() || "";
+  if (normalized.includes("open")) return ChatAction.RESUME;
+  return ChatAction.VIEW;
+}
+
+/**
+ * Returns the color for a chat action button.
+ *
+ * @param action - The action type ("view" or "resume").
+ * @returns {string} Palette color path.
+ */
+export function getChatActionColor(
+  action: ChatStatusAction,
+): "primary" | "info" | "success" | "warning" | "error" {
+  if (action === ChatAction.RESUME) {
+    return "info";
+  }
+  return "primary";
+}
+
+/**
+ * Returns the color path for a chat status.
+ *
+ * @param status - Chat status string.
+ * @returns {string} Palette color path.
+ */
+export function getChatStatusColor(status: string): string {
+  const normalized = status?.toLowerCase() || "";
+  if (normalized.includes("resolved")) {
+    return "success.main";
+  }
+  if (normalized.includes("open")) {
+    return "info.main";
+  }
+  if (normalized.includes("abandoned")) {
+    return "error.main";
+  }
+  return "secondary.main";
+}
+
 /**
  * Resolves a color from the theme palette for the alpha() utility.
  *
- * @param path - Color path (e.g., 'primary.main').
+ * @param path - Color path.
  * @param theme - Oxygen UI theme.
  * @returns {string} The resolved color string.
  */
@@ -37,7 +94,7 @@ export function resolveColorFromTheme(path: string, theme: Theme): string {
  * Formats a date string or Date object into a relative time (e.g., "2 days ago", "1 hour ago").
  *
  * @param date - Date string or Date object.
- * @returns {string} Human-readable relative time.
+ * @returns {string} Human readable relative time.
  */
 export function formatRelativeTime(date: string | Date | undefined): string {
   if (!date) return "--";

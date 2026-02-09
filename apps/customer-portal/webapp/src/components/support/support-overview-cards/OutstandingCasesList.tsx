@@ -134,7 +134,6 @@ export default function OutstandingCasesList({
                   px: 0.5,
                   bgcolor: alpha(resolvedColor, 0.1),
                   color: resolvedColor,
-                  borderColor: "transparent",
                   "& .MuiChip-icon": {
                     color: "inherit",
                   },
