@@ -185,7 +185,7 @@ public type Case record {|
     ReferenceTableItem? deployment;
     # Deployed product information
     ReferenceTableItem? deployedProduct;
-    # issueType of the case
+    # issue type of the case
     ChoiceListItem? issueType;
     # Status information
     ChoiceListItem? state;
