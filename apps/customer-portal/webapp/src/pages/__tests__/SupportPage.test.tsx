@@ -69,7 +69,9 @@ vi.mock("@wso2/oxygen-ui", () => ({
     blue: { 500: "#2196F3", 700: "#1D4ED8" },
     green: { 500: "#4CAF50" },
     purple: { 500: "#9C27B0", 400: "#A78BFA" },
+    orange: { 600: "#FB8C00" },
   },
+  alpha: (color: string, opacity: number) => `${color}-${opacity}`,
   Divider: () => <hr />,
   Button: ({ children }: any) => <button>{children}</button>,
   Card: ({ children, sx }: any) => <div style={sx}>{children}</div>,
@@ -100,11 +102,22 @@ vi.mock("@wso2/oxygen-ui", () => ({
     </div>
   ),
   Paper: ({ children }: any) => <div data-testid="paper">{children}</div>,
+  useTheme: () => ({
+    palette: {
+      primary: { main: "#1976D2", light: "#42A5F5" },
+      secondary: { main: "#9C27B0", light: "#BA68C8" },
+      info: { main: "#0288D1", light: "#03A9F4" },
+      warning: { main: "#ED6C02", light: "#FF9800" },
+      success: { main: "#2E7D32", light: "#4CAF50" },
+      error: { main: "#D32F2F", light: "#EF5350" },
+    },
+  }),
 }));
 
 // Mock icons
 vi.mock("@wso2/oxygen-ui-icons-react", () => ({
   Bot: () => <svg data-testid="icon-bot" />,
+  ArrowRight: () => <svg data-testid="icon-arrow-right" />,
   CircleAlert: () => <svg data-testid="icon-alert" />,
   CircleCheck: () => <svg data-testid="icon-check" />,
   Clock: () => <svg data-testid="icon-clock" />,
@@ -126,6 +139,27 @@ vi.mock("@api/useGetProjectSupportStats", () => ({
   useGetProjectSupportStats: (id: string) => mockUseGetProjectSupportStats(id),
 }));
 
+// Mock useGetProjectCases
+vi.mock("@api/useGetProjectCases", () => ({
+  default: () => ({
+    data: { cases: [] },
+    isLoading: false,
+  }),
+}));
+
+// Mock Request Cards
+vi.mock("@components/support/request-cards/ServiceRequestCard", () => ({
+  default: () => (
+    <div data-testid="service-request-card">Service Request Card</div>
+  ),
+}));
+
+vi.mock("@components/support/request-cards/ChangeRequestCard", () => ({
+  default: () => (
+    <div data-testid="change-request-card">Change Request Card</div>
+  ),
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -145,7 +179,7 @@ describe("SupportPage", () => {
 
     const skeletons = screen.getAllByTestId("skeleton");
     expect(skeletons).toHaveLength(4);
-    expect(screen.getByTestId("icon-file-text")).toBeInTheDocument();
+    expect(screen.getAllByTestId("icon-file-text")).toHaveLength(2);
     expect(screen.getAllByTestId("icon-bot")).toHaveLength(2);
     expect(mockLogger.debug).not.toHaveBeenCalled();
   });
@@ -224,6 +258,28 @@ describe("SupportPage", () => {
       screen.getByText("Need help with something new?"),
     ).toBeInTheDocument();
     expect(screen.getByText("Start New Chat")).toBeInTheDocument();
+    expect(screen.getByText("Start New Chat")).toBeInTheDocument();
     expect(screen.getAllByTestId("icon-bot")).toHaveLength(2);
+  });
+
+  it("should render the Service and Change Request cards", () => {
+    mockUseGetProjectSupportStats.mockReturnValue({
+      isLoading: false,
+      data: {
+        totalCases: 10,
+        activeChats: 5,
+        sessionChats: 15,
+        resolvedChats: 20,
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <SupportPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("service-request-card")).toBeInTheDocument();
+    expect(screen.getByTestId("change-request-card")).toBeInTheDocument();
   });
 });
