@@ -14,8 +14,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-public configurable int maxSearchArrayLimit = 100;
-
 # get the Contacts details by the email.
 # #
 # + filter - Contact filters
