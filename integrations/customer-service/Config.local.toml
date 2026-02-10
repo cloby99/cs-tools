@@ -16,8 +16,3 @@
 
 [customer_service.entity]
 baseUrl = 
-
-[customer_service.entity.authConfig]
-tokenUrl = 
-clientId = 
-clientSecret = 
