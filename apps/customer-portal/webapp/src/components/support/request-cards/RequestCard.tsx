@@ -88,6 +88,8 @@ export default function RequestCard({
         display: "flex",
         flexDirection: "column",
         gap: 2,
+        height: "100%",
+        justifyContent: "space-between",
       }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1 }}>
@@ -115,6 +117,9 @@ export default function RequestCard({
         sx={{
           bgcolor: infoBoxBgColor,
           p: 2.5,
+          flexGrow: 1,
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         <Typography variant="body1" sx={{ mb: 1, fontWeight: 400 }}>
@@ -131,7 +136,7 @@ export default function RequestCard({
             display: "flex",
             flexDirection: "column",
             gap: 1,
-            listStyle: "n "
+            listStyle: "none",
           }}
         >
           {bulletItems.map((item) => (

@@ -143,7 +143,7 @@ vi.mock("@api/useGetProjectSupportStats", () => ({
 vi.mock("@api/useGetProjectCases", () => ({
   default: () => ({
     data: { cases: [] },
-    isLoading: false,
+    isFetching: false,
   }),
 }));
 
@@ -257,7 +257,6 @@ describe("SupportPage", () => {
     expect(
       screen.getByText("Need help with something new?"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Start New Chat")).toBeInTheDocument();
     expect(screen.getByText("Start New Chat")).toBeInTheDocument();
     expect(screen.getAllByTestId("icon-bot")).toHaveLength(2);
   });

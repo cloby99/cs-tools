@@ -118,4 +118,6 @@ export const CHANGE_REQUEST_BULLET_ITEMS = [
   "Rollback capabilities",
   "Calendar visualization",
   "Complete audit trail",
+  "Impact and risk assessment",
+  "Post implementation verification",
 ] as const;
