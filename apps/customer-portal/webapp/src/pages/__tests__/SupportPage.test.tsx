@@ -32,7 +32,11 @@ vi.mock("react-router", async () => {
 
 // Mock @asgardeo/react to avoid ESM buffer import errors in vitest
 vi.mock("@asgardeo/react", () => ({
-  useAsgardeo: () => ({ isLoading: false, isSignedIn: true }),
+  useAsgardeo: () => ({
+    isLoading: false,
+    isSignedIn: true,
+    state: { isAuthenticated: true },
+  }),
 }));
 
 // Mock useLogger
@@ -44,14 +48,6 @@ const mockLogger = {
 };
 vi.mock("@hooks/useLogger", () => ({
   useLogger: () => mockLogger,
-}));
-
-// Mock @asgardeo/react
-vi.mock("@asgardeo/react", () => ({
-  useAsgardeo: () => ({
-    isLoading: false,
-    state: { isAuthenticated: true },
-  }),
 }));
 
 // Mock @wso2/oxygen-ui components
@@ -129,6 +125,7 @@ vi.mock("@wso2/oxygen-ui", () => ({
 vi.mock("@wso2/oxygen-ui-icons-react", () => ({
   Bot: () => <svg data-testid="icon-bot" />,
   CircleAlert: () => <svg data-testid="icon-alert" />,
+  CircleQuestionMark: () => <svg data-testid="icon-question-mark" />,
   CircleCheck: () => <svg data-testid="icon-check" />,
   Clock: () => <svg data-testid="icon-clock" />,
   FileText: () => <svg data-testid="icon-file-text" />,
@@ -138,6 +135,7 @@ vi.mock("@wso2/oxygen-ui-icons-react", () => ({
   TrendingUp: () => <svg data-testid="icon-trending-up" />,
   Info: () => <svg data-testid="icon-info" />,
   Server: () => <svg data-testid="icon-server" />,
+  MessageCircle: () => <svg data-testid="icon-message-circle" />,
   User: () => <svg data-testid="icon-user" />,
   Shield: () => <svg data-testid="icon-shield" />,
   Rocket: () => <svg data-testid="icon-rocket" />,

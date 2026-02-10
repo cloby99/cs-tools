@@ -15,7 +15,7 @@
 // under the License.
 
 import { useParams, useNavigate } from "react-router";
-import { useState, useMemo, type JSX } from "react";
+import { useState, useMemo, type JSX, type ChangeEvent } from "react";
 import {
   Box,
   Button,
@@ -123,8 +123,8 @@ export default function AllCasesPage(): JSX.Element {
 
     // Apply sorting
     filtered.sort((a, b) => {
-      const dateA = new Date(a.createdOn).getTime();
-      const dateB = new Date(b.createdOn).getTime();
+      const dateA = new Date(a.createdOn).getTime() || 0;
+      const dateB = new Date(b.createdOn).getTime() || 0;
       return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
     });
 
@@ -139,10 +139,7 @@ export default function AllCasesPage(): JSX.Element {
 
   const totalPages = Math.ceil(filteredAndSearchedCases.length / pageSize);
 
-  const handlePageChange = (
-    _event: React.ChangeEvent<unknown>,
-    value: number,
-  ) => {
+  const handlePageChange = (_event: ChangeEvent<unknown>, value: number) => {
     setPage(value);
   };
 

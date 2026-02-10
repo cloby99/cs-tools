@@ -63,12 +63,6 @@ export function getChatActionColor(action: ChatAction): ChatActionState {
  * @param status - Chat status string.
  * @returns {string} Palette color path.
  */
-/**
- * Returns the color for a chat status chip.
- *
- * @param status - Chat status string (e.g. Resolved, Still Open, Abandoned).
- * @returns {string} Palette color path.
- */
 export function getChatStatusColor(status: string): string {
   const normalized = status?.toLowerCase() || "";
   if (normalized.includes(ChatStatus.RESOLVED.toLowerCase())) {
