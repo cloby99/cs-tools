@@ -441,3 +441,53 @@ public type AttachmentsResponse record {|
     int totalRecords;
     *Pagination;
 |};
+
+# Deployed product data.
+public type DeployedProduct record {|
+    # ID
+    string id;
+    # Created date and time
+    string createdOn;
+    # Updated date and time
+    string updatedOn;
+    # Description
+    string? description;
+    # Associated deployment
+    ReferenceTableItem? deployment;
+    # Product information
+    ReferenceTableItem? product;
+    json...;
+|};
+
+# Deployed products response.
+public type DeployedProductsResponse record {|
+    # List of deployed products
+    DeployedProduct[] deployedProducts;
+|};
+
+# Deployment data.
+public type Deployment record {|
+    # ID
+    string id;
+    # Name
+    string name;
+    # Created date and time
+    string createdOn;
+    # Updated date and time
+    string updatedOn;
+    # Description
+    string? description;
+    # URL
+    string? url;
+    # Associated project
+    ReferenceTableItem? project;
+    # Type
+    ChoiceListItem? 'type;
+    json...;
+|};
+
+# Deployments response.
+public type DeploymentsResponse record {|
+    # List of deployments
+    Deployment[] deployments;
+|};
