@@ -307,7 +307,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + id - ID of the project
     # + return - Deployments response or error response
     resource function get projects/[string id]/deployments(http:RequestContext ctx)
-        returns DeploymentsResponse|http:BadRequest|http:Forbidden|http:InternalServerError {
+        returns Deployment[]|http:BadRequest|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
