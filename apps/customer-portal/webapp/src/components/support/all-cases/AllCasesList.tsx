@@ -40,7 +40,7 @@ export interface AllCasesListProps {
 }
 
 /**
- * AllCasesList component to display cases as cards.
+ * Component to display cases as cards.
  *
  * @param {AllCasesListProps} props - Cases array and loading state.
  * @returns {JSX.Element} The rendered case cards list.
