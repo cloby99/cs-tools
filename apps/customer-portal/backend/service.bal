@@ -928,7 +928,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + id - ID of the deployment
     # + return - Deployed products response or error response
     resource function get deployments/[string id]/products(http:RequestContext ctx)
-        returns DeployedProductsResponse|http:BadRequest|http:Forbidden|http:InternalServerError {
+        returns DeployedProduct[]|http:BadRequest|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {

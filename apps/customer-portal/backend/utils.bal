@@ -210,7 +210,7 @@ public isolated function mapDeployments(entity:DeploymentsResponse response) ret
 # + response - Deployed products response from the entity service
 # + return - Mapped deployed products response
 public isolated function mapDeployedProducts(entity:DeployedProductsResponse response)
-    returns DeployedProductsResponse {
+    returns DeployedProduct[] {
 
     DeployedProduct[] deployedProducts = from entity:DeployedProduct product in response.products
         let entity:ReferenceTableItem? productModel = product.productModel
@@ -221,7 +221,7 @@ public isolated function mapDeployedProducts(entity:DeployedProductsResponse res
             updatedOn: product.updatedOn,
             description: product.description,
             productModel: productModel != () ? {id: productModel.id, label: productModel.name} : (),
-            deployment: deployment != () ? {id: deployment.id.toString(), label: deployment.name} : ()
+            deployment: deployment != () ? {id: deployment.id, label: deployment.name} : ()
         };
-    return {products: deployedProducts};
+    return deployedProducts;
 }
