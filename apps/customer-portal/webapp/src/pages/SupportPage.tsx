@@ -142,7 +142,6 @@ export default function SupportPage(): JSX.Element {
           </Grid>
         </Grid>
       </Box>
-    </Box>
     </Stack>
   );
 }
