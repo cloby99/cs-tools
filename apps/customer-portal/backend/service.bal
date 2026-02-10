@@ -348,54 +348,6 @@ service http:InterceptableService / on new http:Listener(9090) {
         return mapDeployments(deploymentsResponse);
     }
 
-    # Get products of a deployment by project ID and deployment ID.
-    #
-    # + projectId - ID of the project
-    # + deploymentId - ID of the deployment
-    # + return - Products response or error response
-    resource function get projects/[string projectId]/deployments/[string deploymentId]/products(http:RequestContext
-            ctx) returns DeployedProductsResponse|http:BadRequest|http:Forbidden|http:InternalServerError {
-
-        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
-        if userInfo is error {
-            return <http:InternalServerError>{
-                body: {
-                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
-                }
-            };
-        }
-
-        if isEmptyId(projectId) || isEmptyId(deploymentId) {
-            return <http:BadRequest>{
-                body: {
-                    message: "Project ID and Deployment ID cannot be empty!"
-                }
-            };
-        }
-
-        entity:DeployedProductsResponse|error productsResponse =
-            entity:getDeployedProducts(userInfo.idToken, deploymentId);
-        if productsResponse is error {
-            if getStatusCode(productsResponse) == http:STATUS_FORBIDDEN {
-                logForbiddenProjectAccess(projectId, userInfo.userId);
-                return <http:Forbidden>{
-                    body: {
-                        message: ERR_MSG_PROJECT_ACCESS_FORBIDDEN
-                    }
-                };
-            }
-
-            string customError = "Failed to retrieve products for the deployment.";
-            log:printError(customError, productsResponse);
-            return <http:InternalServerError>{
-                body: {
-                    message: customError
-                }
-            };
-        }
-        return mapDeployedProducts(productsResponse);
-    }
-
     # Get overall project statistics by ID.
     #
     # + id - ID of the project
@@ -969,5 +921,53 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
         return mapAttachmentsResponse(attachmentResponse);
+    }
+
+    # Get products of a deployment by deployment ID.
+    #
+    # + id - ID of the deployment
+    # + return - Deployed products response or error response
+    resource function get deployments/[string id]/products(http:RequestContext ctx)
+        returns DeployedProductsResponse|http:BadRequest|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        if isEmptyId(id) {
+            return <http:BadRequest>{
+                body: {
+                    message: "Deployment ID cannot be empty!"
+                }
+            };
+        }
+
+        entity:DeployedProductsResponse|error productsResponse =
+            entity:getDeployedProducts(userInfo.idToken, id);
+        if productsResponse is error {
+            if getStatusCode(productsResponse) == http:STATUS_FORBIDDEN {
+                string customeErr = string `Access to deployment ID: ${id} is forbidden for user: ${userInfo.userId}`;
+                log:printWarn(customeErr);
+                return <http:Forbidden>{
+                    body: {
+                        message: "Access to the requested deployment is forbidden!"
+                    }
+                };
+            }
+
+            string customError = "Failed to retrieve products for the deployment.";
+            log:printError(customError, productsResponse);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return mapDeployedProducts(productsResponse);
     }
 }
