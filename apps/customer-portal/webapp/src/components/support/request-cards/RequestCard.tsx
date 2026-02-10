@@ -131,6 +131,7 @@ export default function RequestCard({
             display: "flex",
             flexDirection: "column",
             gap: 1,
+            listStyle: "n "
           }}
         >
           {bulletItems.map((item) => (

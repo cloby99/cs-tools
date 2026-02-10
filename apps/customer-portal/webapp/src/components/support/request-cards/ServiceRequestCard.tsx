@@ -18,8 +18,7 @@ import { useNavigate } from "react-router";
 import type { JSX } from "react";
 import { colors } from "@wso2/oxygen-ui";
 import { Server } from "@wso2/oxygen-ui-icons-react";
-import SupportRequestCard from "@components/support/request-cards/RequestCard";
-
+import RequestCard from "@components/support/request-cards/RequestCard";
 import { SERVICE_REQUEST_BULLET_ITEMS } from "@constants/supportConstants";
 
 /**
@@ -32,7 +31,7 @@ export default function ServiceRequestCard(): JSX.Element {
   const navigate = useNavigate();
 
   return (
-    <SupportRequestCard
+    <RequestCard
       title="Service Requests"
       subtitle="Manage deployment operations"
       icon={Server}
