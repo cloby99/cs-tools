@@ -20,8 +20,6 @@ import ballerina/cache;
 import ballerina/http;
 import ballerina/log;
 
-public configurable AppConfig appConfig = ?;
-
 final cache:Cache cache = new ({
     capacity: 2000,
     defaultMaxAge: 1800.0,
@@ -30,40 +28,32 @@ final cache:Cache cache = new ({
 
 @display {
     label: "Customer Service",
-    id: "integration/customer-service"
+    id: "integrations/customer-service"
 }
-
 service / on new http:Listener(9090) {
 
     # Initialize the service.
     #
     function init() returns error? {
-        log:printInfo("integration/customer service started...");
+        log:printInfo("Customer Service started...");
     }
 
-    # Get a list of contacts for given filters.
+    # Search contacts for given filters.
     #
-    # + filter - Contact filters
+    # + filter - Contact search payload
     # + return - List of contacts or http:InternalServerError
-    resource function post contacts/search(entity:ContactFilter filter) returns http:InternalServerError|ContactDetail[] {
-        entity:Contact[]|error customerProfiles = entity:getContactDetails(filter);
-        if customerProfiles is error {
-            log:printError(ERR_MSG_GET_CONTACTS, customerProfiles);
+    resource function post contacts/search(entity:ContactSearchPayload filter) returns Contact[]|http:InternalServerError {
+        entity:Contact[]|error contacts = entity:searchContacts(filter);
+        if contacts is error {
+            log:printError(ERR_MSG_GET_CONTACTS, contacts);
             return <http:InternalServerError>{
                 body: {
                     message: ERR_MSG_GET_CONTACTS
                 }
             };
         }
-        ContactDetail[] filteredContacts = from var profile in customerProfiles
-            let var acc = profile.account
-            select {
-                id: profile.id,
-                email: profile.email,
-                account: acc is () ? () : {
-                        id: acc.id
-                    }
-            };
-        return filteredContacts;
+        return from entity:Contact {id, email, account} in contacts
+            let Account sanitizedAccount = account is entity:Account ? {id: account.id} : {}
+            select {id, email, account: sanitizedAccount};
     }
 }

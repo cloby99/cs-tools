@@ -14,10 +14,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-# get the Contacts details by the email.
-# #
-# + filter - Contact filters
+# Search contacts.
+#
+# + filter - Contact search payload
 # + return - Contact details or error 
-public isolated function getContactDetails(ContactFilter? filter) returns Contact[]|error{
+public isolated function searchContacts(ContactSearchPayload? filter) returns Contact[]|error {
     return httpClient->/contacts/search.post(filter);
 }

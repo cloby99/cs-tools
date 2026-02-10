@@ -14,25 +14,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-# AppConfig Type
-public type AppConfig record {|
-    # Sample AppConfig
-    string sampleAppConfig;
-|};
-
-# Represent a customer contact.
-public type ContactDetail record {|
-    # CRM id
+# Contact.
+public type Contact record {|
+    # ID
     string id?;
-    # Email of the customer
+    # Email
     string email?;
-    # Account (Salesforce) related to the contact
-    AccountDetail account?;
+    # Account information
+    Account account?;
 |};
 
-# [Entity] Account
-public type AccountDetail record{|
-    # Account ID (Salesforce)
+# Account.
+public type Account record {|
+    # Account ID
     string id?;
 |};
-

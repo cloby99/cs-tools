@@ -25,7 +25,9 @@ type Oauth2Config record {|
     string clientSecret;
 |};
 
-public type ContactFilter record {|
+# Contact search payload.
+public type ContactSearchPayload record {|
+    # Email
     @constraint:String {
         minLength: 1,
         pattern: re `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
@@ -44,7 +46,7 @@ public type Account record {|
     json...;
 |};
 
-# Represent a customer contact.
+# [Entity] Contact
 public type Contact record {|
     # CRM id
     string? id;
@@ -54,4 +56,3 @@ public type Contact record {|
     Account? account;
     json...;
 |};
-
