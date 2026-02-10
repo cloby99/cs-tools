@@ -17,6 +17,7 @@
 import {
   mockActiveChatsOptions,
   mockCaseCreationMetadata,
+  mockChatHistory,
   mockOpenCasesOptions,
   mockStatusOptions,
 } from "@models/mockData";
@@ -25,8 +26,10 @@ import type { CaseCreationMetadata } from "@models/mockData";
 import type {
   ProjectCasesStats,
   ProjectSupportStats,
+  ProjectTimeTrackingStats,
   DashboardMockStats,
   ProjectStatsResponse,
+  ChatHistoryResponse,
 } from "@models/responses";
 
 /**
@@ -112,6 +115,18 @@ export const getMockProjectCasesStats = (): ProjectCasesStats => {
     totalCases: Math.floor(Math.random() * 100) + 50,
   };
 };
+
+/**
+ * Returns mock time tracking statistics for a project.
+ *
+ * @returns {ProjectTimeTrackingStats} Mock project time tracking statistics.
+ */
+export const getMockProjectTimeTrackingStats =
+  (): ProjectTimeTrackingStats => ({
+    totalHours: 17.5,
+    billableHours: 15,
+    nonBillableHours: 2.5,
+  });
 
 /**
  * Returns a random AI response from Novera.
@@ -231,6 +246,15 @@ export const getMockDashboardStats = (): DashboardMockStats => {
       },
     ],
   };
+};
+
+/**
+ * Returns mock chat history for a project.
+ *
+ * @returns {ChatHistoryResponse} Mock chat history list.
+ */
+export const getMockChatHistory = (): ChatHistoryResponse => {
+  return mockChatHistory;
 };
 
 /**
