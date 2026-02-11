@@ -33,6 +33,11 @@ vi.mock("@wso2/oxygen-ui", () => ({
       {children}
     </span>
   ),
+  Tooltip: ({ children, title }: any) => (
+    <div data-testid="tooltip" title={title}>
+      {children}
+    </div>
+  ),
 }));
 
 describe("ProjectCardInfo", () => {
@@ -57,5 +62,30 @@ describe("ProjectCardInfo", () => {
 
     expect(screen.getByTestId("typography-h6")).toBeInTheDocument();
     expect(screen.getByTestId("typography-body2")).toBeInTheDocument();
+  });
+
+  it("should display '--' fallback for empty title and subtitle", () => {
+    const props = {
+      title: "",
+      subtitle: "",
+    };
+
+    render(<ProjectCardInfo {...props} />);
+
+    expect(screen.getAllByText("--")).toHaveLength(2);
+  });
+
+  it("should wrap title and subheader in Tooltips", () => {
+    const props = {
+      title: "Title",
+      subtitle: "Subtitle",
+    };
+
+    render(<ProjectCardInfo {...props} />);
+
+    const tooltips = screen.getAllByTestId("tooltip");
+    expect(tooltips).toHaveLength(2);
+    expect(tooltips[0]).toHaveAttribute("title", "Title");
+    expect(tooltips[1]).toHaveAttribute("title", "Subtitle");
   });
 });
