@@ -211,8 +211,39 @@ describe("CasesTable", () => {
     await waitFor(() => {
       // The count should be 1 (filtered locally)
       expect(screen.getByTestId("case-count")).toHaveTextContent("1");
-      // Total records in current view should be 1
-      expect(screen.getByTestId("total-records")).toHaveTextContent("1");
+      // Total records should still reflect API total (2)
+      expect(screen.getByTestId("total-records")).toHaveTextContent("2");
+    });
+  });
+
+  it("should show 0 total records when no cases match filter", async () => {
+    mockUseGetProjectCases.mockReturnValue({
+      data: {
+        pages: [
+          {
+            cases: [],
+            totalRecords: 58,
+            offset: 0,
+            limit: 10,
+          },
+        ],
+        pageParams: [0],
+      },
+      isFetching: false,
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+    } as any);
+
+    render(
+      <ThemeProvider theme={theme}>
+        <CasesTable projectId={mockProjectId} />
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("case-count")).toHaveTextContent("0");
+      expect(screen.getByTestId("total-records")).toHaveTextContent("0");
     });
   });
 
