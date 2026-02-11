@@ -26,12 +26,12 @@ import type { JSX, SVGProps } from "react";
 const ErrorStateIcon = (props: SVGProps<SVGSVGElement>): JSX.Element => (
   <svg
     width="268"
-    height="229"
+    height="191"
     viewBox="0 0 592 421"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
-    aria-hidden
-    focusable={false}
+    aria-hidden="true"
+    focusable="false"
     {...props}
   >
     <g clipPath="url(#clip0_error_1857_100)">
