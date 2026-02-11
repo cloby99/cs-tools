@@ -121,7 +121,7 @@ export default function ProjectHub(): JSX.Element {
       );
     }
 
-    if (!projects || projects.length === 0) {
+    if (projects.length === 0) {
       return (
         <Box
           sx={{
