@@ -131,30 +131,32 @@ describe("useGetUpdatesStats", () => {
       CUSTOMER_PORTAL_BACKEND_BASE_URL: "https://api.example.com",
     };
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockResponse),
-        status: 200,
-      } as Response),
-    );
+    try {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+          status: 200,
+        } as Response),
+      );
 
-    const { result } = renderHook(() => useGetUpdatesStats("project-1"), {
-      wrapper,
-    });
+      const { result } = renderHook(() => useGetUpdatesStats("project-1"), {
+        wrapper,
+      });
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(result.current.data).toEqual(mockResponse);
-    expect(mockGetIdToken).toHaveBeenCalled();
-    expect(mockLogger.debug).toHaveBeenCalledWith(
-      expect.stringContaining(
-        "Fetching updates stats for project ID: project-1, mock: false",
-      ),
-    );
-
-    (window as { config?: unknown }).config = originalWindowConfig;
+      expect(result.current.data).toEqual(mockResponse);
+      expect(mockGetIdToken).toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "Fetching updates stats for project ID: project-1, mock: false",
+        ),
+      );
+    } finally {
+      (window as { config?: unknown }).config = originalWindowConfig;
+    }
   });
 
   it("should handle API error when isMockEnabled is false", async () => {
@@ -165,26 +167,28 @@ describe("useGetUpdatesStats", () => {
       CUSTOMER_PORTAL_BACKEND_BASE_URL: "https://api.example.com",
     };
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: false,
-        statusText: "Internal Server Error",
-        status: 500,
-      } as Response),
-    );
+    try {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: false,
+          statusText: "Internal Server Error",
+          status: 500,
+        } as Response),
+      );
 
-    const { result } = renderHook(() => useGetUpdatesStats("project-1"), {
-      wrapper,
-    });
+      const { result } = renderHook(() => useGetUpdatesStats("project-1"), {
+        wrapper,
+      });
 
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(result.current.error?.message).toContain(
-      "Error fetching updates stats: Internal Server Error",
-    );
-    expect(mockLogger.error).toHaveBeenCalled();
-
-    (window as { config?: unknown }).config = originalWindowConfig;
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(result.current.error?.message).toContain(
+        "Error fetching updates stats: Internal Server Error",
+      );
+      expect(mockLogger.error).toHaveBeenCalled();
+    } finally {
+      (window as { config?: unknown }).config = originalWindowConfig;
+    }
   });
 
   it("should not fetch if projectId is empty", () => {
