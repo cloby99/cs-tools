@@ -353,16 +353,19 @@ export const mockCases: CaseListItem[] = [
     },
     issueType: {
       id: "3",
-      label: "Incident",
+      label: "Performance Degradation",
     },
     deployedProduct: null,
-    deployment: null,
+    deployment: {
+      id: "2",
+      label: "Production",
+    },
     severity: {
-      id: "11",
-      label: "High (P2)",
+      id: "61",
+      label: "S1",
     },
     status: {
-      id: "1001",
+      id: "10",
       label: CASE_STATUS.IN_PROGRESS,
     },
   },
@@ -379,12 +382,15 @@ export const mockCases: CaseListItem[] = [
       label: "Customer Analytics Platform",
     },
     issueType: {
-      id: "0d5b8fbd1b18f010cb6898aebd4bcba5",
-      label: "Query",
+      id: "4",
+      label: "Question",
     },
     deployedProduct: null,
     deployment: null,
-    severity: null,
+    severity: {
+      id: "62",
+      label: "S2",
+    },
     status: {
       id: "1",
       label: CASE_STATUS.OPEN,
@@ -403,14 +409,14 @@ export const mockCases: CaseListItem[] = [
       label: "Customer Portal – Subscription",
     },
     issueType: {
-      id: "42fb4b311b58f010cb6898aebd4bcb94",
-      label: "New Feature",
+      id: "4",
+      label: "Question",
     },
     deployedProduct: null,
     deployment: null,
     severity: {
-      id: "12",
-      label: "Medium (P3)",
+      id: "62",
+      label: "S2",
     },
     status: {
       id: "1",
@@ -432,16 +438,16 @@ export const mockCases: CaseListItem[] = [
     },
     issueType: {
       id: "3",
-      label: "Incident",
+      label: "Performance Degradation",
     },
     deployedProduct: null,
     deployment: {
-      id: "4",
-      label: "Staging",
+      id: "3",
+      label: "Non-Production",
     },
     severity: {
-      id: "11",
-      label: "High (P2)",
+      id: "61",
+      label: "S1",
     },
     status: {
       id: "1",
@@ -461,14 +467,14 @@ export const mockCases: CaseListItem[] = [
       label: "Customer Analytics Platform",
     },
     issueType: {
-      id: "c10c0ffd1b18f010cb6898aebd4bcb0f",
-      label: "Task",
+      id: "6",
+      label: "Error",
     },
     deployedProduct: null,
     deployment: null,
     severity: {
-      id: "13",
-      label: "Low (P4)",
+      id: "63",
+      label: "S3",
     },
     status: {
       id: "3",
@@ -489,7 +495,7 @@ export const mockCases: CaseListItem[] = [
     },
     issueType: {
       id: "3",
-      label: "Incident",
+      label: "Performance Degradation",
     },
     deployedProduct: null,
     deployment: {
@@ -497,8 +503,8 @@ export const mockCases: CaseListItem[] = [
       label: "Production",
     },
     severity: {
-      id: "11",
-      label: "High (P2)",
+      id: "61",
+      label: "S1",
     },
     status: {
       id: "1",
@@ -518,14 +524,14 @@ export const mockCases: CaseListItem[] = [
       label: "Customer Analytics Platform",
     },
     issueType: {
-      id: "25db43311b58f010cb6898aebd4bcb09",
-      label: "Bug",
+      id: "6",
+      label: "Error",
     },
     deployedProduct: null,
     deployment: null,
     severity: {
-      id: "12",
-      label: "Medium (P3)",
+      id: "62",
+      label: "S2",
     },
     status: {
       id: "1",
@@ -545,14 +551,14 @@ export const mockCases: CaseListItem[] = [
       label: "Customer Portal – Subscription",
     },
     issueType: {
-      id: "25db43311b58f010cb6898aebd4bcb09",
-      label: "Bug",
+      id: "6",
+      label: "Error",
     },
     deployedProduct: null,
     deployment: null,
     severity: {
-      id: "13",
-      label: "Low (P4)",
+      id: "63",
+      label: "S3",
     },
     status: {
       id: "1",
@@ -572,17 +578,17 @@ export const mockCases: CaseListItem[] = [
       label: "Internal Tools",
     },
     issueType: {
-      id: "5aeff1201b74c210264c997a234bcb54",
-      label: "Service Request",
+      id: "1",
+      label: "Total Outage",
     },
     deployedProduct: null,
     deployment: {
-      id: "4",
-      label: "Staging",
+      id: "3",
+      label: "Non-Production",
     },
     severity: {
-      id: "12",
-      label: "Medium (P3)",
+      id: "62",
+      label: "S2",
     },
     status: {
       id: "1",
@@ -602,14 +608,14 @@ export const mockCases: CaseListItem[] = [
       label: "Customer Portal – Subscription",
     },
     issueType: {
-      id: "25db43311b58f010cb6898aebd4bcb09",
-      label: "Bug",
+      id: "6",
+      label: "Error",
     },
     deployedProduct: null,
     deployment: null,
     severity: {
-      id: "13",
-      label: "Low (P4)",
+      id: "63",
+      label: "S3",
     },
     status: {
       id: "3",
@@ -630,16 +636,16 @@ export const mockCases: CaseListItem[] = [
     },
     issueType: {
       id: "3",
-      label: "Incident",
+      label: "Performance Degradation",
     },
     deployedProduct: null,
     deployment: null,
     severity: {
-      id: "11",
-      label: "High (P2)",
+      id: "61",
+      label: "S1",
     },
     status: {
-      id: "1001",
+      id: "10",
       label: CASE_STATUS.IN_PROGRESS,
     },
   },
@@ -656,14 +662,14 @@ export const mockCases: CaseListItem[] = [
       label: "Customer Analytics Platform",
     },
     issueType: {
-      id: "42fb4b311b58f010cb6898aebd4bcb94",
-      label: "New Feature",
+      id: "4",
+      label: "Question",
     },
     deployedProduct: null,
     deployment: null,
     severity: {
-      id: "12",
-      label: "Medium (P3)",
+      id: "62",
+      label: "S2",
     },
     status: {
       id: "1",
@@ -683,8 +689,8 @@ export const mockCases: CaseListItem[] = [
       label: "Customer Portal – Subscription",
     },
     issueType: {
-      id: "ab36479047ccf510a0a29cd3846d43ee",
-      label: "Security Report Analysis",
+      id: "5",
+      label: "Security or Compliance",
     },
     deployedProduct: null,
     deployment: {
@@ -692,8 +698,8 @@ export const mockCases: CaseListItem[] = [
       label: "Production",
     },
     severity: {
-      id: "14",
-      label: "Catastrophic (P0)",
+      id: "60",
+      label: "S0",
     },
     status: {
       id: "1",
@@ -714,13 +720,13 @@ export const mockCases: CaseListItem[] = [
     },
     issueType: {
       id: "3",
-      label: "Incident",
+      label: "Performance Degradation",
     },
     deployedProduct: null,
     deployment: null,
     severity: {
-      id: "11",
-      label: "High (P2)",
+      id: "61",
+      label: "S1",
     },
     status: {
       id: "1",
@@ -740,14 +746,14 @@ export const mockCases: CaseListItem[] = [
       label: "Internal Tools",
     },
     issueType: {
-      id: "3b8b43311b58f010cb6898aebd4bcb8f",
-      label: "Announcement",
+      id: "6",
+      label: "Error",
     },
     deployedProduct: null,
     deployment: null,
     severity: {
-      id: "13",
-      label: "Low (P4)",
+      id: "63",
+      label: "S3",
     },
     status: {
       id: "3",
@@ -767,14 +773,14 @@ export const mockCases: CaseListItem[] = [
       label: "Customer Portal – Subscription",
     },
     issueType: {
-      id: "e0eb43fd1b18f010cb6898aebd4bcb3c",
-      label: "Improvement",
+      id: "6",
+      label: "Error",
     },
     deployedProduct: null,
     deployment: null,
     severity: {
-      id: "12",
-      label: "Medium (P3)",
+      id: "62",
+      label: "S2",
     },
     status: {
       id: "6",
@@ -794,17 +800,17 @@ export const mockCases: CaseListItem[] = [
       label: "Internal Tools",
     },
     issueType: {
-      id: "c10c0ffd1b18f010cb6898aebd4bcb0f",
-      label: "Task",
+      id: "6",
+      label: "Error",
     },
     deployedProduct: null,
     deployment: {
-      id: "4",
-      label: "Staging",
+      id: "3",
+      label: "Non-Production",
     },
     severity: {
-      id: "11",
-      label: "High (P2)",
+      id: "61",
+      label: "S1",
     },
     status: {
       id: "1",
@@ -824,14 +830,14 @@ export const mockCases: CaseListItem[] = [
       label: "Customer Portal – Subscription",
     },
     issueType: {
-      id: "25db43311b58f010cb6898aebd4bcb09",
-      label: "Bug",
+      id: "6",
+      label: "Error",
     },
     deployedProduct: null,
     deployment: null,
     severity: {
-      id: "13",
-      label: "Low (P4)",
+      id: "63",
+      label: "S3",
     },
     status: {
       id: "1",
@@ -852,7 +858,7 @@ export const mockCases: CaseListItem[] = [
     },
     issueType: {
       id: "3",
-      label: "Incident",
+      label: "Performance Degradation",
     },
     deployedProduct: null,
     deployment: {
@@ -860,8 +866,8 @@ export const mockCases: CaseListItem[] = [
       label: "Production",
     },
     severity: {
-      id: "10",
-      label: "Critical (P1)",
+      id: "61",
+      label: "S1",
     },
     status: {
       id: "1",
@@ -881,14 +887,14 @@ export const mockCases: CaseListItem[] = [
       label: "Customer Analytics Platform",
     },
     issueType: {
-      id: "c10c0ffd1b18f010cb6898aebd4bcb0f",
-      label: "Task",
+      id: "6",
+      label: "Error",
     },
     deployedProduct: null,
     deployment: null,
     severity: {
-      id: "12",
-      label: "Medium (P3)",
+      id: "62",
+      label: "S2",
     },
     status: {
       id: "3",

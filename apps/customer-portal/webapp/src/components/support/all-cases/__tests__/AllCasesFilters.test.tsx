@@ -27,6 +27,7 @@ describe("AllCasesFilters", () => {
     statusId: "",
     severityId: "",
     issueTypes: "",
+    deploymentId: "",
   };
 
   beforeEach(() => {
@@ -49,6 +50,7 @@ describe("AllCasesFilters", () => {
     expect(screen.getAllByText("Status")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Severity")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Category")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Deployment")[0]).toBeInTheDocument();
   });
 
   it("should call onFilterChange when a filter is changed", async () => {

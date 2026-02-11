@@ -33,6 +33,7 @@ describe("AllCasesSearchBar", () => {
     statusId: "",
     severityId: "",
     issueTypes: "",
+    deploymentId: "",
   };
 
   beforeEach(() => {
