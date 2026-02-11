@@ -120,7 +120,7 @@ describe("CasesTable", () => {
     } as any);
     mockUseGetCasesFilters.mockReturnValue({
       data: undefined,
-      isLoading: false,
+      isFetching: false,
       isError: false,
     } as any);
   });

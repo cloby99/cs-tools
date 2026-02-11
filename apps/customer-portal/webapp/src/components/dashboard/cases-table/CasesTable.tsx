@@ -90,6 +90,12 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
     },
   ];
 
+  const parseFilterId = (value: string | undefined): number | undefined => {
+    if (!value) return undefined;
+    const parsed = parseInt(value, 10);
+    return isNaN(parsed) ? undefined : parsed;
+  };
+
   const hasFilters = Object.values(filters).some(
     (val) => val !== undefined && val !== "" && val !== null,
   );
@@ -97,16 +103,10 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
   const requestBody: CaseSearchRequest = {
     ...(hasFilters && {
       filters: {
-        deploymentId: filters.deploymentId
-          ? parseInt(filters.deploymentId, 10)
-          : undefined,
-        severityId: filters.severityId
-          ? parseInt(filters.severityId, 10)
-          : undefined,
-        statusId: filters.statusId ? parseInt(filters.statusId, 10) : undefined,
-        issueId: filters.issueTypes
-          ? parseInt(filters.issueTypes, 10)
-          : undefined,
+        deploymentId: parseFilterId(filters.deploymentId),
+        severityId: parseFilterId(filters.severityId),
+        statusId: parseFilterId(filters.statusId),
+        issueId: parseFilterId(filters.issueTypes),
       },
     }),
     pagination: {
