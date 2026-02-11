@@ -31,6 +31,8 @@ public type CacheConfig record {|
 
 # Case search filters.
 public type CaseSearchFilters record {|
+    # Search query for case number, title and description
+    string searchQuery?;
     # Issue ID
     int issueId?;
     # Status ID

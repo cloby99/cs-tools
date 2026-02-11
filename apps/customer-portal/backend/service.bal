@@ -1039,6 +1039,63 @@ service http:InterceptableService / on new http:Listener(9090) {
         return createdCaseResponse.comment;
     }
 
+    # Create a new attachment for a specific case.
+    # 
+    # + id - ID of the case
+    # + return - Created attachment or error response
+    resource function post cases/[string id]/attachments(http:RequestContext ctx)
+        returns entity:CreatedAttachment|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        if isEmptyId(id) {
+            return <http:BadRequest>{
+                body: {
+                    message: ERR_MSG_CASE_ID_EMPTY
+                }
+            };
+        }
+
+        entity:AttachmentCreateResponse|error createdAttachmentResponse = entity:createAttachment(userInfo.idToken);
+        if createdAttachmentResponse is error {
+            if getStatusCode(createdAttachmentResponse) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
+            if getStatusCode(createdAttachmentResponse) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `User: ${userInfo.userId} is forbidden to add attachment to case with ID: ${id}!`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "You're not authorized to add attachments to the requested case. " +
+                        "Please check your access permissions or contact support."
+                    }
+                };
+            }
+
+            string customError = "Failed to create a new attachment.";
+            log:printError(customError, createdAttachmentResponse);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+
+        return createdAttachmentResponse.attachment;
+    }
+
     # Get products of a deployment by deployment ID.
     #
     # + id - ID of the deployment

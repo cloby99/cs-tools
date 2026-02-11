@@ -216,6 +216,8 @@ public type ReferenceTableItem record {|
 public type CaseSearchFilters record {|
     # List of project IDs to filter
     string[] projectIds?;
+    # Search query for case number, title and description
+    string searchQuery?;
     # List of issue types to filter
     int[] issueTypeKeys?;
     # State key
@@ -537,5 +539,30 @@ public type CommentCreateResponse record {|
     string message;
     # Created comment details
     CreatedComment comment;
+    json...;
+|};
+
+# Response from creating an attachment.
+public type AttachmentCreateResponse record {|
+    # Success status
+    boolean success;
+    # Success message
+    string message;
+    # Created attachment details
+    CreatedAttachment attachment;
+|};
+
+# Created attachment details.
+public type CreatedAttachment record {|
+    # System ID of the created attachment
+    string id;
+    # File size in bytes
+    int sizeBytes;
+    # Created date and time
+    string createdOn;
+    # User who created the attachment
+    string createdBy;
+    # Download URL
+    string downloadUrl;
     json...;
 |};

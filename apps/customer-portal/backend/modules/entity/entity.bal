@@ -134,6 +134,14 @@ public isolated function searchAttachments(string idToken, ReferenceSearchPayloa
     return csEntityClient->/attachments/search.post(payload, generateHeaders(idToken));
 }
 
+# Create an attachment.
+#
+# + idToken - ID token for authorization
+# + return - Attachment creation response or error
+public isolated function createAttachment(string idToken) returns AttachmentCreateResponse|error {
+    return csEntityClient->/attachments.post({}, generateHeaders(idToken));
+}
+
 # Get products of a deployment.
 #
 # + idToken - ID token for authorization

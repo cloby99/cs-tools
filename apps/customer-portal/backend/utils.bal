@@ -31,6 +31,7 @@ public isolated function searchCases(string idToken, string projectId, CaseSearc
     entity:CaseSearchPayload searchPayload = {
         filters: {
             projectIds: [projectId],
+            searchQuery: payload.filters?.searchQuery,
             issueTypeKeys: issueId != () ? [issueId] : (),
             severityKey: payload.filters?.severityId,
             stateKey: payload.filters?.statusId,
