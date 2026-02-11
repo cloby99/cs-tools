@@ -150,6 +150,8 @@ describe("ProjectHub", () => {
     );
 
     expect(screen.getAllByTestId("project-skeleton")).toHaveLength(3);
+    expect(screen.queryByText("No Projects Yet")).not.toBeInTheDocument();
+    expect(screen.getByText(/Select Your Project/i)).toBeInTheDocument();
   });
 
   it("should render loading skeletons when isAuthLoading is true", () => {
@@ -167,6 +169,8 @@ describe("ProjectHub", () => {
     );
 
     expect(screen.getAllByTestId("project-skeleton")).toHaveLength(3);
+    expect(screen.queryByText("No Projects Yet")).not.toBeInTheDocument();
+    expect(screen.getByText(/Select Your Project/i)).toBeInTheDocument();
   });
 
   it("should render project cards when data is loaded", () => {
@@ -200,6 +204,8 @@ describe("ProjectHub", () => {
     );
 
     expect(screen.getByTestId("tooltip")).toBeInTheDocument();
+    expect(screen.queryByText("No Projects Yet")).not.toBeInTheDocument();
+    expect(screen.getByText(/Select Your Project/i)).toBeInTheDocument();
     await waitFor(() => {
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining("Failed to load projects"),

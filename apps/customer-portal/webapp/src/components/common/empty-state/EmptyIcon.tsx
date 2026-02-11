@@ -29,6 +29,8 @@ const EmptyIcon = (props: SVGProps<SVGSVGElement>): JSX.Element => (
     viewBox="0 0 268 229"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+    focusable="false"
     {...props}
   >
     <path

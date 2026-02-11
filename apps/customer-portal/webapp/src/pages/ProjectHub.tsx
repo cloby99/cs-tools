@@ -220,7 +220,7 @@ export default function ProjectHub(): JSX.Element {
           >
             <FolderOpen size={28} />
             <Typography variant="h4">
-              {projects.length === 0
+              {!isLoading && !isAuthLoading && !isError && projects.length === 0
                 ? "No Projects Yet"
                 : "Select Your Project"}
             </Typography>
@@ -228,7 +228,7 @@ export default function ProjectHub(): JSX.Element {
 
           {/* project hub subtitle */}
           <Typography variant="subtitle2" color="text.secondary">
-            {projects.length === 0
+            {!isLoading && !isAuthLoading && !isError && projects.length === 0
               ? "Projects will appear here once they are created or assigned to you"
               : "Choose a project to access your support cases, chat history, and dashboard"}
           </Typography>
