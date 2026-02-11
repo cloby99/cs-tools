@@ -300,8 +300,6 @@ public type CommentCreatePayload record {|
 
 # Payload for creating an attachment.
 public type AttachmentPayload record {|
-    # Reference ID to which the attachment is associated (e.g., query ID, incident ID, etc)
-    string referenceId;
     # Reference type
     entity:ReferenceType referenceType;
     # File name
