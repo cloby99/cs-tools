@@ -40,7 +40,7 @@ export function LoaderProvider({
 }): JSX.Element {
   const [isVisible, setIsVisible] = useState(false);
   const loaderCount = useRef(0);
-  const timeoutRef = useRef<any>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showLoader = useCallback(() => {
     if (timeoutRef.current) {

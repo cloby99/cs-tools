@@ -57,7 +57,7 @@ export default function ProjectHub(): JSX.Element {
   // Navigate to dashboard if there is only one project
   useEffect(() => {
     if (!isLoading && !isAuthLoading && !isError && projects.length === 1) {
-      navigate(`/${projects[0].id}/dashboard`);
+      navigate(`/${projects[0].id}/dashboard`, { replace: true });
     }
   }, [projects, isLoading, isAuthLoading, isError, navigate]);
 
