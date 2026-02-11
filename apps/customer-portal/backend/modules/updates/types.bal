@@ -161,13 +161,6 @@ public type ListUpdatePayload record {|
     string[] hotfixes;
 |};
 
-# Update search payload.
-public type UpdateSearchPayload record {|
-    *ListUpdatePayload;
-    # Update level state
-    string? updateLevelState;
-|};
-
 # Product update level.
 public type ProductUpdateLevel record {|
     # Product name

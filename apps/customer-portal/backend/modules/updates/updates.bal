@@ -26,34 +26,15 @@ public isolated function getRecommendedUpdateLevels(string email) returns Recomm
 #
 # + idToken - ID token for authentication
 # + payload - Payload for listing updates
-# + updateLevelState - Optional string parameter to filter updates based on their level state
 # + return - List of updates, or an error if the operation fails
-public isolated function listUpdates(string idToken, ListUpdatePayload payload, string? updateLevelState)
-    returns UpdateResponse|error {
-
-    string? updateLevelStateToUse = updateLevelState;
-    if updateLevelStateToUse is string {
-        return updatesClient->/updates/list\-updates.post(payload, generateHeaders(idToken), readOnly = true,
-            updateLevelState = updateLevelStateToUse
-        );
-    }
-
+public isolated function listUpdates(string idToken, ListUpdatePayload payload) returns UpdateResponse|error {
     return updatesClient->/updates/list\-updates.post(payload, generateHeaders(idToken), readOnly = true);
 }
 
 # Get product update levels based on the provided parameters.
 #
 # + idToken - ID token for authentication
-# + updateLevelState - Optional string parameter to filter updates based on their level state
 # + return - List of product update levels, or an error if the operation fails
-public isolated function getProductUpdateLevels(string idToken, string? updateLevelState)
-    returns ProductUpdateLevel[]|error {
-
-    string? updateLevelStateToUse = updateLevelState;
-    if updateLevelStateToUse is string {
-        return updatesClient->/updates/product\-update\-levels.get(generateHeaders(idToken),
-            updateLevelState = updateLevelStateToUse
-        );
-    }
+public isolated function getProductUpdateLevels(string idToken) returns ProductUpdateLevel[]|error {
     return updatesClient->/updates/product\-update\-levels.get(generateHeaders(idToken));
 }

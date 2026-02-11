@@ -1056,7 +1056,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     #
     # + payload - Update search payload containing filters
     # + return - List of updates matching or an error
-    resource function post updates/search(http:RequestContext ctx, updates:UpdateSearchPayload payload)
+    resource function post updates/search(http:RequestContext ctx, updates:ListUpdatePayload payload)
         returns updates:UpdateResponse|http:BadRequest|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
@@ -1068,7 +1068,7 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        updates:UpdateResponse|error updateResponse = updates:searchUpdates(userInfo.idToken, payload);
+        updates:UpdateResponse|error updateResponse = updates:listUpdates(userInfo.idToken, payload);
         if updateResponse is error {
             string customError = "Failed to search updates.";
             log:printError(customError, updateResponse);
@@ -1082,10 +1082,9 @@ service http:InterceptableService / on new http:Listener(9090) {
     }
 
     # Get product update levels.
-    #
-    # + updateLevelState - Update level state
+    # 
     # + return - List of product update levels or an error
-    resource function get updates/product\-update\-levels(http:RequestContext ctx, string? updateLevelState)
+    resource function get updates/product\-update\-levels(http:RequestContext ctx)
         returns updates:ProductUpdateLevel[]|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
@@ -1097,8 +1096,7 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        updates:ProductUpdateLevel[]|error productUpdateLevels =
-            updates:getProductUpdateLevels(userInfo.idToken, updateLevelState);
+        updates:ProductUpdateLevel[]|error productUpdateLevels = updates:getProductUpdateLevels(userInfo.idToken);
         if productUpdateLevels is error {
             string customError = "Failed to get product update levels.";
             log:printError(customError, productUpdateLevels);

@@ -19,20 +19,3 @@
 # + token - ID token for authorization
 # + return - Map of headers with authorization
 isolated function generateHeaders(string token) returns map<string|string[]> => {"x-jwt-assertion": token};
-
-# Search for updates based on the provided criteria.
-#
-# + idToken - ID token for authorization
-# + payload - Search criteria for updates
-# + return - List of updates, or an error if the operation fails
-public isolated function searchUpdates(string idToken, UpdateSearchPayload payload) returns UpdateResponse|error {
-    ListUpdatePayload listUpdatePayload = {
-        productName: payload.productName,
-        productBaseVersion: payload.productBaseVersion,
-        channel: payload.channel,
-        startingUpdateLevel: payload.startingUpdateLevel,
-        endingUpdateLevel: payload.endingUpdateLevel,
-        hotfixes: payload.hotfixes
-    };
-    return listUpdates(idToken, listUpdatePayload, payload.updateLevelState);
-}
