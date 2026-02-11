@@ -145,7 +145,11 @@ export interface CaseListItem {
     id: string;
     label: string;
   };
-  type: {
+  issueType: {
+    id: string;
+    label: string;
+  } | null;
+  deployedProduct: {
     id: string;
     label: string;
   } | null;
@@ -199,10 +203,10 @@ export interface MetadataItem {
 
 // Response for case metadata (fetching possible statuses, severities, types)
 export interface CaseMetadataResponse {
-  statuses: MetadataItem[];
-  severities: MetadataItem[];
-  caseTypes: MetadataItem[];
-  deployments: MetadataItem[];
+  statuses?: MetadataItem[];
+  severities?: MetadataItem[];
+  issueTypes?: MetadataItem[];
+  deployments?: MetadataItem[];
 }
 
 // Chat history list item (support chat session summary).
@@ -224,7 +228,7 @@ export interface ChatHistoryResponse {
 export interface AllCasesFilterValues {
   statusId?: string;
   severityId?: string;
-  caseTypes?: string;
+  issueTypes?: string;
   deploymentId?: string;
 }
 

@@ -60,8 +60,7 @@ export default function AllCasesPage(): JSX.Element {
   } = useGetProjectCasesStats(projectId || "");
 
   // Fetch filter metadata
-  const { data: filterMetadata, isFetching: isFiltersMetadataLoading } =
-    useGetCasesFilters(projectId || "");
+  const { data: filterMetadata } = useGetCasesFilters(projectId || "");
 
   // Fetch all cases
   const { data: casesData, isFetching: isCasesLoading } = useGetProjectCases(
@@ -104,9 +103,9 @@ export default function AllCasesPage(): JSX.Element {
     }
 
     // Apply category/case type filter
-    if (filters.caseTypes) {
+    if (filters.issueTypes) {
       filtered = filtered.filter(
-        (caseItem) => caseItem.type?.id === filters.caseTypes,
+        (caseItem) => caseItem.issueType?.id === filters.issueTypes,
       );
     }
 
