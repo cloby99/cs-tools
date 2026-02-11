@@ -30,5 +30,6 @@ export const ApiQueryKeys = {
   CASE_DETAILS: "case-details",
   CASE_COMMENTS: "case-comments",
   CHAT_HISTORY: "chat-history",
+  DEPLOYMENTS: "deployments",
   TIME_TRACKING_STATS: "time-tracking-stats",
 } as const;

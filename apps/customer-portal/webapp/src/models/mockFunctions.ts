@@ -19,6 +19,7 @@ import {
   mockCaseCreationMetadata,
   mockChatHistory,
   mockOpenCasesOptions,
+  mockDeployments,
   mockStatusOptions,
 } from "@models/mockData";
 import type { CaseCreationMetadata } from "@models/mockData";
@@ -30,6 +31,7 @@ import type {
   DashboardMockStats,
   ProjectStatsResponse,
   ChatHistoryResponse,
+  DeploymentsResponse,
 } from "@models/responses";
 
 /**
@@ -268,7 +270,7 @@ export const getMockProjectStats = (): ProjectStatsResponse => {
       activeChats: Math.floor(Math.random() * 10),
       deployments: Math.floor(Math.random() * 20),
       openCases: Math.floor(Math.random() * 15),
-      slaStatus: Math.random() > 0.5 ? "Good" : "Bad",
+      slaStatus: Math.random() > 0.5 ? "All Good" : "Critical Issues",
     },
     recentActivity: {
       billableHours: Math.floor(Math.random() * 100),
@@ -277,4 +279,16 @@ export const getMockProjectStats = (): ProjectStatsResponse => {
       totalTimeLogged: Math.floor(Math.random() * 200),
     },
   };
+};
+
+/**
+ * Returns mock deployments for a project (used when isMockEnabled).
+ *
+ * @param {string} [_projectId] - Optional project ID; currently returns same list for all projects.
+ * @returns {DeploymentsResponse} Mock deployments list.
+ */
+export const getMockDeployments = (
+  _projectId?: string,
+): DeploymentsResponse => {
+  return { deployments: mockDeployments };
 };
