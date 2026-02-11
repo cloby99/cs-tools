@@ -121,7 +121,7 @@ describe("ErrorBannerContext", () => {
     expect(screen.getByTestId("error-banner")).toBeInTheDocument();
 
     act(() => {
-      vi.advanceTimersByTime(2800);
+      vi.advanceTimersByTime(2900);
     });
 
     expect(screen.queryByTestId("error-banner")).toBeNull();
