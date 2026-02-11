@@ -367,7 +367,7 @@ export const mockCases: CaseListItem[] = [
     },
     status: {
       id: "10",
-      label: CASE_STATUS.IN_PROGRESS,
+      label: CASE_STATUS.WORK_IN_PROGRESS,
     },
   },
   {
@@ -921,7 +921,7 @@ export const mockCases: CaseListItem[] = [
     deployedProduct: null,
     deployment: {
       id: "2",
-      label: "QA Environment",
+      label: "Production",
     },
     severity: {
       id: "61",
@@ -983,7 +983,7 @@ export const mockCases: CaseListItem[] = [
     },
     status: {
       id: "10",
-      label: CASE_STATUS.IN_PROGRESS,
+      label: CASE_STATUS.WORK_IN_PROGRESS,
     },
   },
   {
@@ -1094,7 +1094,7 @@ export const mockCases: CaseListItem[] = [
     },
     status: {
       id: "10",
-      label: CASE_STATUS.IN_PROGRESS,
+      label: CASE_STATUS.WORK_IN_PROGRESS,
     },
   },
   {
@@ -1208,7 +1208,7 @@ export const mockCases: CaseListItem[] = [
     },
     status: {
       id: "10",
-      label: CASE_STATUS.IN_PROGRESS,
+      label: CASE_STATUS.WORK_IN_PROGRESS,
     },
   },
   {
@@ -1373,7 +1373,7 @@ export const mockCases: CaseListItem[] = [
     },
     status: {
       id: "10",
-      label: CASE_STATUS.IN_PROGRESS,
+      label: CASE_STATUS.WORK_IN_PROGRESS,
     },
   },
   {

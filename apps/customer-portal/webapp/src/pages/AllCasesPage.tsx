@@ -109,7 +109,10 @@ export default function AllCasesPage(): JSX.Element {
     void fetchNextPage();
   }, [data, hasNextPage, fetchNextPage]);
 
-  const allCases = data?.pages.flatMap((page) => page.cases) ?? [];
+  const allCases = useMemo(
+    () => data?.pages.flatMap((page) => page.cases) ?? [],
+    [data],
+  );
   const apiTotalRecords = data?.pages?.[0]?.totalRecords ?? 0;
 
   // Frontend search and sort
