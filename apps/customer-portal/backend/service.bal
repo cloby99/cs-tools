@@ -1043,7 +1043,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # 
     # + id - ID of the case
     # + return - Created attachment or error response
-    resource function post cases/[string id]/attachments(http:RequestContext ctx)
+    resource function post cases/[string id]/attachments(http:RequestContext ctx, entity:AttachmentPayload payload)
         returns entity:CreatedAttachment|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
@@ -1063,7 +1063,8 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        entity:AttachmentCreateResponse|error createdAttachmentResponse = entity:createAttachment(userInfo.idToken);
+        entity:AttachmentCreateResponse|error createdAttachmentResponse =
+            entity:createAttachment(userInfo.idToken, payload);
         if createdAttachmentResponse is error {
             if getStatusCode(createdAttachmentResponse) == http:STATUS_UNAUTHORIZED {
                 log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);

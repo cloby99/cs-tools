@@ -550,6 +550,7 @@ public type AttachmentCreateResponse record {|
     string message;
     # Created attachment details
     CreatedAttachment attachment;
+    json...;
 |};
 
 # Created attachment details.
@@ -565,4 +566,18 @@ public type CreatedAttachment record {|
     # Download URL
     string downloadUrl;
     json...;
+|};
+
+# Payload for creating an attachment.
+public type AttachmentPayload record {|
+    # Reference ID to which the attachment is associated (e.g., query ID, incident ID, etc)
+    string referenceId;
+    # Reference type (e.g., query, incident, etc)
+    string referenceType;
+    # File name
+    string fileName;
+    # MIME type of the file
+    string fileType;
+    # Content of the file as a byte array
+    byte[] content;
 |};
