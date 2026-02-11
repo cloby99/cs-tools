@@ -74,16 +74,24 @@ export const CaseDetailsSection = ({
   const [isEditing, setIsEditing] = useState(false);
 
   // TODO : Remove this after the mock interface removed.
+  const baseIssueTypes = filters?.issueTypes || metadata?.issueTypes || [];
   const issueTypes = [
-    ...(filters?.issueTypes || metadata?.issueTypes || []),
-    ...(extraIssueTypes ?? []),
+    ...baseIssueTypes,
+    ...(extraIssueTypes ?? []).filter(
+      (extra) =>
+        !baseIssueTypes.some((base: any) => {
+          const baseLabel = typeof base === "string" ? base : base.label;
+          return baseLabel === extra;
+        }),
+    ),
   ];
-  const baseSeverityLevels =
-    (filters?.severities || metadata?.severityLevels || []) as {
-      id: string;
-      label: string;
-      description?: string;
-    }[];
+  const baseSeverityLevels = (filters?.severities ||
+    metadata?.severityLevels ||
+    []) as {
+    id: string;
+    label: string;
+    description?: string;
+  }[];
   const severityLevels = [
     ...baseSeverityLevels,
     ...(extraSeverityLevels ?? []).filter(
