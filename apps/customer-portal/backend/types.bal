@@ -306,6 +306,6 @@ public type AttachmentPayload record {|
     string name;
     # MIME type of the file
     string 'type;
-    # Content of the file as a byte array
-    byte[] content;
+    # Base 64 encoded content
+    string content;
 |};

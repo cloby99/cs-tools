@@ -1069,7 +1069,7 @@ service http:InterceptableService / on new http:Listener(9090) {
                     referenceType: payload.referenceType,
                     name: payload.name,
                     'type: payload.'type,
-                    file: payload.content.toBase64()
+                    file: payload.content
                 });
         if createdAttachmentResponse is error {
             if getStatusCode(createdAttachmentResponse) == http:STATUS_UNAUTHORIZED {

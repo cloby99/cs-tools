@@ -534,8 +534,6 @@ public type CreatedComment record {|
 
 # Response from creating a comment.
 public type CommentCreateResponse record {|
-    # Success status
-    boolean success;
     # Success message
     string message;
     # Created comment details
@@ -545,8 +543,6 @@ public type CommentCreateResponse record {|
 
 # Response from creating an attachment.
 public type AttachmentCreateResponse record {|
-    # Success status
-    boolean success;
     # Success message
     string message;
     # Created attachment details

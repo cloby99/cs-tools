@@ -209,7 +209,7 @@ public isolated function mapDeployments(entity:DeploymentsResponse response) ret
 }
 
 # Map deployed products response to the desired structure.
-# 
+#
 # + response - Deployed products response from the entity service
 # + return - Mapped deployed products response
 public isolated function mapDeployedProducts(entity:DeployedProductsResponse response)
