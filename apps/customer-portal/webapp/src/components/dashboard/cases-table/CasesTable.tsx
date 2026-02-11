@@ -89,47 +89,37 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
     },
   ];
 
+  const caseSearchRequest = useMemo(
+    () => ({
+      filters: {
+        statusId: filters.statusId ? Number(filters.statusId) : undefined,
+        severityId: filters.severityId ? Number(filters.severityId) : undefined,
+        issueId: filters.issueTypes ? Number(filters.issueTypes) : undefined,
+        deploymentId: filters.deploymentId || undefined,
+      },
+      sortBy: {
+        field: "createdOn",
+        order: "desc" as const,
+      },
+    }),
+    [filters],
+  );
+
   const {
     data,
     isFetching: isFetchingCases,
     isError,
-  } = useGetProjectCases(projectId, {
-    sortBy: {
-      field: "createdOn",
-      order: "desc",
-    },
-  });
+  } = useGetProjectCases(projectId, caseSearchRequest);
 
   const allCases = data?.pages.flatMap((page) => page.cases) ?? [];
   const apiTotalRecords = data?.pages?.[0]?.totalRecords ?? 0;
 
-  const filteredCases = useMemo(() => {
-    let filtered = [...allCases];
-
-    if (filters.statusId) {
-      filtered = filtered.filter((c) => c.status?.id === filters.statusId);
-    }
-    if (filters.severityId) {
-      filtered = filtered.filter((c) => c.severity?.id === filters.severityId);
-    }
-    if (filters.issueTypes) {
-      filtered = filtered.filter((c) => c.issueType?.id === filters.issueTypes);
-    }
-    if (filters.deploymentId) {
-      filtered = filtered.filter(
-        (c) => c.deployment?.id === filters.deploymentId,
-      );
-    }
-
-    return filtered;
-  }, [allCases, filters]);
+  const filteredCases = useMemo(() => [...allCases], [allCases]);
 
   const paginatedData = useMemo(() => {
     const startIndex = page * rowsPerPage;
-    const hasActiveFilters = Object.keys(filters).length > 0;
-    const totalRecords = hasActiveFilters
-      ? filteredCases.length
-      : apiTotalRecords || filteredCases.length;
+    const totalRecords =
+      filteredCases.length === 0 ? 0 : apiTotalRecords || filteredCases.length;
 
     return {
       cases: filteredCases.slice(startIndex, startIndex + rowsPerPage),
@@ -137,7 +127,7 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
       offset: startIndex,
       limit: rowsPerPage,
     };
-  }, [filteredCases, page, rowsPerPage, filters, apiTotalRecords]);
+  }, [filteredCases, page, rowsPerPage, apiTotalRecords]);
 
   const tableLoading = isAuthLoading || isFetchingCases || isFetchingFilters;
 
