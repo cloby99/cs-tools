@@ -14,82 +14,48 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import {
-  Box,
-  IconButton,
-  LinearProgress,
-  Paper,
-  Stack,
-  Typography,
-} from "@wso2/oxygen-ui";
-import { X } from "@wso2/oxygen-ui-icons-react";
-import { type JSX } from "react";
+import { Alert, Box } from "@wso2/oxygen-ui";
 import {
   BANNER_FOOTER_GAP_PX,
+  BANNER_RIGHT_GAP_PX,
   FOOTER_HEIGHT_PX,
 } from "@constants/errorBannerConstants";
 
 interface ErrorBannerProps {
   apiName: string;
-  progress: number;
   onClose: () => void;
 }
 
 /**
  * ErrorBanner component displayed above the footer at the right corner.
- * Shows a countdown progress bar and close button.
+ * Uses Oxygen UI Alert component.
  *
  * @param {ErrorBannerProps} props - Component props.
  * @returns {JSX.Element} The ErrorBanner JSX.
  */
 export default function ErrorBanner({
   apiName,
-  progress,
   onClose,
 }: ErrorBannerProps): JSX.Element {
   return (
-    <Paper
-      elevation={2}
+    <Box
       sx={{
         position: "fixed",
         bottom: FOOTER_HEIGHT_PX + BANNER_FOOTER_GAP_PX,
-        right: 0,
+        right: BANNER_RIGHT_GAP_PX,
         width: 400,
         zIndex: 10,
-        overflow: "hidden",
-        bgcolor: "error.main",
       }}
-      role="alert"
     >
-      <Stack spacing={0}>
-        <Box sx={{ width: "100%" }}>
-          <LinearProgress
-            variant="determinate"
-            value={progress}
-            color="warning"
-            sx={{ height: 4 }}
-          />
-        </Box>
-        <Stack
-          direction="row"
-          spacing={2}
-          alignItems="center"
-          justifyContent="space-between"
-          sx={{ p: 2 }}
-        >
-          <Typography variant="body2" sx={{ color: "error.contrastText" }}>
-            Error loading {apiName}
-          </Typography>
-          <IconButton
-            size="small"
-            aria-label="Close"
-            onClick={onClose}
-            sx={{ flexShrink: 0, color: "error.contrastText" }}
-          >
-            <X size={18} />
-          </IconButton>
-        </Stack>
-      </Stack>
-    </Paper>
+      <Alert
+        severity="error"
+        onClose={onClose}
+        //variant="filled"
+        elevation={6}
+        sx={{ width: "100%" }}
+      >
+        Error loading {apiName}
+      </Alert>
+    </Box>
   );
 }
