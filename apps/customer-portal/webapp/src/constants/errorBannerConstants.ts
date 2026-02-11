@@ -17,9 +17,6 @@
 // Auto-dismiss timeout in milliseconds.
 export const ERROR_BANNER_TIMEOUT_MS = 2800;
 
-// Progress update interval in milliseconds.
-export const ERROR_BANNER_PROGRESS_INTERVAL_MS = 100;
-
 // Footer height in pixels.
 export const FOOTER_HEIGHT_PX = 64;
 
