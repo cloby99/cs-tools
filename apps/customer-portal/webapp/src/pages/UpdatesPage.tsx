@@ -42,9 +42,11 @@ export default function UpdatesPage(): JSX.Element {
   const { showError } = useErrorBanner();
   const hasShownErrorRef = useRef(false);
 
-  const { data, isLoading, isError } = useGetProductUpdatesStats(projectId || "");
+  const { data, isLoading, isError } = useGetProductUpdatesStats(
+    projectId || "",
+  );
 
-  const isUpdatesLoading = isLoading || (!data && !isError);
+  const isUpdatesLoading = !!projectId && (isLoading || (!data && !isError));
 
   useEffect(() => {
     if (isUpdatesLoading) {
@@ -73,11 +75,7 @@ export default function UpdatesPage(): JSX.Element {
   const renderContent = (): JSX.Element => {
     if (activeTab === "my-updates") {
       return (
-        <UpdatesStatsGrid
-          data={data}
-          isLoading={isLoading}
-          isError={isError}
-        />
+        <UpdatesStatsGrid data={data} isLoading={isLoading} isError={isError} />
       );
     }
     return (
