@@ -340,4 +340,18 @@ export interface UpdatesStats {
   totalUpdatesPending: number | null;
   totalUpdatesPendingBreakdown?: { regular: number; security: number };
   securityUpdatesPending: number | null;
+
+// Case classification response.
+export interface CaseClassificationResponse {
+  issueType: string;
+  severityLevel: string;
+  case_info: {
+    description: string;
+    shortDescription: string;
+    productName: string;
+    productVersion: string;
+    environment: string;
+    tier: string;
+    region: string;
+  };
 }
