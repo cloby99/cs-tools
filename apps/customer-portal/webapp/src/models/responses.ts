@@ -359,7 +359,8 @@ export interface CaseAttachment {
   id: string;
   name: string;
   type: string;
-  sizeBytes: string;
+  size?: number;
+  sizeBytes?: string;
   downloadUrl: string;
   createdOn: string;
   createdBy: string;
