@@ -54,8 +54,18 @@ export default function CaseDetailsPage(): JSX.Element {
   }, [showSkeletons, showLoader, hideLoader]);
 
   const hasShownErrorRef = useRef(false);
+
+  // Reset so error can show again when navigating to another case or when error clears.
   useEffect(() => {
-    if (isError && !hasShownErrorRef.current) {
+    hasShownErrorRef.current = false;
+  }, [caseId]);
+
+  useEffect(() => {
+    if (!isError) {
+      hasShownErrorRef.current = false;
+      return;
+    }
+    if (!hasShownErrorRef.current) {
       hasShownErrorRef.current = true;
       showError("case details");
     }

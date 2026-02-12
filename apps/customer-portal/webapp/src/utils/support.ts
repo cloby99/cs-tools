@@ -175,7 +175,7 @@ export function deriveFilterLabels(id: string): {
  * Returns the icon component for a given case status label.
  *
  * @param statusLabel - The case status label (e.g., "Open", "Working in Progress").
- * @returns {ComponentType<any>} The icon component.
+ * @returns {ComponentType<{ size?: number }>} The icon component.
  */
 export function getStatusIcon(statusLabel?: string): ComponentType<{ size?: number }> {
   const normalized = statusLabel?.toLowerCase() || "";
