@@ -37,8 +37,8 @@ export interface ProjectDeploymentOption {
 }
 
 /**
- * Normalizes a product label for comparison .
- * Replaces hyphen-with-spaces with a single space and collapses multiple spaces.
+ * Normalizes a product label for comparison.
+ * Replaces hyphens with spaces and collapses multiple spaces.
  *
  * @param {string | undefined} label - Raw product label.
  * @returns {string} Normalized label for deduplication and matching.

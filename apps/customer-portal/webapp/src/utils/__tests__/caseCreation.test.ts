@@ -33,7 +33,7 @@ describe("caseCreation utils", () => {
       expect(normalizeProductLabel("")).toBe("");
     });
 
-    it("replaces hyphen-with-spaces with single space", () => {
+    it("replaces hyphen with spaces with single space", () => {
       expect(normalizeProductLabel("WSO2 API Manager - 3.2.0")).toBe(
         "WSO2 API Manager 3.2.0",
       );

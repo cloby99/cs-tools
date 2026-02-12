@@ -66,8 +66,14 @@ export default function NoveraChatPage(): JSX.Element {
         }),
     })),
   });
+  const deploymentProductsLoading = deploymentProductQueries.some(
+    (q) => q.isLoading,
+  );
+  const deploymentProductsError = deploymentProductQueries.some(
+    (q) => q.isError,
+  );
   const deploymentProductsReady =
-    !deploymentProductQueries.some((q) => q.isLoading || q.isError);
+    !deploymentProductsLoading && !deploymentProductsError;
   const productDetails = deploymentProductsReady
     ? Array.from(
         new Set(
@@ -151,6 +157,12 @@ export default function NoveraChatPage(): JSX.Element {
     };
   }, []);
 
+  useEffect(() => {
+    if (deploymentProductsError) {
+      showError("loading product options");
+    }
+  }, [deploymentProductsError, showError]);
+
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
 
@@ -221,6 +233,7 @@ export default function NoveraChatPage(): JSX.Element {
             showEscalationBanner={messages.length > 4}
             onCreateCase={handleCreateCase}
             isCreateCaseLoading={isPending}
+            isCreateCaseDisabled={deploymentProductsError}
           />
         </Paper>
       </Box>
