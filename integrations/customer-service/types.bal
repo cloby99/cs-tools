@@ -32,7 +32,7 @@ public type Account record {|
 
 # Contact response.
 public type ContactFindResponse record{|
-    #ID 
+    # ID 
     string? id;
     # Account ID
     string? accountId;
