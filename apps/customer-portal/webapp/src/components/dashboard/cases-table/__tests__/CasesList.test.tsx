@@ -35,7 +35,11 @@ vi.mock("@wso2/oxygen-ui", () => ({
     <thead data-testid="table-head">{children}</thead>
   ),
   TableRow: ({ children }: any) => <tr data-testid="table-row">{children}</tr>,
-  Typography: ({ children }: any) => <span>{children}</span>,
+  Typography: ({ children, onClick, ...rest }: any) => (
+    <span onClick={onClick} {...rest}>
+      {children}
+    </span>
+  ),
   Chip: ({ label }: any) => <span data-testid="chip">{label}</span>,
   IconButton: ({ children }: any) => <button>{children}</button>,
   Paper: ({ children }: any) => <div>{children}</div>,
