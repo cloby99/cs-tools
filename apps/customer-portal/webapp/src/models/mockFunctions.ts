@@ -21,6 +21,8 @@ import {
   mockOpenCasesOptions,
   mockDeployments,
   mockStatusOptions,
+  mockUpdatesStats,
+  mockProductUpdateLevels,
 } from "@models/mockData";
 import type { CaseCreationMetadata } from "@models/mockData";
 
@@ -32,7 +34,11 @@ import type {
   ProjectStatsResponse,
   ChatHistoryResponse,
   DeploymentsResponse,
+  UpdatesStats,
+  ProductUpdateLevelsResponse,
+  CaseClassificationResponse,
 } from "@models/responses";
+import type { CaseClassificationRequest } from "@models/requests";
 
 /**
  * Returns a random status from the mock status options.
@@ -291,4 +297,49 @@ export const getMockDeployments = (
   _projectId?: string,
 ): DeploymentsResponse => {
   return { deployments: mockDeployments };
+};
+
+/**
+ * Returns mock updates statistics (used when isMockEnabled for useGetProductUpdatesStats).
+ *
+ * @returns {UpdatesStats} Mock updates statistics.
+ */
+export const getMockUpdatesStats = (): UpdatesStats => mockUpdatesStats;
+
+/**
+ * Returns mock product update levels (used when isMockEnabled for useGetProductUpdateLevels).
+ *
+ * @returns {ProductUpdateLevelsResponse} Mock product update levels.
+ */
+export const getMockProductUpdateLevels =
+  (): ProductUpdateLevelsResponse => mockProductUpdateLevels;
+
+ * Returns mock case classification response.
+ *
+ * @param {CaseClassificationRequest} request - Classification request body.
+ * @returns {CaseClassificationResponse} Mock classification response.
+ */
+export const getMockCaseClassification = (
+  request: CaseClassificationRequest,
+): CaseClassificationResponse => {
+  const firstProduct = request.productDetails[0] || "";
+  const [productName, productVersion] = firstProduct
+    ? firstProduct.split(" - ").map((value) => value.trim())
+    : ["", ""];
+
+  return {
+    issueType: "Question",
+    severityLevel: "S4",
+    case_info: {
+      description:
+        "I am using WSO2 Identity Server with a .NET 8 application and need to configure custom claims in JWT tokens to include user roles and custom organization data.",
+      shortDescription:
+        "Need help configuring custom claims in JWT tokens using WSO2 Identity Server.",
+      productName,
+      productVersion: productVersion || "",
+      environment: request.environments[0] || "",
+      tier: request.tier,
+      region: request.region,
+    },
+  };
 };

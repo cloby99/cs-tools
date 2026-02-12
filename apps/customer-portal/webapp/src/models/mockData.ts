@@ -18,12 +18,15 @@ import type {
   CaseListItem,
   CaseDetails,
   CaseComment,
+  CaseAttachment,
   ProjectListItem,
   ProjectDetails,
   UserDetails,
   Deployment,
   ChatHistoryResponse,
   CaseMetadataResponse,
+  UpdatesStats,
+  ProductUpdateLevelsResponse,
 } from "@models/responses";
 import {
   PROJECT_TYPE,
@@ -227,46 +230,19 @@ export const mockCaseCreationMetadata: CaseCreationMetadata = {
   ],
   deploymentTypes: ["Production", "Non-Production", "Development"],
   issueTypes: [
-    "Query",
-    "Bug",
-    "Sub-Task",
-    "Announcement",
-    "Admin Task",
-    "Story",
-    "New Feature",
-    "Change Requests",
-    "Service Request",
-    "Hosting Query",
-    "Cloud Incident",
-    "Incident",
-    "Engagement",
-    "NFR",
-    "Security Report Analysis",
-    "Cloud Query",
-    "Hosting",
-    "Task",
-    "Improvement",
-    "Test",
-    "Hosting Task",
+    "Error",
+    "Partial Outage",
+    "Performance Degradation",
+    "Question",
+    "Security or Compliance",
+    "Total Outage",
   ],
   severityLevels: [
-    {
-      id: "14",
-      label: "Catastrophic (P0)",
-      description: "Business critical system down",
-    },
-    {
-      id: "10",
-      label: "Critical (P1)",
-      description: "Business critical system down",
-    },
-    {
-      id: "11",
-      label: "High (P2)",
-      description: "Important features affected",
-    },
-    { id: "12", label: "Medium (P3)", description: "Minor issues" },
-    { id: "13", label: "Low (P4)", description: "General questions" },
+    { id: "60", label: "S0", description: "Business critical system down" },
+    { id: "61", label: "S1", description: "Important features affected" },
+    { id: "62", label: "S2", description: "Moderate impact" },
+    { id: "63", label: "S3", description: "Minor issue" },
+    { id: "64", label: "S4", description: "General question" },
   ],
   conversationSummary: {
     messagesExchanged: 8,
@@ -648,7 +624,7 @@ export const mockCases: CaseListItem[] = [
     },
     status: {
       id: "10",
-      label: CASE_STATUS.IN_PROGRESS,
+      label: CASE_STATUS.WORK_IN_PROGRESS,
     },
   },
   {
@@ -1493,7 +1469,7 @@ export const mockCaseDetails: CaseDetails = {
   deployedProduct: null,
   issueType: null,
   state: { id: 1, label: "Open" },
-  severity: { id: 10, label: "Critical (P1)" },
+  severity: { id: 60, label: "S0" },
 };
 
 // Mock case comments.
@@ -1501,7 +1477,7 @@ export const mockCaseComments: CaseComment[] = [
   {
     id: "1398232c1bceb290a002c9d3604bcb27",
     content:
-      "[code]<p>Test comment</p><p><img src=\"/db98232c1bceb290a002c9d3604bcb27.iix\"></p><p><br></p><p>test</p>[/code]",
+      '[code]<p>Test comment</p><p><img src="/db98232c1bceb290a002c9d3604bcb27.iix"></p><p><br></p><p>test</p>[/code]',
     type: "comments",
     createdOn: "2025-12-23 14:49:58",
     createdBy: "para-admin@wso2.com",
@@ -1509,7 +1485,8 @@ export const mockCaseComments: CaseComment[] = [
   },
   {
     id: "712727a81bceb290a002c9d3604bcbcc",
-    content: "[code]<p>www</p><p><img src=\"/3d2727a81bceb290a002c9d3604bcbcc.iix\"></p>[/code]",
+    content:
+      '[code]<p>www</p><p><img src="/3d2727a81bceb290a002c9d3604bcbcc.iix"></p>[/code]',
     type: "comments",
     createdOn: "2025-12-23 14:43:36",
     createdBy: "para-admin@wso2.com",
@@ -1523,6 +1500,37 @@ export const mockCaseComments: CaseComment[] = [
     createdOn: "2025-12-23 14:42:46",
     createdBy: "para-admin@wso2.com",
     isEscalated: false,
+  },
+];
+
+// Mock case attachments returned when isMockEnabled (useGetCaseAttachments).
+export const mockCaseAttachments: CaseAttachment[] = [
+  {
+    id: "att-001",
+    name: "screenshot-error.png",
+    type: "image/png",
+    sizeBytes: "245760",
+    downloadUrl: "https://example.com/files/att-001",
+    createdOn: "2025-12-23 14:49:58",
+    createdBy: "para-admin@wso2.com",
+  },
+  {
+    id: "att-002",
+    name: "logs-debug.txt",
+    type: "text/plain",
+    sizeBytes: "10240",
+    downloadUrl: "https://example.com/files/att-002",
+    createdOn: "2025-12-23 14:43:36",
+    createdBy: "para-admin@wso2.com",
+  },
+  {
+    id: "att-003",
+    name: "config-backup.zip",
+    type: "application/zip",
+    sizeBytes: "524288",
+    downloadUrl: "https://example.com/files/att-003",
+    createdOn: "2025-12-23 14:42:46",
+    createdBy: "para-admin@wso2.com",
   },
 ];
 
@@ -1635,5 +1643,59 @@ export const mockDeployments: Deployment[] = [
     documents: [],
     deployedAt: "2026-02-10",
     uptimePercent: 98.5,
+  },
+];
+
+// Mock updates statistics (used when isMockEnabled for useGetProductUpdatesStats).
+export const mockUpdatesStats: UpdatesStats = {
+  productsTracked: 4,
+  totalUpdatesInstalled: 70,
+  totalUpdatesInstalledBreakdown: { regular: 50, security: 20 },
+  totalUpdatesPending: 69,
+  totalUpdatesPendingBreakdown: { regular: 37, security: 32 },
+  securityUpdatesPending: 32,
+};
+
+// Mock product update levels (used when isMockEnabled for useGetProductUpdateLevels).
+export const mockProductUpdateLevels: ProductUpdateLevelsResponse = [
+  {
+    "product-name": "wso2das",
+    "product-update-levels": [
+      {
+        "product-base-version": "3.2.0",
+        channel: "full",
+        "update-levels": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      },
+      {
+        "product-base-version": "3.1.0",
+        channel: "full",
+        "update-levels": [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      },
+    ],
+  },
+  {
+    "product-name": "choreo-connect",
+    "product-update-levels": [
+      {
+        "product-base-version": "1.2.0",
+        channel: "full",
+        "update-levels": [1],
+      },
+      {
+        "product-base-version": "1.0.0",
+        channel: "full",
+        "update-levels": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      },
+    ],
+  },
+  {
+    "product-name": "wso2mi",
+    "product-update-levels": [
+      {
+        "product-base-version": "1.2.0",
+        channel: "full",
+        "update-levels": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      },
+    ],
   },
 ];

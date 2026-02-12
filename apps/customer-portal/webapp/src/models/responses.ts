@@ -331,3 +331,63 @@ export interface Deployment {
 export interface DeploymentsResponse {
   deployments: Deployment[];
 }
+
+// Case attachment item.
+export interface CaseAttachment {
+  id: string;
+  name: string;
+  type: string;
+  sizeBytes: string;
+  downloadUrl: string;
+  createdOn: string;
+  createdBy: string;
+}
+
+// Response for case attachments list.
+export interface CaseAttachmentsResponse {
+  limit: number;
+  offset: number;
+  totalRecords: number;
+  attachments: CaseAttachment[];
+}
+
+// Updates statistics response.
+export interface UpdatesStats {
+  productsTracked: number | null;
+  totalUpdatesInstalled: number | null;
+  totalUpdatesInstalledBreakdown?: { regular: number; security: number };
+  totalUpdatesPending: number | null;
+  totalUpdatesPendingBreakdown?: { regular: number; security: number };
+  securityUpdatesPending: number | null;
+}
+
+// Product update levels.
+export interface ProductUpdateLevelEntry {
+  "product-base-version": string;
+  channel: string;
+  "update-levels": number[];
+}
+
+// One product's update levels.
+export interface ProductUpdateLevelsItem {
+  "product-name": string;
+  "product-update-levels": ProductUpdateLevelEntry[];
+}
+
+// Product update levels response.
+export type ProductUpdateLevelsResponse = ProductUpdateLevelsItem[];
+
+// Case classification response.
+export interface CaseClassificationResponse {
+  issueType: string;
+  severityLevel: string;
+  case_info: {
+    description: string;
+    shortDescription: string;
+    productName: string;
+    productVersion: string;
+    environment: string;
+    tier: string;
+    region: string;
+  };
+}
