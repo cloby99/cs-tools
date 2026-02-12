@@ -20,6 +20,7 @@ import { useState, useEffect, useRef, type JSX } from "react";
 import TabBar from "@components/common/tab-bar/TabBar";
 import { UpdatesStatsGrid } from "@components/updates/UpdatesStatsGrid";
 import { useGetProductUpdatesStats } from "@api/useGetProductUpdatesStats";
+import { useGetUpdatesStats } from "@api/useGetUpdatesStats";
 import { useLoader } from "@context/linear-loader/LoaderContext";
 import { useErrorBanner } from "@context/error-banner/ErrorBannerContext";
 import { useLogger } from "@hooks/useLogger";
@@ -47,6 +48,9 @@ export default function UpdatesPage(): JSX.Element {
   );
 
   const isUpdatesLoading = !!projectId && (isLoading || (!data && !isError));
+  const { data, isLoading, isError } = useGetUpdatesStats(projectId || "");
+
+  const isUpdatesLoading = isLoading || (!data && !isError);
 
   useEffect(() => {
     if (isUpdatesLoading) {
@@ -76,6 +80,11 @@ export default function UpdatesPage(): JSX.Element {
     if (activeTab === "my-updates") {
       return (
         <UpdatesStatsGrid data={data} isLoading={isLoading} isError={isError} />
+        <UpdatesStatsGrid
+          data={data}
+          isLoading={isLoading}
+          isError={isError}
+        />
       );
     }
     return (

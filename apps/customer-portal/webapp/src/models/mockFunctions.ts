@@ -313,6 +313,7 @@ export const getMockUpdatesStats = (): UpdatesStats => mockUpdatesStats;
  */
 export const getMockProductUpdateLevels =
   (): ProductUpdateLevelsResponse => mockProductUpdateLevels;
+
  * Returns mock case classification response.
  *
  * @param {CaseClassificationRequest} request - Classification request body.
