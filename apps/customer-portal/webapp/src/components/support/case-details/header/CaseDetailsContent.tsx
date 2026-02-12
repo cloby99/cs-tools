@@ -77,7 +77,9 @@ export default function CaseDetailsContent({
   const engineerInitials =
     assignedEngineer && typeof assignedEngineer === "string"
       ? assignedEngineer
-          .split(" ")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean)
           .map((n) => n[0])
           .join("")
           .toUpperCase()

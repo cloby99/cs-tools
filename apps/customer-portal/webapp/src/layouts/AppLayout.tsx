@@ -109,7 +109,9 @@ export default function AppLayout({ children }: AppLayoutProps): JSX.Element {
               sx={{
                 flex: 1,
                 overflow: "auto",
-                p: isCaseDetailsPage ? { px: 3, pb: 3, pt: 0 } : 3,
+                ...(isCaseDetailsPage
+                  ? { px: 3, pb: 3, pt: 0 }
+                  : { p: 3 }),
               }}
             >
               {children || (
