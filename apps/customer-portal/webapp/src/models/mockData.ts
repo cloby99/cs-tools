@@ -1501,7 +1501,7 @@ export const mockCaseComments: CaseComment[] = [
   },
 ];
 
-// Mock case attachments returned when isMockEnabled (useGetCaseAttchments).
+// Mock case attachments returned when isMockEnabled (useGetCaseAttachments).
 export const mockCaseAttachments: CaseAttachment[] = [
   {
     id: "att-001",

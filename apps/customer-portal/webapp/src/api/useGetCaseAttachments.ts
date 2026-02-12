@@ -23,7 +23,7 @@ import { ApiQueryKeys, API_MOCK_DELAY } from "@constants/apiConstants";
 import { addApiHeaders } from "@utils/apiUtils";
 import type { CaseAttachmentsResponse } from "@models/responses";
 
-export interface UseGetCaseAttchmentsOptions {
+export interface UseGetCaseAttachmentsOptions {
   limit?: number;
   offset?: number;
 }
@@ -32,12 +32,12 @@ export interface UseGetCaseAttchmentsOptions {
  * Fetches attachments for a case.
  *
  * @param {string} caseId - The case id.
- * @param {UseGetCaseAttchmentsOptions} options - Optional limit and offset for pagination.
+ * @param {UseGetCaseAttachmentsOptions} options - Optional limit and offset for pagination.
  * @returns {UseQueryResult<CaseAttachmentsResponse, Error>} Query result with attachments.
  */
-export default function useGetCaseAttchments(
+export default function useGetCaseAttachments(
   caseId: string,
-  options?: UseGetCaseAttchmentsOptions,
+  options?: UseGetCaseAttachmentsOptions,
 ): UseQueryResult<CaseAttachmentsResponse, Error> {
   const logger = useLogger();
   const { getIdToken, isSignedIn, isLoading: isAuthLoading } = useAsgardeo();
@@ -91,10 +91,10 @@ export default function useGetCaseAttchments(
         }
 
         const data: CaseAttachmentsResponse = await response.json();
-        logger.debug("[useGetCaseAttchments] Data received:", data);
+        logger.debug("[useGetCaseAttachments] Data received:", data);
         return data;
       } catch (error) {
-        logger.error("[useGetCaseAttchments] Error:", error);
+        logger.error("[useGetCaseAttachments] Error:", error);
         throw error;
       }
     },
