@@ -74,7 +74,7 @@ service / on new http:Listener(9090) {
                 }
             };
         }
-        if contacts.length() != 1 {
+        if contacts.length() == 0 {
             log:printError(ERR_MSG_CONTACTS_NOTFOUND);
             return <http:NotFound>{
                 body: {
@@ -82,13 +82,12 @@ service / on new http:Listener(9090) {
                 }
             };
         }
-        log:printDebug(`Contact ID: ${contacts[0].id}`);
+        log:printDebug(`Account ID: ${contacts[0].account?.id}`);
+        entity:Account? account = contacts[0].account;
         return {
             id: contacts[0].id,
             email: contacts[0].email,
-            account: {
-                id: contacts[0].account?.id
-            }
+            account: account is entity:Account ? {id: account.id} : ()
         };
     }
 }
