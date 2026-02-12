@@ -67,7 +67,6 @@ export async function fetchDeploymentProducts(
     );
   }
 
-  return response.json();
   const data: DeploymentProductItem[] = await response.json();
   return data;
 }
