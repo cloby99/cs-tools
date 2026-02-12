@@ -294,7 +294,7 @@ public type DeployedProduct record {|
 # Payload for creating a comment.
 public type CommentCreatePayload record {|
     # Comment content
-    @constraint:String {minLength: 1, maxLength: 65000}
+    @constraint:String {minLength: 1} // TODO: Remove max length until the byte array support is added
     string content;
 |};
 

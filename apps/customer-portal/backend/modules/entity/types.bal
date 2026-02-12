@@ -524,7 +524,7 @@ public type CommentCreatePayload record {|
     # Reference type
     ReferenceType referenceType;
     # Comment content
-    @constraint:String {minLength: 1, maxLength: 65000}
+    @constraint:String {minLength: 1} // TODO: Remove max length until the byte array support is added
     string content;
     # Comment type
     CommentType 'type;
