@@ -101,7 +101,7 @@ export function resolveDeploymentMatch(
  *
  * @param {string} productLabel - Selected product label from the form.
  * @param {DeploymentProductItem[]} allDeploymentProducts - Flat list of deployment products.
- * @returns {string} Product id or empty string if no match.
+ * @returns {string} Deployment product item id or empty string if no match.
  */
 export function resolveProductId(
   productLabel: string,
@@ -113,7 +113,7 @@ export function resolveProductId(
   const match = allDeploymentProducts.find(
     (item) => normalizeProductLabel(item.product?.label) === normalized,
   );
-  return match?.product?.id ?? "";
+  return match?.id ?? "";
 }
 
 /**

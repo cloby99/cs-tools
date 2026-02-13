@@ -44,6 +44,21 @@ import {
   formatCommentDate,
 } from "@utils/support";
 
+/**
+ * Returns true if the comment has content worth displaying (after stripping code wrapper and
+ * "Customer comment added" label). Used to hide backend entries that render as empty bubbles.
+ *
+ * @param comment - Case comment from API.
+ * @returns {boolean} True when comment has non-empty displayable content.
+ */
+function hasDisplayableContent(comment: CaseComment): boolean {
+  const raw = comment.content ?? "";
+  const stripped = stripCodeWrapper(raw);
+  const withoutLabel = stripCustomerCommentAddedLabel(stripped);
+  const textOnly = withoutLabel.replace(/<[^>]+>/g, "").trim();
+  return textOnly.length > 0;
+}
+
 export interface CaseDetailsActivityPanelProps {
   projectId: string;
   caseId: string;
@@ -78,6 +93,11 @@ export default function CaseDetailsActivityPanel({
         new Date(a.createdOn).getTime() - new Date(b.createdOn).getTime(),
     );
   }, [commentsData?.comments]);
+
+  const commentsToShow = useMemo(
+    () => commentsSorted.filter(hasDisplayableContent),
+    [commentsSorted],
+  );
 
   if (isLoading) {
     return (
@@ -179,7 +199,7 @@ export default function CaseDetailsActivityPanel({
             </Box>
           )}
 
-          {commentsSorted.length === 0 ? (
+          {commentsToShow.length === 0 ? (
             <Stack
               spacing={2}
               alignItems="center"
@@ -201,7 +221,7 @@ export default function CaseDetailsActivityPanel({
               </Typography>
             </Stack>
           ) : (
-            commentsSorted.map((comment) => (
+            commentsToShow.map((comment) => (
               <CommentBubble
                 key={comment.id}
                 comment={comment}
