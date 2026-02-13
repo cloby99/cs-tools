@@ -140,6 +140,7 @@ vi.mock("@wso2/oxygen-ui-icons-react", () => ({
   User: () => <svg data-testid="icon-user" />,
   Shield: () => <svg data-testid="icon-shield" />,
   Rocket: () => <svg data-testid="icon-rocket" />,
+  Activity: () => <svg data-testid="icon-activity" />,
 }));
 
 // Mock useGetProjectSupportStats

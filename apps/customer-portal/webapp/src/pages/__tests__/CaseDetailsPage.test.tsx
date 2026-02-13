@@ -24,6 +24,14 @@ vi.mock("react-router", () => ({
   useParams: () => ({ projectId: "project-1", caseId: "case-001" }),
 }));
 
+// Mock @asgardeo/react to avoid ESM buffer import from @asgardeo/browser
+vi.mock("@asgardeo/react", () => ({
+  useAsgardeo: () => ({
+    isLoading: false,
+    state: { isAuthenticated: true },
+  }),
+}));
+
 vi.mock("@context/linear-loader/LoaderContext", () => ({
   useLoader: () => ({
     showLoader: vi.fn(),

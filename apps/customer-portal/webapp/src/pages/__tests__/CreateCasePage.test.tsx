@@ -88,6 +88,24 @@ vi.mock("@wso2/oxygen-ui-icons-react", async (importOriginal) => {
   };
 });
 
+// Mock case-creation-layout components (paths may not exist in repo)
+vi.mock(
+  "@components/support/case-creation-layout/sections/basic-information-section/BasicInformationSection",
+  () => ({ BasicInformationSection: () => null }),
+);
+vi.mock(
+  "@components/support/case-creation-layout/header/CaseCreationHeader",
+  () => ({ CaseCreationHeader: () => null }),
+);
+vi.mock(
+  "@components/support/case-creation-layout/sections/case-details-section/CaseDetailsSection",
+  () => ({ CaseDetailsSection: () => null }),
+);
+vi.mock(
+  "@components/support/case-creation-layout/sections/conversation-summary-section/ConversationSummary",
+  () => ({ ConversationSummary: () => null }),
+);
+
 // Mock @asgardeo/react
 vi.mock("@asgardeo/react", () => ({
   useAsgardeo: () => ({
