@@ -63,6 +63,7 @@ export default function UploadAttachmentModal({
   const [name, setName] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [fileSizeErrorVisible, setFileSizeErrorVisible] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const fileTooLarge = file ? file.size > MAX_ATTACHMENT_SIZE_BYTES : false;
   const displayName = name.trim() || (file?.name ?? "");
@@ -77,6 +78,7 @@ export default function UploadAttachmentModal({
     setFile(null);
     setName("");
     setFileSizeErrorVisible(false);
+    setUploadError(null);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -126,7 +128,11 @@ export default function UploadAttachmentModal({
     if (!file || fileTooLarge || isMockEnabled) return;
     const attachmentName = (name.trim() || file.name).trim();
     if (!attachmentName) return;
+    setUploadError(null);
     const reader = new FileReader();
+    reader.onerror = () => {
+      setUploadError("Failed to read file. Please try again or choose another file.");
+    };
     reader.onload = () => {
       const base64 = typeof reader.result === "string" ? reader.result : "";
       const commaIndex = base64.indexOf(",");
@@ -145,6 +151,11 @@ export default function UploadAttachmentModal({
           onSuccess: () => {
             handleClose();
             onSuccess?.();
+          },
+          onError: (error) => {
+            const message =
+              error instanceof Error ? error.message : "Upload failed. Please try again.";
+            setUploadError(message);
           },
         },
       );
@@ -182,6 +193,15 @@ export default function UploadAttachmentModal({
             sx={{ mb: 2 }}
           >
             File size exceeds 15 MB limit.
+          </Alert>
+        )}
+        {uploadError && (
+          <Alert
+            severity="error"
+            onClose={() => setUploadError(null)}
+            sx={{ mb: 2 }}
+          >
+            {uploadError}
           </Alert>
         )}
         <input
