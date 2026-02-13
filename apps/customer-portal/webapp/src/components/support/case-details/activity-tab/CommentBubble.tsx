@@ -81,9 +81,11 @@ export default function CommentBubble({
   const initials = useMemo(() => {
     if (isCurrentUser && userDetails) {
       const { firstName, lastName, email } = userDetails;
-      if (firstName && lastName) {
-        return `${firstName[0]}${lastName[0]}`.toUpperCase();
-      }
+      const fromName =
+        firstName || lastName
+          ? `${firstName?.[0] ?? ""}${lastName?.[0] ?? ""}`.trim().toUpperCase()
+          : "";
+      if (fromName) return fromName;
       if (email) return deriveInitialsFromEmail(email);
     }
     if (!isCurrentUser) {
