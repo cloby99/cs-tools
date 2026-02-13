@@ -226,9 +226,10 @@ export function CaseDetailsSection({
                 {issueTypes.map((type: unknown) => {
                   const label =
                     typeof type === "string" ? type : (type as { label?: string }).label;
+                  const displayLabel = label ?? "--";
                   return (
-                    <MenuItem key={String(label)} value={String(label)}>
-                      {String(label)}
+                    <MenuItem key={String(displayLabel)} value={String(displayLabel)}>
+                      {displayLabel}
                     </MenuItem>
                   );
                 })}
