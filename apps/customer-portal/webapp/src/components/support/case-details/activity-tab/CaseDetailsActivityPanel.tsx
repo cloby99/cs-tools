@@ -36,6 +36,7 @@ import useGetCaseComments from "@api/useGetCaseComments";
 import { usePostComment } from "@api/usePostComment";
 import useGetUserDetails from "@api/useGetUserDetails";
 import type { CaseComment } from "@models/responses";
+import EmptyIcon from "@components/common/empty-state/EmptyIcon";
 import {
   stripCodeWrapper,
   stripCustomerCommentAddedLabel,
@@ -179,9 +180,26 @@ export default function CaseDetailsActivityPanel({
           )}
 
           {commentsSorted.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              No activity yet.
-            </Typography>
+            <Stack
+              spacing={2}
+              alignItems="center"
+              justifyContent="center"
+              sx={{ py: 4 }}
+            >
+              <Box
+                sx={{
+                  width: 160,
+                  maxWidth: "100%",
+                  "& svg": { width: "100%", height: "auto" },
+                }}
+                aria-hidden
+              >
+                <EmptyIcon />
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                No activity yet.
+              </Typography>
+            </Stack>
           ) : (
             commentsSorted.map((comment) => (
               <CommentBubble
