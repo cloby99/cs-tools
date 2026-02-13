@@ -14,13 +14,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import CaseDetailsSkeleton from "@components/support/case-details/CaseDetailsSkeleton";
+import CaseDetailsSkeleton, {
+  CaseDetailsHeaderSkeleton,
+} from "@case-details-details/CaseDetailsSkeleton";
 import { ThemeProvider, createTheme } from "@wso2/oxygen-ui";
 
 describe("CaseDetailsSkeleton", () => {
-  it("should render divided skeleton sections", () => {
+  it("should render header and action row skeletons only (no sub nav tab skeletons)", () => {
     const { container } = render(
       <ThemeProvider theme={createTheme()}>
         <CaseDetailsSkeleton />
@@ -32,5 +34,30 @@ describe("CaseDetailsSkeleton", () => {
 
     const dividers = container.querySelectorAll(".MuiDivider-root");
     expect(dividers.length).toBeGreaterThan(0);
+
+    expect(container.querySelectorAll(".MuiCard-root").length).toBe(0);
+  });
+
+  it("should render Support Engineer label", () => {
+    render(
+      <ThemeProvider theme={createTheme()}>
+        <CaseDetailsSkeleton />
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByText("Support Engineer")).toBeInTheDocument();
+  });
+});
+
+describe("CaseDetailsHeaderSkeleton", () => {
+  it("should render header skeleton elements", () => {
+    const { container } = render(
+      <ThemeProvider theme={createTheme()}>
+        <CaseDetailsHeaderSkeleton />
+      </ThemeProvider>,
+    );
+
+    const skeletons = container.querySelectorAll(".MuiSkeleton-root");
+    expect(skeletons.length).toBeGreaterThan(0);
   });
 });

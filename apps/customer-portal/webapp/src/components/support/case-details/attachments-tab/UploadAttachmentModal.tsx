@@ -28,7 +28,6 @@ import {
 import { X } from "@wso2/oxygen-ui-icons-react";
 import { useCallback, useRef, useState, type JSX } from "react";
 import { usePostAttachments } from "@api/usePostAttachments";
-import { useSuccessBanner } from "@context/success-banner/SuccessBannerContext";
 import { useMockConfig } from "@providers/MockConfigProvider";
 import { MAX_ATTACHMENT_SIZE_BYTES } from "@constants/supportConstants";
 import UploadAttachmentDropZone from "@case-details-attachments/UploadAttachmentDropZone";
@@ -57,7 +56,6 @@ export default function UploadAttachmentModal({
   onSuccess,
 }: UploadAttachmentModalProps): JSX.Element {
   const { isMockEnabled } = useMockConfig();
-  const { showSuccess } = useSuccessBanner();
   const postAttachments = usePostAttachments();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -65,7 +63,6 @@ export default function UploadAttachmentModal({
   const [name, setName] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [fileSizeErrorVisible, setFileSizeErrorVisible] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const fileTooLarge = file ? file.size > MAX_ATTACHMENT_SIZE_BYTES : false;
   const displayName = name.trim() || (file?.name ?? "");
@@ -80,7 +77,6 @@ export default function UploadAttachmentModal({
     setFile(null);
     setName("");
     setFileSizeErrorVisible(false);
-    setUploadError(null);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -130,11 +126,7 @@ export default function UploadAttachmentModal({
     if (!file || fileTooLarge || isMockEnabled) return;
     const attachmentName = (name.trim() || file.name).trim();
     if (!attachmentName) return;
-    setUploadError(null);
     const reader = new FileReader();
-    reader.onerror = () => {
-      setUploadError("Failed to read file. Please try again or choose another file.");
-    };
     reader.onload = () => {
       const base64 = typeof reader.result === "string" ? reader.result : "";
       const commaIndex = base64.indexOf(",");
@@ -151,20 +143,14 @@ export default function UploadAttachmentModal({
         },
         {
           onSuccess: () => {
-            showSuccess("Attachment uploaded successfully.");
             handleClose();
             onSuccess?.();
-          },
-          onError: (error) => {
-            const message =
-              error instanceof Error ? error.message : "Upload failed. Please try again.";
-            setUploadError(message);
           },
         },
       );
     };
     reader.readAsDataURL(file);
-  }, [caseId, file, name, fileTooLarge, isMockEnabled, postAttachments, showSuccess, handleClose, onSuccess]);
+  }, [caseId, file, name, fileTooLarge, isMockEnabled, postAttachments, handleClose, onSuccess]);
 
   return (
     <Dialog
@@ -196,15 +182,6 @@ export default function UploadAttachmentModal({
             sx={{ mb: 2 }}
           >
             File size exceeds 15 MB limit.
-          </Alert>
-        )}
-        {uploadError && (
-          <Alert
-            severity="error"
-            onClose={() => setUploadError(null)}
-            sx={{ mb: 2 }}
-          >
-            {uploadError}
           </Alert>
         )}
         <input

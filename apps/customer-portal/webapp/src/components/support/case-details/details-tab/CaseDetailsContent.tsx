@@ -25,6 +25,7 @@ import CaseDetailsHeader from "@case-details/CaseDetailsHeader";
 import CaseDetailsActionRow from "@case-details/CaseDetailsActionRow";
 import CaseDetailsTabs from "@case-details/CaseDetailsTabs";
 import CaseDetailsTabPanels from "@case-details/CaseDetailsTabPanels";
+import CaseDetailsSkeleton from "@case-details/CaseDetailsSkeleton";
 
 export interface CaseDetailsContentProps {
   data: CaseDetails | undefined;
@@ -76,7 +77,10 @@ export default function CaseDetailsContent({
     [resolvedStatusColor],
   );
 
-  const attachmentsQuery = useGetCaseAttachments(caseId, { limit: 1, offset: 0 });
+  const attachmentsQuery = useGetCaseAttachments(caseId, {
+    limit: 1,
+    offset: 0,
+  });
   const attachmentCount = attachmentsQuery.data?.totalRecords;
 
   const assignedEngineer = data?.assignedEngineer;
@@ -92,57 +96,91 @@ export default function CaseDetailsContent({
           .slice(0, 2)
       : "--";
 
-  return (
-    <Box>
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <Paper
-          variant="outlined"
-          sx={{
-            pt: 2,
-            pb: 2,
-            pl: 3,
-            pr: 3,
-            mx: -3,
-            position: "sticky",
-            top: 0,
-            zIndex: 10,
-            borderRadius: 0,
-          }}
-        >
-          <CaseDetailsBackButton onClick={onBack} />
-
-          {!focusMode && (
-            <>
-              <CaseDetailsHeader
-                caseNumber={data?.number}
-                title={data?.title}
-                severityLabel={severityLabel}
-                statusLabel={statusLabel}
-                statusChipIcon={statusChipIcon}
-                statusChipSx={statusChipSx}
-                isError={isError}
-                isLoading={isLoading}
-              />
-
-              <CaseDetailsActionRow
-                assignedEngineer={assignedEngineer}
-                engineerInitials={engineerInitials}
-                isError={isError}
-                isLoading={isLoading}
-              />
-            </>
-          )}
-
-          <CaseDetailsTabs
-            focusMode={focusMode}
-            value={activeTab}
-            onChange={(_e, newValue) => setActiveTab(newValue)}
-            onFocusModeToggle={() => setFocusMode((prev) => !prev)}
-            attachmentCount={attachmentCount}
+  if (isLoading) {
+    return (
+      <Box>
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <CaseDetailsBackButton
+            onClick={onBack}
+            sx={{ mb: 2, ml: -0.5, alignSelf: "flex-start" }}
           />
+          <CaseDetailsSkeleton />
         </Paper>
+      </Box>
+    );
+  }
 
-        <CaseDetailsTabPanels activeTab={activeTab} caseId={caseId} />
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        flex: 1,
+        minHeight: 0,
+        overflow: "hidden",
+      }}
+    >
+      {/* Page header: static, not scrollable (case-details header) */}
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 2,
+          flexShrink: 0,
+          zIndex: 10,
+          borderRadius: 0,
+        }}
+      >
+        <CaseDetailsBackButton onClick={onBack} />
+
+        {!focusMode && (
+          <>
+            <CaseDetailsHeader
+              caseNumber={data?.number}
+              title={data?.title}
+              severityLabel={severityLabel}
+              statusLabel={statusLabel}
+              statusChipIcon={statusChipIcon}
+              statusChipSx={statusChipSx}
+              isError={isError}
+              isLoading={isLoading}
+            />
+
+            <CaseDetailsActionRow
+              assignedEngineer={assignedEngineer}
+              engineerInitials={engineerInitials}
+              isError={isError}
+              isLoading={isLoading}
+            />
+          </>
+        )}
+
+        <CaseDetailsTabs
+          focusMode={focusMode}
+          value={activeTab}
+          onChange={(_e, newValue) => setActiveTab(newValue)}
+          onFocusModeToggle={() => setFocusMode((prev) => !prev)}
+          attachmentCount={attachmentCount}
+        />
+      </Paper>
+
+      {/* Scrollable content: Activity, Details, Attachments, etc. */}
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          overflow: "auto",
+          mt: 2,
+          p: 3,
+          pt: 0,
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+        <CaseDetailsTabPanels
+          activeTab={activeTab}
+          caseId={caseId}
+          data={data}
+          isError={isError}
+        />
       </Box>
     </Box>
   );
