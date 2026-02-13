@@ -36,12 +36,28 @@ import useGetCaseComments from "@api/useGetCaseComments";
 import { usePostComment } from "@api/usePostComment";
 import useGetUserDetails from "@api/useGetUserDetails";
 import type { CaseComment } from "@models/responses";
+import EmptyIcon from "@components/common/empty-state/EmptyIcon";
 import {
   stripCodeWrapper,
   stripCustomerCommentAddedLabel,
   replaceInlineImageSources,
   formatCommentDate,
 } from "@utils/support";
+
+/**
+ * Returns true if the comment has content worth displaying (after stripping code wrapper and
+ * "Customer comment added" label). Used to hide backend entries that render as empty bubbles.
+ *
+ * @param comment - Case comment from API.
+ * @returns {boolean} True when comment has non-empty displayable content.
+ */
+function hasDisplayableContent(comment: CaseComment): boolean {
+  const raw = comment.content ?? "";
+  const stripped = stripCodeWrapper(raw);
+  const withoutLabel = stripCustomerCommentAddedLabel(stripped);
+  const textOnly = withoutLabel.replace(/<[^>]+>/g, "").trim();
+  return textOnly.length > 0;
+}
 
 export interface CaseDetailsActivityPanelProps {
   projectId: string;
@@ -77,6 +93,11 @@ export default function CaseDetailsActivityPanel({
         new Date(a.createdOn).getTime() - new Date(b.createdOn).getTime(),
     );
   }, [commentsData?.comments]);
+
+  const commentsToShow = useMemo(
+    () => commentsSorted.filter(hasDisplayableContent),
+    [commentsSorted],
+  );
 
   if (isLoading) {
     return (
@@ -178,12 +199,29 @@ export default function CaseDetailsActivityPanel({
             </Box>
           )}
 
-          {commentsSorted.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              No activity yet.
-            </Typography>
+          {commentsToShow.length === 0 ? (
+            <Stack
+              spacing={2}
+              alignItems="center"
+              justifyContent="center"
+              sx={{ py: 4 }}
+            >
+              <Box
+                sx={{
+                  width: 160,
+                  maxWidth: "100%",
+                  "& svg": { width: "100%", height: "auto" },
+                }}
+                aria-hidden
+              >
+                <EmptyIcon />
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                No activity yet.
+              </Typography>
+            </Stack>
           ) : (
-            commentsSorted.map((comment) => (
+            commentsToShow.map((comment) => (
               <CommentBubble
                 key={comment.id}
                 comment={comment}

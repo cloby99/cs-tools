@@ -21,18 +21,6 @@ import ChatHeader from "@components/support/novera-ai-assistant/novera-chat-page
 import ChatInput from "@components/support/novera-ai-assistant/novera-chat-page/ChatInput";
 import ChatMessageList from "@components/support/novera-ai-assistant/novera-chat-page/ChatMessageList";
 import { getNoveraResponse } from "@models/mockFunctions";
-import { useQueries } from "@tanstack/react-query";
-import { ApiQueryKeys } from "@constants/apiConstants";
-import { usePostCaseClassifications } from "@api/usePostCaseClassifications";
-import {
-  fetchDeploymentProducts,
-} from "@api/useGetDeploymentsProducts";
-import { useGetProjectDeployments } from "@api/useGetProjectDeployments";
-import useGetProjectDetails from "@api/useGetProjectDetails";
-import { useMockConfig } from "@providers/MockConfigProvider";
-import { useAsgardeo } from "@asgardeo/react";
-import { useErrorBanner } from "@context/error-banner/ErrorBannerContext";
-import { useLogger } from "@hooks/useLogger";
 
 export interface Message {
   id: string;
@@ -48,44 +36,7 @@ export interface Message {
  */
 export default function NoveraChatPage(): JSX.Element {
   const navigate = useNavigate();
-  const logger = useLogger();
-  const { showError } = useErrorBanner();
-
   const { projectId } = useParams<{ projectId: string }>();
-  const { getIdToken } = useAsgardeo();
-  const { isMockEnabled } = useMockConfig();
-  const { data: projectDeployments } = useGetProjectDeployments(projectId || "");
-  const deploymentIds = projectDeployments?.map((d) => d.id).filter(Boolean) ?? [];
-  const deploymentProductQueries = useQueries({
-    queries: deploymentIds.map((deploymentId) => ({
-      queryKey: [ApiQueryKeys.DEPLOYMENT_PRODUCTS, deploymentId] as const,
-      queryFn: () =>
-        fetchDeploymentProducts(deploymentId, {
-          getIdToken,
-          isMockEnabled,
-        }),
-    })),
-  });
-  const deploymentProductsLoading = deploymentProductQueries.some(
-    (q) => q.isLoading,
-  );
-  const deploymentProductsError = deploymentProductQueries.some(
-    (q) => q.isError,
-  );
-  const deploymentProductsReady =
-    !deploymentProductsLoading && !deploymentProductsError;
-  const productDetails = deploymentProductsReady
-    ? Array.from(
-        new Set(
-          deploymentProductQueries
-            .flatMap((q) => q.data ?? [])
-            .map((item) => item.product?.label)
-            .filter((label): label is string => Boolean(label?.trim())),
-        ),
-      )
-    : [];
-  const { data: projectDetails } = useGetProjectDetails(projectId || "");
-  const { mutateAsync, isPending } = usePostCaseClassifications();
 
   const handleBack = () => {
     if (projectId) {
@@ -95,42 +46,12 @@ export default function NoveraChatPage(): JSX.Element {
     }
   };
 
-  const handleCreateCase = async () => {
+  const handleCreateCase = () => {
     if (!projectId) {
       navigate("/");
       return;
     }
-
-    const environments = Array.from(
-      new Set(
-        (
-          projectDeployments?.map((d) => d.type?.label).filter(Boolean) ?? []
-        ),
-      ),
-    );
-    const chatHistory = messages
-      .map(
-        (message) =>
-          `${message.sender === "user" ? "User" : "Assistant"}: ${message.text}`,
-      )
-      .join("\n");
-
-    try {
-      const classification = await mutateAsync({
-        chatHistory,
-        environments,
-        productDetails,
-        region: "",
-        tier: projectDetails?.subscription?.supportTier ?? "",
-      });
-
-      navigate(`/${projectId}/support/chat/create-case`, {
-        state: { classification },
-      });
-    } catch (error) {
-      logger.error("Failed to classify case details", error);
-      showError("Case classification failed. Please try again.");
-    }
+    navigate(`/${projectId}/support/chat/create-case`);
   };
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -156,12 +77,6 @@ export default function NoveraChatPage(): JSX.Element {
       pendingTimeoutsRef.current = [];
     };
   }, []);
-
-  useEffect(() => {
-    if (deploymentProductsError) {
-      showError("Could not load product options. Please try again.");
-    }
-  }, [deploymentProductsError, showError]);
 
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
@@ -232,8 +147,8 @@ export default function NoveraChatPage(): JSX.Element {
             setInputValue={setInputValue}
             showEscalationBanner={messages.length > 4}
             onCreateCase={handleCreateCase}
-            isCreateCaseLoading={isPending}
-            isCreateCaseDisabled={deploymentProductsError}
+            isCreateCaseLoading={false}
+            isCreateCaseDisabled={false}
           />
         </Paper>
       </Box>
