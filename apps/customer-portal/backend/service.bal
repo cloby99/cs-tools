@@ -1295,7 +1295,7 @@ service http:InterceptableService / on new http:Listener(9090) {
         ProductVulnerabilitySearchResponse response = {
             productVulnerabilities: MOCK_PRODUCT_VULNERABILITIES,
             totalRecords: MOCK_PRODUCT_VULNERABILITIES.length(),
-            'limit: 10 ,
+            'limit: 10,
             offset: 0
         };
 
