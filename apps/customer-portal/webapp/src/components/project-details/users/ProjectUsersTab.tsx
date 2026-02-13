@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Box,
     Button,
@@ -64,10 +64,12 @@ export default function ProjectUsersTab({
     } = useGetProjectUsers(projectId);
 
     // Sync fetched data to local state for add/delete operations
-    if (fetchedUsers && !initialized) {
-        setLocalUsers(fetchedUsers);
-        setInitialized(true);
-    }
+    useEffect(() => {
+        if (fetchedUsers && !initialized) {
+            setLocalUsers(fetchedUsers);
+            setInitialized(true);
+        }
+    }, [fetchedUsers, initialized]);
 
     const users = initialized ? localUsers : (fetchedUsers ?? []);
 
