@@ -17,7 +17,9 @@
 import {
   Avatar,
   Box,
+  Button,
   Chip,
+  Divider,
   Paper,
   Skeleton,
   Stack,
@@ -25,7 +27,8 @@ import {
   alpha,
   useTheme,
 } from "@wso2/oxygen-ui";
-import { useMemo, type JSX } from "react";
+import { ChevronDown } from "@wso2/oxygen-ui-icons-react";
+import { useMemo, useState, type JSX } from "react";
 import useGetCaseComments from "@api/useGetCaseComments";
 import useGetUserDetails from "@api/useGetUserDetails";
 import type { CaseComment } from "@models/responses";
@@ -72,7 +75,7 @@ export default function CaseDetailsActivityPanel({
 
   if (isLoading) {
     return (
-      <Box sx={{ border: 1, borderColor: "divider", p: 2 }}>
+      <Box sx={{ p: 2 }}>
         <Stack spacing={2}>
           {[1, 2, 3].map((i) => (
             <Stack
@@ -95,7 +98,7 @@ export default function CaseDetailsActivityPanel({
 
   if (isError || !commentsData) {
     return (
-      <Box sx={{ border: 1, borderColor: "divider", p: 2 }}>
+      <Box sx={{ p: 2 }}>
         <Typography variant="body2" color="text.secondary">
           Unable to load activity.
         </Typography>
@@ -107,7 +110,7 @@ export default function CaseDetailsActivityPanel({
   const primaryBg = alpha(primaryLight, 0.1);
 
   return (
-    <Box sx={{ border: 1, borderColor: "divider", p: 2 }}>
+    <Box sx={{ p: 2 }}>
       <Stack spacing={3}>
         {caseCreatedOn && (
           <Box
@@ -159,6 +162,116 @@ export default function CaseDetailsActivityPanel({
   );
 }
 
+/** Line count threshold for showing "Show more" (approximately 4 lines). */
+const COLLAPSE_CHAR_THRESHOLD = 200;
+
+interface ChatMessageCardProps {
+  htmlContent: string;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  isCurrentUser: boolean;
+  primaryBg: string;
+  primaryColor: string;
+}
+
+/**
+ * Card-style chat message with collapsible long content and "Show more" button.
+ * Uses Paper without border or border radius.
+ *
+ * @param {ChatMessageCardProps} props - Content, expand state, and styling.
+ * @returns {JSX.Element} The chat message card.
+ */
+function ChatMessageCard({
+  htmlContent,
+  isExpanded,
+  onToggleExpand,
+  isCurrentUser,
+  primaryBg,
+  primaryColor,
+}: ChatMessageCardProps): JSX.Element {
+  const plainLength = htmlContent.replace(/<[^>]+>/g, "").length;
+  const showExpandButton = plainLength > COLLAPSE_CHAR_THRESHOLD;
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 1.5,
+        p: 1.5,
+        maxWidth: "100%",
+        bgcolor: isCurrentUser ? primaryBg : "background.paper",
+        border: "none",
+        borderRadius: 0,
+        boxShadow: "none",
+      }}
+    >
+      <Box
+        sx={{
+          fontSize: "0.75rem",
+          fontFamily: "monospace",
+          "& p": {
+            margin: "0 0 0.5em 0",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          },
+          "& p:last-child": { marginBottom: 0 },
+          "& img": {
+            display: "block",
+            maxWidth: "100%",
+            maxHeight: 320,
+            height: "auto",
+            objectFit: "contain",
+            mt: 0.5,
+            mb: 0.5,
+          },
+          "& br": { display: "block", content: '""', marginTop: "0.25em" },
+          ...(!isExpanded &&
+            showExpandButton && {
+              display: "-webkit-box",
+              WebkitLineClamp: 4,
+              WebkitBoxOrient: "vertical" as const,
+              overflow: "hidden",
+            }),
+        }}
+        dangerouslySetInnerHTML={{ __html: htmlContent }}
+      />
+      {showExpandButton && (
+        <>
+          <Divider sx={{ my: 0.25 }} />
+          <Button
+            size="small"
+            variant="text"
+            onClick={onToggleExpand}
+            endIcon={
+              <ChevronDown
+                size={14}
+                style={{
+                  transform: isExpanded ? "rotate(180deg)" : "none",
+                  transition: "transform 0.2s",
+                }}
+              />
+            }
+            sx={{
+              alignSelf: "stretch",
+              justifyContent: "center",
+              fontSize: "0.75rem",
+              color: "text.secondary",
+              "&:hover": {
+                color: "text.primary",
+                bgcolor: "action.hover",
+              },
+            }}
+          >
+            {isExpanded ? "Show less" : "Show more"}
+          </Button>
+        </>
+      )}
+    </Paper>
+  );
+}
+
 interface CommentBubbleProps {
   comment: CaseComment;
   isCurrentUser: boolean;
@@ -173,6 +286,7 @@ function CommentBubble({
   primaryColor,
 }: CommentBubbleProps): JSX.Element {
   const theme = useTheme();
+  const [expanded, setExpanded] = useState(false);
   const rawContent = comment.content ?? "";
   const stripped = stripCodeWrapper(rawContent);
   const htmlContent = replaceInlineImageSources(
@@ -261,42 +375,14 @@ function CommentBubble({
             />
           )}
         </Stack>
-        <Paper
-          variant="outlined"
-          sx={{
-            p: 2,
-            maxWidth: "100%",
-            bgcolor: isCurrentUser ? primaryBg : "background.paper",
-            borderColor: isCurrentUser ? primaryColor : "divider",
-            border: 1,
-            borderRadius: 0,
-          }}
-        >
-          <Box
-            sx={{
-              fontSize: "0.75rem",
-              "& p": {
-                margin: "0 0 0.5em 0",
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-              },
-              "& p:last-child": { marginBottom: 0 },
-              "& img": {
-                display: "block",
-                maxWidth: "100%",
-                maxHeight: 320,
-                height: "auto",
-                objectFit: "contain",
-                border: 1,
-                borderColor: "divider",
-                mt: 0.5,
-                mb: 0.5,
-              },
-              "& br": { display: "block", content: '""', marginTop: "0.25em" },
-            }}
-            dangerouslySetInnerHTML={{ __html: htmlContent }}
-          />
-        </Paper>
+        <ChatMessageCard
+          htmlContent={htmlContent}
+          isExpanded={expanded}
+          onToggleExpand={() => setExpanded((prev) => !prev)}
+          isCurrentUser={isCurrentUser}
+          primaryBg={primaryBg}
+          primaryColor={primaryColor}
+        />
       </Stack>
     </Stack>
   );
