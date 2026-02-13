@@ -14,10 +14,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { ReactElement } from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import CaseDetailsPage from "@pages/CaseDetailsPage";
 import useGetCaseDetails from "@api/useGetCaseDetails";
+import { MockConfigProvider } from "@providers/MockConfigProvider";
 
 vi.mock("react-router", () => ({
   useNavigate: () => vi.fn(),
@@ -30,6 +33,11 @@ vi.mock("@asgardeo/react", () => ({
     isLoading: false,
     state: { isAuthenticated: true },
   }),
+}));
+
+// Mock useLogger so CaseDetailsContent and API hooks do not require LoggerProvider
+vi.mock("@hooks/useLogger", () => ({
+  useLogger: () => ({ debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() }),
 }));
 
 vi.mock("@context/linear-loader/LoaderContext", () => ({
@@ -54,9 +62,20 @@ vi.mock("@api/useGetCaseDetails", () => ({
   })),
 }));
 
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+});
+
+const renderWithProviders = (ui: ReactElement) =>
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MockConfigProvider>{ui}</MockConfigProvider>
+    </QueryClientProvider>,
+  );
+
 describe("CaseDetailsPage", () => {
   it("should render Back to Support Center when loading", () => {
-    render(<CaseDetailsPage />);
+    renderWithProviders(<CaseDetailsPage />);
     expect(screen.getByText("Back to Support Center")).toBeInTheDocument();
   });
 
@@ -67,7 +86,7 @@ describe("CaseDetailsPage", () => {
       isFetching: true,
       isError: false,
     } as unknown as ReturnType<typeof useGetCaseDetails>);
-    const { container } = render(<CaseDetailsPage />);
+    const { container } = renderWithProviders(<CaseDetailsPage />);
     const skeletons = container.querySelectorAll(".MuiSkeleton-root");
     expect(skeletons.length).toBeGreaterThan(0);
   });

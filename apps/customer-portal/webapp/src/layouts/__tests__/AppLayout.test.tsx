@@ -82,6 +82,11 @@ vi.mock("@asgardeo/react", () => ({
   }),
 }));
 
+// Mock BackgroundTokenRefresh so it does not require LoggerProvider
+vi.mock("@providers/BackgroundTokenRefresh", () => ({
+  BackgroundTokenRefresh: () => null,
+}));
+
 // Mock useLoader
 const mockUseLoader = {
   isVisible: false,
