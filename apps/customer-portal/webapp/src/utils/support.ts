@@ -44,6 +44,23 @@ export function formatValue(value: string | number | null | undefined): string {
 }
 
 /**
+ * Formats SLA response time from milliseconds (string or number) to human-readable (e.g. "4 hours", "2 days").
+ *
+ * @param ms - Milliseconds as string or number from API.
+ * @returns {string} Formatted string or "--" if invalid.
+ */
+export function formatSlaResponseTime(
+  ms: string | number | null | undefined,
+): string {
+  const n = typeof ms === "string" ? parseInt(ms, 10) : ms;
+  if (n == null || Number.isNaN(n) || n < 0) return "--";
+  if (n < 60_000) return `${Math.round(n / 1000)} seconds`;
+  if (n < 3600_000) return `${Math.round(n / 60_000)} minutes`;
+  if (n < 86400_000) return `${Math.round(n / 3600_000)} hours`;
+  return `${Math.round(n / 86400_000)} days`;
+}
+
+/**
  * Formats byte count for display (e.g. 1024 -> "1 KB", 245760 -> "240 KB").
  *
  * @param bytes - Size in bytes (number or string from API).
