@@ -17,6 +17,7 @@
 import type { ReactElement } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ProjectDetails from "@pages/ProjectDetails";
 import { MockConfigProvider } from "@providers/MockConfigProvider";
 
@@ -67,6 +68,11 @@ vi.mock("@api/useGetProjectStat", () => ({
   useGetProjectStat: () => mockUseGetProjectStat(),
 }));
 
+const mockUseGetProjectTimeTrackingStat = vi.fn();
+vi.mock("@api/useGetProjectTimeTrackingStat", () => ({
+  default: () => mockUseGetProjectTimeTrackingStat(),
+}));
+
 // Mock Child Components
 vi.mock("@components/common/tab-bar/TabBar", () => ({
   default: () => <div data-testid="tab-bar" />,
@@ -112,6 +118,12 @@ vi.mock("@wso2/oxygen-ui", () => ({
   },
 }));
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: false },
+  },
+});
+
 describe("ProjectDetails", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -125,10 +137,19 @@ describe("ProjectDetails", () => {
       isLoading: false,
       error: null,
     });
+    mockUseGetProjectTimeTrackingStat.mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
+    });
   });
 
   const renderWithProviders = (ui: ReactElement) =>
-    render(<MockConfigProvider>{ui}</MockConfigProvider>);
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MockConfigProvider>{ui}</MockConfigProvider>
+      </QueryClientProvider>,
+    );
 
   it("should render project details content when data is loaded", () => {
     mockUseGetProjectDetails.mockReturnValue({
@@ -183,9 +204,11 @@ describe("ProjectDetails", () => {
     });
 
     rerender(
-      <MockConfigProvider>
-        <ProjectDetails />
-      </MockConfigProvider>,
+      <QueryClientProvider client={queryClient}>
+        <MockConfigProvider>
+          <ProjectDetails />
+        </MockConfigProvider>
+      </QueryClientProvider>,
     );
     expect(mockHideLoader).toHaveBeenCalled();
   });
