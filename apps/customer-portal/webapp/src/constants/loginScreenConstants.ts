@@ -20,26 +20,33 @@ import {
   LifeBuoy,
   MessageSquareQuote,
 } from "@wso2/oxygen-ui-icons-react";
-import { type JSX } from "react";
+import type { ElementType } from "react";
 
-export const sloganListItems: {
-  icon: JSX.Element;
+export interface SloganListItem {
+  icon: ElementType<{ className?: string }>;
+  iconClassName?: string;
   title: string;
-}[] = [
+}
+
+export const sloganListItems: SloganListItem[] = [
   {
-    icon: <LayoutDashboard className="text-muted-foreground" />,
+    icon: LayoutDashboard,
+    iconClassName: "text-muted-foreground",
     title: "Real time Project Insights",
   },
   {
-    icon: <LifeBuoy className="text-muted-foreground" />,
+    icon: LifeBuoy,
+    iconClassName: "text-muted-foreground",
     title: "Streamlined Case Management",
   },
   {
-    icon: <MessageSquareQuote className="text-muted-foreground" />,
+    icon: MessageSquareQuote,
+    iconClassName: "text-muted-foreground",
     title: "Collaborative Discussion Forums",
   },
   {
-    icon: <AlertCircle className="text-muted-foreground" />,
+    icon: AlertCircle,
+    iconClassName: "text-muted-foreground",
     title: "Instant Issue Reporting",
   },
 ];
