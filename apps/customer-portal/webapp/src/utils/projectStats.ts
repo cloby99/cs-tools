@@ -225,13 +225,13 @@ export const calculateProgress = (start: string, end: string): number => {
 export const getUserStatusColor = (
   status: string,
 ): "primary" | "info" | "default" | "success" | "warning" | "error" => {
-  const normalizedUserTypeStatus = status?.toLowerCase();
+  const normalizedStatus = status?.toLowerCase();
 
-  if (normalizedUserTypeStatus === PROJECT_USER_TYPES.REGISTERED.toLowerCase()) {
+  if (normalizedStatus === PROJECT_USER_TYPES.REGISTERED.toLowerCase()) {
     return "success";
   }
 
-  if (normalizedUserTypeStatus === PROJECT_USER_TYPES.INVITED.toLowerCase()) {
+  if (normalizedStatus === PROJECT_USER_TYPES.INVITED.toLowerCase()) {
     return "warning";
   }
 
