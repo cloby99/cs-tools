@@ -178,16 +178,16 @@ describe("caseCreation utils", () => {
       expect(resolveProductId("", allDeploymentProducts)).toBe("");
     });
 
-    it("matches by exact label", () => {
+    it("matches by exact label and returns DeploymentProductItem.id", () => {
       expect(
         resolveProductId("WSO2 API Manager 3.2.0", allDeploymentProducts),
-      ).toBe("pid-1");
+      ).toBe("1");
     });
 
-    it("matches by normalized label (hyphen vs space)", () => {
+    it("matches by normalized label (hyphen vs space) and returns DeploymentProductItem.id", () => {
       expect(
         resolveProductId("WSO2 Identity Server 6.0.0", allDeploymentProducts),
-      ).toBe("pid-2");
+      ).toBe("2");
     });
 
     it("returns empty string when no match", () => {

@@ -75,6 +75,7 @@ vi.mock("@wso2/oxygen-ui", () => ({
       {children}
     </button>
   ),
+  Skeleton: () => <div data-testid="skeleton" />,
 }));
 
 // Mock icons
@@ -99,7 +100,9 @@ describe("BasicInformationSection", () => {
     deployment: "Dev",
     setDeployment: vi.fn(),
     metadata: mockMetadata,
-    isLoading: false,
+    isDeploymentLoading: false,
+    isProductDropdownDisabled: false,
+    isProductLoading: false,
   };
 
   it("should render all fields correctly", () => {

@@ -22,6 +22,7 @@ import {
   MenuItem,
   Paper,
   Select,
+  Skeleton,
   Typography,
   TextField,
   IconButton,
@@ -35,8 +36,10 @@ interface BasicInformationSectionProps {
   setProduct: (value: string) => void;
   deployment: string;
   setDeployment: (value: string) => void;
-  metadata: any;
-  isLoading: boolean;
+  metadata: { deploymentTypes?: string[]; products?: string[] };
+  isDeploymentLoading?: boolean;
+  isProductDropdownDisabled?: boolean;
+  isProductLoading?: boolean;
   extraDeploymentOptions?: string[];
   extraProductOptions?: string[];
 }
@@ -56,7 +59,9 @@ export const BasicInformationSection = ({
   deployment,
   setDeployment,
   metadata,
-  isLoading,
+  isDeploymentLoading = false,
+  isProductDropdownDisabled = false,
+  isProductLoading = false,
   extraDeploymentOptions,
   extraProductOptions,
 }: BasicInformationSectionProps): JSX.Element => {
@@ -130,29 +135,33 @@ export const BasicInformationSection = ({
               sx={{ height: 20, fontSize: "0.65rem", p: 0.5 }}
             />
           </Box>
-          <FormControl
-            fullWidth
-            size="small"
-            disabled={isLoading || !isEditing}
-          >
-            <Select
-              value={deployment}
-              onChange={(e) => setDeployment(e.target.value)}
-              displayEmpty
-              renderValue={(value) =>
-                value === "" ? "Select Deployment Type..." : value
-              }
+          {isDeploymentLoading ? (
+            <Skeleton variant="rounded" height={40} sx={{ maxWidth: "100%" }} />
+          ) : (
+            <FormControl
+              fullWidth
+              size="small"
+              disabled={!isEditing}
             >
-              <MenuItem value="" disabled>
-                Select Deployment Type...
-              </MenuItem>
-              {deploymentOptions.map((d) => (
-                <MenuItem key={d} value={d}>
-                  {d}
+              <Select
+                value={deployment}
+                onChange={(e) => setDeployment(e.target.value)}
+                displayEmpty
+                renderValue={(value) =>
+                  value === "" ? "Select Deployment Type..." : value
+                }
+              >
+                <MenuItem value="" disabled>
+                  Select Deployment Type...
                 </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+                {deploymentOptions.map((d) => (
+                  <MenuItem key={d} value={d}>
+                    {d}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
         </Grid>
 
         {/* product selection field wrapper */}
@@ -173,29 +182,39 @@ export const BasicInformationSection = ({
               sx={{ height: 20, fontSize: "0.65rem", p: 0.5 }}
             />
           </Box>
-          <FormControl
-            fullWidth
-            size="small"
-            disabled={isLoading || !isEditing}
-          >
-            <Select
-              value={product}
-              onChange={(e) => setProduct(e.target.value)}
-              displayEmpty
-              renderValue={(value) =>
-                value === "" ? "Select Product & Version..." : value
-              }
+          {isProductLoading ? (
+            <Skeleton variant="rounded" height={40} sx={{ maxWidth: "100%" }} />
+          ) : (
+            <FormControl
+              fullWidth
+              size="small"
+              disabled={isProductDropdownDisabled || !isEditing}
             >
-              <MenuItem value="" disabled>
-                Select Product & Version...
-              </MenuItem>
-              {productOptions.map((p) => (
-                <MenuItem key={p} value={p}>
-                  {p}
+              <Select
+                value={product}
+                onChange={(e) => setProduct(e.target.value)}
+                displayEmpty
+                renderValue={(value) =>
+                  value === ""
+                    ? isProductDropdownDisabled
+                      ? "Select deployment first"
+                      : "Select Product & Version..."
+                    : value
+                }
+              >
+                <MenuItem value="" disabled>
+                  {isProductDropdownDisabled
+                    ? "Select deployment first"
+                    : "Select Product & Version..."}
                 </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+                {productOptions.map((p) => (
+                  <MenuItem key={p} value={p}>
+                    {p}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
         </Grid>
       </Grid>
     </Paper>

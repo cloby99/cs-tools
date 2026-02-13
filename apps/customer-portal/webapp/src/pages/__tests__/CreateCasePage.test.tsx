@@ -159,14 +159,20 @@ vi.mock("@api/useGetProjectDeployments", () => ({
   }),
 }));
 
-// Mock fetchDeploymentProducts (used by useQueries for deployment products)
+// Mock useGetDeploymentsProducts (products for selected deployment)
 vi.mock("@api/useGetDeploymentsProducts", () => ({
-  fetchDeploymentProducts: vi.fn().mockResolvedValue([
-    {
-      product: { id: "prod-1", label: "WSO2 API Manager - v4.2.0" },
-      deployment: { id: "dep-1", label: "Staging" },
-    },
-  ]),
+  useGetDeploymentsProducts: vi.fn(() => ({
+    data: [
+      {
+        id: "dp-1",
+        product: { id: "prod-1", label: "WSO2 API Manager - v4.2.0" },
+        deployment: { id: "dep-1", label: "Staging" },
+      },
+    ],
+    isLoading: false,
+    isError: false,
+  })),
+  fetchDeploymentProducts: vi.fn().mockResolvedValue([]),
 }));
 
 // Mock usePostCase
@@ -205,13 +211,9 @@ describe("CreateCasePage", () => {
     expect(screen.getByText("Basic Information")).toBeInTheDocument();
     expect(screen.getByText("Case Details")).toBeInTheDocument();
 
-    // Specific AI populated fields (title set in queueMicrotask)
+    // Default title (set in queueMicrotask after data loads)
     await waitFor(() => {
-      expect(
-        screen.getByDisplayValue(
-          "Unstable API Manager Performance in Production",
-        ),
-      ).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Support case")).toBeInTheDocument();
     });
 
     // Sidebar (conversation summary shows error indicator when no metadata)
