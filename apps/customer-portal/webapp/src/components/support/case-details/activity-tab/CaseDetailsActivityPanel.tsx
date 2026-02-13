@@ -19,21 +19,26 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Divider,
+  IconButton,
   Paper,
   Skeleton,
   Stack,
+  TextField,
   Typography,
   alpha,
   useTheme,
 } from "@wso2/oxygen-ui";
-import { ChevronDown } from "@wso2/oxygen-ui-icons-react";
+import { ChevronDown, Send } from "@wso2/oxygen-ui-icons-react";
 import { useMemo, useState, type JSX } from "react";
 import useGetCaseComments from "@api/useGetCaseComments";
+import { usePostComment } from "@api/usePostComment";
 import useGetUserDetails from "@api/useGetUserDetails";
 import type { CaseComment } from "@models/responses";
 import {
   stripCodeWrapper,
+  stripCustomerCommentAddedLabel,
   replaceInlineImageSources,
   formatCommentDate,
 } from "@utils/support";
@@ -75,33 +80,51 @@ export default function CaseDetailsActivityPanel({
 
   if (isLoading) {
     return (
-      <Box sx={{ p: 2 }}>
-        <Stack spacing={2}>
-          {[1, 2, 3].map((i) => (
-            <Stack
-              key={i}
-              direction="row"
-              spacing={1.5}
-              alignItems="flex-start"
-            >
-              <Skeleton variant="circular" width={32} height={32} />
-              <Box sx={{ flex: 1 }}>
-                <Skeleton variant="text" width="40%" height={20} />
-                <Skeleton variant="rectangular" height={60} sx={{ mt: 1 }} />
-              </Box>
-            </Stack>
-          ))}
-        </Stack>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          minHeight: "100%",
+        }}
+      >
+        <Box sx={{ p: 2, flex: 1, minHeight: 0, overflow: "auto" }}>
+          <Stack spacing={2}>
+            {[1, 2, 3].map((i) => (
+              <Stack
+                key={i}
+                direction="row"
+                spacing={1.5}
+                alignItems="flex-start"
+              >
+                <Skeleton variant="circular" width={32} height={32} />
+                <Box sx={{ flex: 1 }}>
+                  <Skeleton variant="text" width="40%" height={20} />
+                  <Skeleton variant="rectangular" height={60} sx={{ mt: 1 }} />
+                </Box>
+              </Stack>
+            ))}
+          </Stack>
+        </Box>
+        <ActivityCommentInput caseId={caseId} />
       </Box>
     );
   }
 
   if (isError || !commentsData) {
     return (
-      <Box sx={{ p: 2 }}>
-        <Typography variant="body2" color="text.secondary">
-          Unable to load activity.
-        </Typography>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          minHeight: "100%",
+        }}
+      >
+        <Box sx={{ p: 2, flex: 1, minHeight: 0, overflow: "auto" }}>
+          <Typography variant="body2" color="text.secondary">
+            Unable to load activity.
+          </Typography>
+        </Box>
+        <ActivityCommentInput caseId={caseId} />
       </Box>
     );
   }
@@ -110,54 +133,136 @@ export default function CaseDetailsActivityPanel({
   const primaryBg = alpha(primaryLight, 0.1);
 
   return (
-    <Box sx={{ p: 2 }}>
-      <Stack spacing={3}>
-        {caseCreatedOn && (
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-            }}
-          >
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100%",
+      }}
+    >
+      <Box
+        sx={{
+          p: 2,
+          flex: 1,
+          minHeight: 0,
+          overflow: "auto",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+        <Stack spacing={3}>
+          {caseCreatedOn && (
             <Box
               sx={{
-                flex: 1,
-                height: 1,
-                bgcolor: "divider",
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
               }}
-            />
-            <Typography variant="caption" color="text.secondary">
-              Case created on {formatCommentDate(caseCreatedOn)}
-            </Typography>
-            <Box
-              sx={{
-                flex: 1,
-                height: 1,
-                bgcolor: "divider",
-              }}
-            />
-          </Box>
-        )}
+            >
+              <Box
+                sx={{
+                  flex: 1,
+                  height: 1,
+                  bgcolor: "divider",
+                }}
+              />
+              <Typography variant="caption" color="text.secondary">
+                Case created on {formatCommentDate(caseCreatedOn)}
+              </Typography>
+              <Box
+                sx={{
+                  flex: 1,
+                  height: 1,
+                  bgcolor: "divider",
+                }}
+              />
+            </Box>
+          )}
 
-        {commentsSorted.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            No activity yet.
-          </Typography>
+          {commentsSorted.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              No activity yet.
+            </Typography>
+          ) : (
+            commentsSorted.map((comment) => (
+              <CommentBubble
+                key={comment.id}
+                comment={comment}
+                isCurrentUser={
+                  comment.createdBy?.toLowerCase() === currentUserEmail
+                }
+                primaryBg={primaryBg}
+              />
+            ))
+          )}
+        </Stack>
+      </Box>
+      <ActivityCommentInput caseId={caseId} />
+    </Box>
+  );
+}
+
+interface ActivityCommentInputProps {
+  caseId: string;
+}
+
+/**
+ * Fixed (non-scrollable) input row with text field and send button.
+ * Posts comment via usePostComment; on success invalidates and refetches comments.
+ *
+ * @param {ActivityCommentInputProps} props - caseId for POST.
+ * @returns {JSX.Element} The comment input component.
+ */
+function ActivityCommentInput({ caseId }: ActivityCommentInputProps): JSX.Element {
+  const [value, setValue] = useState("");
+  const postComment = usePostComment();
+
+  const handleSend = () => {
+    if (!value.trim()) return;
+    const content = value.trim();
+    postComment.mutate(
+      { caseId, body: { content } },
+      {
+        onSuccess: () => setValue(""),
+      },
+    );
+  };
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        gap: 1,
+        px: 2,
+        py: 1.5,
+        flexShrink: 0,
+      }}
+    >
+      <TextField
+        fullWidth
+        placeholder="Add a comment..."
+        size="small"
+        value={value}
+        disabled={postComment.isPending}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+          }
+        }}
+      />
+      <IconButton
+        disabled={!value.trim() || postComment.isPending}
+        onClick={handleSend}
+        color="warning"
+        aria-label="Send comment"
+      >
+        {postComment.isPending ? (
+          <CircularProgress color="inherit" size={18} />
         ) : (
-          commentsSorted.map((comment) => (
-            <CommentBubble
-              key={comment.id}
-              comment={comment}
-              isCurrentUser={
-                comment.createdBy?.toLowerCase() === currentUserEmail
-              }
-              primaryBg={primaryBg}
-              primaryColor={primaryLight}
-            />
-          ))
+          <Send size={18} />
         )}
-      </Stack>
+      </IconButton>
     </Box>
   );
 }
@@ -171,7 +276,6 @@ interface ChatMessageCardProps {
   onToggleExpand: () => void;
   isCurrentUser: boolean;
   primaryBg: string;
-  primaryColor: string;
 }
 
 /**
@@ -187,7 +291,6 @@ function ChatMessageCard({
   onToggleExpand,
   isCurrentUser,
   primaryBg,
-  primaryColor,
 }: ChatMessageCardProps): JSX.Element {
   const plainLength = htmlContent.replace(/<[^>]+>/g, "").length;
   const showExpandButton = plainLength > COLLAPSE_CHAR_THRESHOLD;
@@ -276,24 +379,23 @@ interface CommentBubbleProps {
   comment: CaseComment;
   isCurrentUser: boolean;
   primaryBg: string;
-  primaryColor: string;
 }
 
 function CommentBubble({
   comment,
   isCurrentUser,
   primaryBg,
-  primaryColor,
 }: CommentBubbleProps): JSX.Element {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const rawContent = comment.content ?? "";
   const stripped = stripCodeWrapper(rawContent);
+  const withoutLabel = stripCustomerCommentAddedLabel(stripped);
   const htmlContent = replaceInlineImageSources(
-    stripped,
+    withoutLabel,
     comment.inlineAttachments,
   );
-  const displayName = isCurrentUser ? "You" : comment.createdBy || "Unknown";
+  const displayName = isCurrentUser ? null : (comment.createdBy || "Unknown");
   const initials = useMemo(() => {
     if (isCurrentUser) return "YO";
     const email = comment.createdBy ?? "";
@@ -353,11 +455,14 @@ function CommentBubble({
           flexWrap="wrap"
           sx={{
             flexDirection: isRight ? "row-reverse" : "row",
+            minHeight: 32,
           }}
         >
-          <Typography variant="body2" color="text.primary" fontWeight={500}>
-            {displayName}
-          </Typography>
+          {displayName && (
+            <Typography variant="body2" color="text.primary" fontWeight={500}>
+              {displayName}
+            </Typography>
+          )}
           <Typography variant="caption" color="text.secondary">
             {formatCommentDate(comment.createdOn)}
           </Typography>
@@ -381,7 +486,6 @@ function CommentBubble({
           onToggleExpand={() => setExpanded((prev) => !prev)}
           isCurrentUser={isCurrentUser}
           primaryBg={primaryBg}
-          primaryColor={primaryColor}
         />
       </Stack>
     </Stack>

@@ -163,14 +163,16 @@ export default function CaseDetailsContent({
         />
       </Paper>
 
-      {/* Scrollable content: Activity, Details, Attachments, etc. */}
+      {/* Content: Activity tab has fixed input bar (no scroll); other tabs scroll */}
       <Box
         sx={{
           flex: 1,
           minHeight: 0,
-          overflow: "auto",
           mt: 2,
-          p: 3,
+          display: "flex",
+          flexDirection: "column",
+          overflow: activeTab === 0 ? "hidden" : "auto",
+          p: activeTab === 0 ? 0 : 3,
           pt: 0,
           WebkitOverflowScrolling: "touch",
         }}
