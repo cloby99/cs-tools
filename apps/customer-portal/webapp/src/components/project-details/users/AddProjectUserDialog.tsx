@@ -89,6 +89,7 @@ export default function AddProjectUserDialog({
             lastName: lastName.trim(),
         });
         resetForm();
+        onClose();
     };
 
     return (
