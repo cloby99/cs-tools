@@ -71,6 +71,7 @@ import {
 } from "@wso2/oxygen-ui-icons-react";
 import { mergeRegister } from "@lexical/utils";
 import { RICH_TEXT_BLOCK_TAGS } from "@constants/supportConstants";
+import { useErrorBanner } from "@context/error-banner/ErrorBannerContext";
 import {
   INSERT_IMAGE_COMMAND,
   scrollElement,
@@ -91,6 +92,7 @@ const Toolbar = ({
 }) => {
   const [editor] = useLexicalComposerContext();
   const theme = useTheme();
+  const { showError } = useErrorBanner();
 
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
@@ -178,6 +180,9 @@ const Toolbar = ({
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
+      const resetInput = () => {
+        if (imageInputRef.current) imageInputRef.current.value = "";
+      };
       reader.onload = () => {
         if (typeof reader.result === "string") {
           editor.dispatchCommand(INSERT_IMAGE_COMMAND, {
@@ -185,7 +190,13 @@ const Toolbar = ({
             altText: file.name,
           });
         }
-        if (imageInputRef.current) imageInputRef.current.value = "";
+        resetInput();
+      };
+      reader.onerror = () => {
+        showError(
+          `Failed to read image file "${file.name}". Please try again.`,
+        );
+        resetInput();
       };
       reader.readAsDataURL(file);
     }
@@ -243,7 +254,7 @@ const Toolbar = ({
 
   const onLinkSubmit = () => {
     const sanitized = sanitizeUrl(linkUrl);
-    if (linkUrl) {
+    if (sanitized) {
       editor.update(() => {
         const selection = $getSelection();
         if ($isRangeSelection(selection)) {
@@ -252,10 +263,7 @@ const Toolbar = ({
           }
         }
       });
-      editor.dispatchCommand(
-        TOGGLE_LINK_COMMAND,
-        sanitized || null,
-      );
+      editor.dispatchCommand(TOGGLE_LINK_COMMAND, sanitized);
     }
     setLinkAnchorEl(null);
     setLinkUrl("");
