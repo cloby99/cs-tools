@@ -37,9 +37,10 @@ export { MAX_ATTACHMENT_SIZE_BYTES } from "@constants/supportConstants";
 
 export interface UploadAttachmentModalProps {
   open: boolean;
-  caseId: string;
+  caseId?: string;
   onClose: () => void;
   onSuccess?: () => void;
+  onSelect?: (file: File) => void;
 }
 
 /**
@@ -54,6 +55,7 @@ export default function UploadAttachmentModal({
   caseId,
   onClose,
   onSuccess,
+  onSelect,
 }: UploadAttachmentModalProps): JSX.Element {
   const { isMockEnabled } = useMockConfig();
   const postAttachments = usePostAttachments();
@@ -71,7 +73,7 @@ export default function UploadAttachmentModal({
     !!file &&
     !fileTooLarge &&
     !!displayName &&
-    !postAttachments.isPending;
+    (!!onSelect || (!postAttachments.isPending && !!caseId));
 
   const reset = useCallback(() => {
     setFile(null);
@@ -135,6 +137,15 @@ export default function UploadAttachmentModal({
     if (!file || fileTooLarge || isMockEnabled) return;
     const attachmentName = (name.trim() || file.name).trim();
     if (!attachmentName) return;
+
+    if (onSelect) {
+      onSelect(file);
+      handleClose();
+      return;
+    }
+
+    if (!caseId) return;
+
     const reader = new FileReader();
     reader.onload = () => {
       const base64 = typeof reader.result === "string" ? reader.result : "";
@@ -168,6 +179,7 @@ export default function UploadAttachmentModal({
     postAttachments,
     handleClose,
     onSuccess,
+    onSelect,
   ]);
 
   return (
@@ -252,7 +264,7 @@ export default function UploadAttachmentModal({
             onClick={handleUpload}
             disabled={!canUpload}
           >
-            Upload
+            {onSelect ? "Add" : "Upload"}
           </Button>
         )}
       </DialogActions>
