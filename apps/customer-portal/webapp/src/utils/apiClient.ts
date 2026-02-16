@@ -76,7 +76,9 @@ export async function authenticatedFetch(
   const doFetch = async (token: string): Promise<Response> => {
     const headers = new Headers(init.headers);
     const authHeaders = addApiHeaders(token);
-    Object.entries(authHeaders).forEach(([k, v]) => headers.set(k, v));
+    for (const [headerName, headerValue] of Object.entries(authHeaders)) {
+      headers.set(headerName, headerValue);
+    }
     return fetch(url, { ...init, headers });
   };
 

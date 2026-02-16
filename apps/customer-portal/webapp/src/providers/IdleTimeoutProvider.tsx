@@ -55,7 +55,7 @@ export default function IdleTimeoutProvider({
   const onIdle = () => {
     if (isSignedIn && !isLoading && !isMockEnabled) {
       setSessionWarningOpen(false);
-      signOut().then(() => navigate("/login"));
+      signOut().finally(() => navigate("/login"));
     }
   };
 
@@ -74,8 +74,11 @@ export default function IdleTimeoutProvider({
 
   const handleLogout = async () => {
     setSessionWarningOpen(false);
-    await signOut();
-    navigate("/login");
+    try {
+      await signOut();
+    } finally {
+      navigate("/login");
+    }
   };
 
   useEffect(() => {
