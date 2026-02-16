@@ -451,6 +451,8 @@ export interface ProductVulnerability {
   useCase: string;
   justification: string;
   resolution: string;
+  componentType?: string;
+  updateLevel?: string;
 }
 
 // Response for product vulnerabilities search.
