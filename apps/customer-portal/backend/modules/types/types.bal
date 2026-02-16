@@ -131,14 +131,16 @@ public type UpdatedUser record {|
     string timeZone?;
 |};
 
-# Case filter options.
-public type CaseFilterOptions record {|
+# Project filter options.
+public type ProjectFilterOptions record {|
     # List of case statuses
     ReferenceItem[] statuses;
     # List of case severities
     ReferenceItem[] severities;
     # List of issue types
     ReferenceItem[] issueTypes;
+    # List of deployment types
+    ReferenceItem[] deploymentTypes;
 |};
 
 # Case statistics for a project.

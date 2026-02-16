@@ -853,8 +853,8 @@ service http:InterceptableService / on new http:Listener(9090) {
     #
     # + id - ID of the project
     # + return - Case filters or error
-    resource function get projects/[string id]/cases/filters(http:RequestContext ctx)
-        returns types:CaseFilterOptions|http:BadRequest|http:Unauthorized|http:InternalServerError {
+    resource function get projects/[string id]/filters(http:RequestContext ctx)
+        returns types:ProjectFilterOptions|http:BadRequest|http:Unauthorized|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -873,9 +873,9 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        entity:CaseMetadataResponse|error caseMetadata = entity:getCaseMetadata(userInfo.idToken);
-        if caseMetadata is error {
-            if getStatusCode(caseMetadata) == http:STATUS_UNAUTHORIZED {
+        entity:ProjectMetadataResponse|error projectMetadata = entity:getProjectMetadata(userInfo.idToken, id);
+        if projectMetadata is error {
+            if getStatusCode(projectMetadata) == http:STATUS_UNAUTHORIZED {
                 log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
                 return <http:Unauthorized>{
                     body: {
@@ -885,7 +885,7 @@ service http:InterceptableService / on new http:Listener(9090) {
             }
 
             string customError = "Failed to retrieve case filters.";
-            log:printError(customError, caseMetadata);
+            log:printError(customError, projectMetadata);
             return <http:InternalServerError>{
                 body: {
                     message: customError
@@ -893,7 +893,7 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        return getCaseFilters(caseMetadata);
+        return getProjectFilters(projectMetadata);
     }
 
     # Classify the case using AI chat agent.

@@ -287,14 +287,16 @@ public type SortBy record {|
     SortOrder 'order;
 |};
 
-# Case metadata response.
-public type CaseMetadataResponse record {|
+# Project metadata response.
+public type ProjectMetadataResponse record {|
     # List of available case states (eg: Open, Closed, etc.)
     ChoiceListItem[] states;
     # List of available case severities (eg: S0, S1, etc.)
     ChoiceListItem[] severities;
     # List of available issue types (eg: Error, Total Outage, etc.)
     ChoiceListItem[] issueTypes;
+    # List of available deployment types (eg: Development, QA, etc.)
+    ChoiceListItem[] deploymentTypes;
     json...;
 |};
 

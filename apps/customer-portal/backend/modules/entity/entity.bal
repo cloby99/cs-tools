@@ -106,12 +106,13 @@ public isolated function searchCases(string idToken, CaseSearchPayload payload) 
     return csEntityClient->/cases/search.post(payload, generateHeaders(idToken));
 }
 
-# Get case metadata.
+# Get project metadata.
 #
 # + idToken - ID token for authorization
+# + projectId - Unique ID of the project
 # + return - Case metadata response or error
-public isolated function getCaseMetadata(string idToken) returns CaseMetadataResponse|error {
-    return csEntityClient->/cases/meta.get(generateHeaders(idToken));
+public isolated function getProjectMetadata(string idToken, string projectId) returns ProjectMetadataResponse|error {
+    return csEntityClient->/projects/[projectId]/meta\-data.get(generateHeaders(idToken));
 }
 
 # Search comments.
