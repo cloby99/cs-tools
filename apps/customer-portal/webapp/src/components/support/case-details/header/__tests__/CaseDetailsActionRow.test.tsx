@@ -61,4 +61,18 @@ describe("CaseDetailsActionRow", () => {
     const skeletons = container.querySelectorAll(".MuiSkeleton-root");
     expect(skeletons.length).toBeGreaterThan(0);
   });
+
+  it("should render Open Related Case button for closed status", () => {
+    render(
+      <ThemeProvider theme={createTheme()}>
+        <CaseDetailsActionRow
+          assignedEngineer="Jane Doe"
+          engineerInitials="JD"
+          statusLabel="Closed"
+        />
+      </ThemeProvider>,
+    );
+    expect(screen.getByText("Open Related Case")).toBeInTheDocument();
+    expect(screen.queryByText("Closed")).not.toBeInTheDocument();
+  });
 });
