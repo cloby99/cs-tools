@@ -165,6 +165,17 @@ public isolated function getDeployments(string idToken, string projectId) return
     return csEntityClient->/deployments/search.post({filters: {projectIds: [projectId]}}, generateHeaders(idToken));
 }
 
+# Create a deployment.
+# 
+# + idToken - ID token for authorization
+# + payload - Deployment creation payload
+# + return - Deployment creation response or error
+public isolated function createDeployment(string idToken, DeploymentCreatePayload payload)
+    returns DeploymentCreateResponse|error {
+
+    return csEntityClient->/deployments.post(payload, generateHeaders(idToken));
+}
+
 # Create a comment for a case.
 #
 # + idToken - ID token for authorization

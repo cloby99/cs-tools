@@ -217,6 +217,7 @@ public type CreatedCase record {|
     ReferenceItem state;
     # Case type information (eg: incident, query, etc.)
     ReferenceItem 'type;
+    json...;
 |};
 
 # Comment information.
@@ -574,4 +575,15 @@ public type UpdateLevel record {|
     string channel;
     # Update level
     int[] updateLevels;
+|};
+
+# Payload for creating a deployment.
+public type DeploymentCreatePayload record {|
+    # Name
+    string name;
+    # Type key
+    int deploymentTypeKey;
+    # Description
+    string description;
+    json...;
 |};

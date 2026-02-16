@@ -163,6 +163,7 @@ public type CreatedCase record {|
     ChoiceListItem state;
     # Case type information (eg: incident, query, etc.)
     ReferenceTableItem 'type;
+    json...;
 |};
 
 # Base case.
@@ -500,6 +501,39 @@ public type Deployment record {|
     ReferenceTableItem? project;
     # Type
     ChoiceListItem? 'type;
+    json...;
+|};
+
+# Payload for creating a deployment.
+public type DeploymentCreatePayload record {|
+    # Project ID
+    @constraint:String {length: 32}
+    string projectId;
+    # Name
+    string name;
+    # Type key
+    int typeKey;
+    # Description
+    string description;
+    json...;
+|};
+
+# Response from creating a deployment.
+public type DeploymentCreateResponse record {|
+    # Success message
+    string message;
+    # Created deployment details
+    CreatedDeployment deployment;
+|};
+
+# Created deployment details.
+public type CreatedDeployment record {|
+    # ID of the created deployment
+    string id;
+    # Created date and time
+    string createdOn;
+    # User who created the deployment
+    string createdBy;
     json...;
 |};
 

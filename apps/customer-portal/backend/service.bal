@@ -353,6 +353,69 @@ service http:InterceptableService / on new http:Listener(9090) {
         return mapDeployments(deploymentsResponse);
     }
 
+    # Create a new deployment for a project.
+    #
+    # + id - ID of the project
+    # + payload - Deployment creation payload
+    # + return - Created deployment or error response
+    resource function post projects/[string id]/deployments(http:RequestContext ctx,
+            types:DeploymentCreatePayload payload)
+        returns entity:CreatedDeployment|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        if isEmptyId(id) {
+            return <http:BadRequest>{
+                body: {
+                    message: ERR_MSG_PROJECT_ID_EMPTY
+                }
+            };
+        }
+
+        entity:DeploymentCreateResponse|error deploymentResponse = entity:createDeployment(userInfo.idToken,
+                {
+                    projectId: id,
+                    name: payload.name,
+                    description: payload.description,
+                    typeKey: payload.deploymentTypeKey
+                });
+        if deploymentResponse is error {
+            if getStatusCode(deploymentResponse) == http:STATUS_FORBIDDEN {
+                logForbiddenProjectAccess(id, userInfo.userId);
+                return <http:Forbidden>{
+                    body: {
+                        message: ERR_MSG_PROJECT_ACCESS_FORBIDDEN
+                    }
+                };
+            }
+
+            if getStatusCode(deploymentResponse) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
+            string customError = "Failed to create deployment for the project.";
+            log:printError(customError, deploymentResponse);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return deploymentResponse.deployment;
+    }
+
     # Get overall project statistics by ID.
     #
     # + id - ID of the project
