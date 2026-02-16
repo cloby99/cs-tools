@@ -20,7 +20,7 @@ import { useMockConfig } from "@providers/MockConfigProvider";
 import { useLogger } from "@hooks/useLogger";
 import { mockCaseDetails } from "@models/mockData";
 import { ApiQueryKeys, API_MOCK_DELAY } from "@constants/apiConstants";
-import { addApiHeaders } from "@utils/apiUtils";
+import { useAuthApiClient } from "@context/AuthApiContext";
 import type { CaseDetails } from "@models/responses";
 
 /**
@@ -35,7 +35,8 @@ export default function useGetCaseDetails(
   caseId: string,
 ): UseQueryResult<CaseDetails, Error> {
   const logger = useLogger();
-  const { getIdToken, isSignedIn, isLoading: isAuthLoading } = useAsgardeo();
+  const { isSignedIn, isLoading: isAuthLoading } = useAsgardeo();
+  const fetchFn = useAuthApiClient();
   const { isMockEnabled } = useMockConfig();
 
   return useQuery<CaseDetails, Error>({
@@ -56,12 +57,8 @@ export default function useGetCaseDetails(
           throw new Error("CUSTOMER_PORTAL_BACKEND_BASE_URL is not configured");
         }
 
-        const idToken = await getIdToken();
         const requestUrl = `${baseUrl}/cases/${caseId}`;
-        const response = await fetch(requestUrl, {
-          method: "GET",
-          headers: addApiHeaders(idToken),
-        });
+        const response = await fetchFn(requestUrl, { method: "GET" });
 
         if (!response.ok) {
           throw new Error(
