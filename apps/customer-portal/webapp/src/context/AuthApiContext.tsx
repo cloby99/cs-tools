@@ -49,21 +49,23 @@ interface AuthApiProviderProps {
  * @returns {JSX.Element} Context provider.
  */
 export function AuthApiProvider({ children }: AuthApiProviderProps): JSX.Element {
-  const { getIdToken, signOut } = useAsgardeo();
+  const { getIdToken, signOut, signInSilently } = useAsgardeo();
 
   const getToken = useCallback(() => getIdToken(), [getIdToken]);
   const signOutFn = useCallback(async () => {
     await signOut();
   }, [signOut]);
+  const signInSilentlyFn = useCallback(() => signInSilently(), [signInSilently]);
 
   const fetchFn = useMemo<AuthenticatedFetchFn>(() => {
     const callbacks: ApiClientCallbacks = {
       getToken,
       signOut: signOutFn,
+      signInSilently: signInSilentlyFn,
     };
     return (url: string, init?: RequestInit) =>
       authenticatedFetch(url, init ?? {}, callbacks);
-  }, [getToken, signOutFn]);
+  }, [getToken, signOutFn, signInSilentlyFn]);
 
   return (
     <AuthApiContext.Provider value={fetchFn}>{children}</AuthApiContext.Provider>
