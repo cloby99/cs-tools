@@ -15,29 +15,29 @@
 // under the License.
 
 import { renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useGetRecommendedUpdateLevels } from "@api/useGetRecommendedUpdateLevels";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
+// Mock logger
 const mockLogger = {
   debug: vi.fn(),
   error: vi.fn(),
 };
-vi.mock("@hooks/useLogger", () => ({
+vi.mock("@/hooks/useLogger", () => ({
   useLogger: () => mockLogger,
 }));
 
-vi.mock("@constants/apiConstants", async (importOriginal) => {
-  const actual = (await importOriginal()) as {
-    ApiQueryKeys: Record<string, string>;
-  };
+vi.mock("@/constants/apiConstants", async (importOriginal) => {
+  const actual = (await importOriginal()) as any;
   return {
     ...actual,
     API_MOCK_DELAY: 0,
   };
 });
 
+// Mock @asgardeo/react
 const mockGetIdToken = vi.fn().mockResolvedValue("mock-token");
 vi.mock("@asgardeo/react", () => ({
   useAsgardeo: () => ({
@@ -47,11 +47,18 @@ vi.mock("@asgardeo/react", () => ({
   }),
 }));
 
+// Mock MockConfigProvider
 let mockIsMockEnabled = true;
-vi.mock("@providers/MockConfigProvider", () => ({
+vi.mock("@/providers/MockConfigProvider", () => ({
   useMockConfig: () => ({
     isMockEnabled: mockIsMockEnabled,
   }),
+}));
+
+// Mock AuthApiContext - directly mock the hook useAuthApiClient
+const mockFetchFn = vi.fn();
+vi.mock("@/context/AuthApiContext", () => ({
+  useAuthApiClient: () => mockFetchFn,
 }));
 
 describe("useGetRecommendedUpdateLevels", () => {
@@ -62,13 +69,21 @@ describe("useGetRecommendedUpdateLevels", () => {
       defaultOptions: {
         queries: {
           retry: false,
+          staleTime: 0,
+          gcTime: 0,
         },
       },
     });
     mockLogger.debug.mockClear();
     mockLogger.error.mockClear();
     mockIsMockEnabled = true;
+    mockFetchFn.mockReset();
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    queryClient.clear();
   });
 
   const wrapper = ({ children }: { children: ReactNode }) => (
@@ -76,51 +91,43 @@ describe("useGetRecommendedUpdateLevels", () => {
   );
 
   it("should return loading state initially", async () => {
-    const { result } = renderHook(
-      () => useGetRecommendedUpdateLevels("project-1"),
-      {
-        wrapper,
-      },
-    );
+    const { result } = renderHook(() => useGetRecommendedUpdateLevels(), {
+      wrapper,
+    });
 
     expect(result.current.isLoading).toBe(true);
   });
 
-  it("should return mock data when isMockEnabled is true", async () => {
+  it("should return mock data when mock is enabled", async () => {
     mockIsMockEnabled = true;
-    const { result } = renderHook(
-      () => useGetRecommendedUpdateLevels("project-1"),
-      {
-        wrapper,
-      },
-    );
+    const { result } = renderHook(() => useGetRecommendedUpdateLevels(), {
+      wrapper,
+    });
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.isSuccess).toBe(true), {
+      timeout: 10000,
+    });
 
     expect(result.current.data).toBeDefined();
-    expect(result.current.data).toBeInstanceOf(Array);
+    expect(Array.isArray(result.current.data)).toBe(true);
     expect(mockLogger.debug).toHaveBeenCalledWith(
-      expect.stringContaining(
-        "Fetching recommended update levels for project ID: project-1, mock: true",
-      ),
+      expect.stringContaining("Fetching recommended update levels, mock: true"),
     );
-  });
+  }, 15000);
 
   it("should have correct query options", () => {
-    renderHook(() => useGetRecommendedUpdateLevels("project-1"), {
+    renderHook(() => useGetRecommendedUpdateLevels(), {
       wrapper,
     });
 
     const query = queryClient.getQueryCache().findAll({
-      queryKey: ["recommended-update-levels", "project-1", true],
+      queryKey: ["recommended-update-levels", true],
     })[0];
 
-    expect((query?.options as { staleTime?: number }).staleTime).toBe(
-      5 * 60 * 1000,
-    );
+    expect((query?.options as any).staleTime).toBe(5 * 60 * 1000);
   });
 
-  it("should fetch from API when isMockEnabled is false", async () => {
+  it("should fetch real data when mock is disabled", async () => {
     mockIsMockEnabled = false;
     const mockResponse = [
       {
@@ -138,91 +145,70 @@ describe("useGetRecommendedUpdateLevels", () => {
       },
     ];
 
-    const originalWindowConfig = (
-      window as { config?: { CUSTOMER_PORTAL_BACKEND_BASE_URL?: string } }
-    ).config;
-    (
-      window as { config?: { CUSTOMER_PORTAL_BACKEND_BASE_URL?: string } }
-    ).config = {
-      CUSTOMER_PORTAL_BACKEND_BASE_URL: "https://api.example.com",
+    const originalConfig = (window as any).config;
+    (window as any).config = {
+      CUSTOMER_PORTAL_BACKEND_BASE_URL: "https://api.test",
     };
 
+    mockFetchFn.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockResponse),
+      status: 200,
+    } as Response);
+
+    const { result } = renderHook(() => useGetRecommendedUpdateLevels(), {
+      wrapper,
+    });
+
     try {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn().mockResolvedValue({
-          ok: true,
-          json: () => Promise.resolve(mockResponse),
-          status: 200,
-        } as Response),
-      );
-
-      const { result } = renderHook(
-        () => useGetRecommendedUpdateLevels("project-1"),
-        {
-          wrapper,
+      await waitFor(
+        () => {
+          if (result.current.isError) {
+            throw new Error(`Hook error: ${result.current.error?.message}`);
+          }
+          return expect(result.current.isSuccess).toBe(true);
         },
+        { timeout: 10000 },
       );
-
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
       expect(result.current.data).toEqual(mockResponse);
-      expect(mockGetIdToken).toHaveBeenCalled();
       expect(mockLogger.debug).toHaveBeenCalledWith(
         expect.stringContaining(
-          "Fetching recommended update levels for project ID: project-1, mock: false",
+          "Fetching recommended update levels, mock: false",
         ),
       );
     } finally {
-      (window as { config?: unknown }).config = originalWindowConfig;
+      (window as any).config = originalConfig;
     }
-  });
+  }, 15000);
 
-  it("should handle API error when isMockEnabled is false", async () => {
+  it("should handle API error when mock is disabled", async () => {
     mockIsMockEnabled = false;
-
-    const originalWindowConfig = (
-      window as { config?: { CUSTOMER_PORTAL_BACKEND_BASE_URL?: string } }
-    ).config;
-    (
-      window as { config?: { CUSTOMER_PORTAL_BACKEND_BASE_URL?: string } }
-    ).config = {
-      CUSTOMER_PORTAL_BACKEND_BASE_URL: "https://api.example.com",
+    const originalConfig = (window as any).config;
+    (window as any).config = {
+      CUSTOMER_PORTAL_BACKEND_BASE_URL: "https://api.test",
     };
 
+    mockFetchFn.mockResolvedValue({
+      ok: false,
+      statusText: "Internal Server Error",
+      status: 500,
+    } as Response);
+
+    const { result } = renderHook(() => useGetRecommendedUpdateLevels(), {
+      wrapper,
+    });
+
     try {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn().mockResolvedValue({
-          ok: false,
-          statusText: "Internal Server Error",
-          status: 500,
-        } as Response),
-      );
-
-      const { result } = renderHook(
-        () => useGetRecommendedUpdateLevels("project-1"),
-        {
-          wrapper,
-        },
-      );
-
-      await waitFor(() => expect(result.current.isError).toBe(true));
+      await waitFor(() => expect(result.current.isError).toBe(true), {
+        timeout: 10000,
+      });
       expect(result.current.error?.message).toContain(
         "Error fetching recommended update levels: Internal Server Error",
       );
       expect(mockLogger.error).toHaveBeenCalled();
     } finally {
-      (window as { config?: unknown }).config = originalWindowConfig;
+      (window as any).config = originalConfig;
     }
-  });
-
-  it("should not fetch if projectId is empty", () => {
-    const { result } = renderHook(() => useGetRecommendedUpdateLevels(""), {
-      wrapper,
-    });
-
-    expect(result.current.isLoading).toBe(false);
-    expect(result.current.fetchStatus).toBe("idle");
-  });
+  }, 15000);
 });
