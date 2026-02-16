@@ -326,7 +326,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2026-01-30 18:20:05",
     title: "High latency in API Gateway",
     description: "Observed increased response times during peak hours.",
-    assignedEngineer: "engineer-123",
+    assignedEngineer: { id: "engineer-123", label: "Sarah Chen" },
     project: {
       id: "project-001",
       label: "Customer Portal – Subscription",
@@ -383,7 +383,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2026-01-25 14:30:00",
     title: "Request for new feature in dashboard",
     description: "User wants a custom widget for tracking API usage.",
-    assignedEngineer: "engineer-456",
+    assignedEngineer: { id: "engineer-456", label: "Mike Johnson" },
     project: {
       id: "project-001",
       label: "Customer Portal – Subscription",
@@ -441,7 +441,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2026-01-20 09:00:00",
     title: "Documentation update request",
     description: "Update API documentation for version 2.0.",
-    assignedEngineer: "engineer-789",
+    assignedEngineer: { id: "engineer-789", label: "Emma Wilson" },
     project: {
       id: "project-002",
       label: "Customer Analytics Platform",
@@ -468,7 +468,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2026-01-18 15:45:00",
     title: "Database connection timeout",
     description: "Occasional timeouts when connecting to the primary DB.",
-    assignedEngineer: "engineer-123",
+    assignedEngineer: { id: "engineer-123", label: "Sarah Chen" },
     project: {
       id: "project-001",
       label: "Customer Portal – Subscription",
@@ -525,7 +525,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2026-01-12 14:20:00",
     title: "UI glitch in mobile view",
     description: "Header overlaps content on smaller screens.",
-    assignedEngineer: "engineer-456",
+    assignedEngineer: { id: "engineer-456", label: "Mike Johnson" },
     project: {
       id: "project-001",
       label: "Customer Portal – Subscription",
@@ -582,7 +582,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2026-01-08 11:00:00",
     title: "Broken link in footer",
     description: "The 'Privacy Policy' link leads to a 404 page.",
-    assignedEngineer: "engineer-789",
+    assignedEngineer: { id: "engineer-789", label: "Emma Wilson" },
     project: {
       id: "project-001",
       label: "Customer Portal – Subscription",
@@ -609,7 +609,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2026-01-05 16:30:00",
     title: "Performance issue in search indexing",
     description: "Indexing process takes much longer than expected.",
-    assignedEngineer: "engineer-123",
+    assignedEngineer: { id: "engineer-123", label: "Sarah Chen" },
     project: {
       id: "project-002",
       label: "Customer Analytics Platform",
@@ -663,7 +663,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2025-12-30 10:00:00",
     title: "Security vulnerability report",
     description: "Potential XSS found in comments section.",
-    assignedEngineer: "engineer-456",
+    assignedEngineer: { id: "engineer-456", label: "Mike Johnson" },
     project: {
       id: "project-001",
       label: "Customer Portal – Subscription",
@@ -720,7 +720,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2025-12-25 14:00:00",
     title: "Server maintenance notification",
     description: "Planned maintenance for high-availability cluster.",
-    assignedEngineer: "engineer-789",
+    assignedEngineer: { id: "engineer-789", label: "Emma Wilson" },
     project: {
       id: "project-003",
       label: "Internal Tools",
@@ -747,7 +747,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2025-12-22 11:00:00",
     title: "Slow load times on dashboard",
     description: "Dashboards taking more than 5 seconds to fully load.",
-    assignedEngineer: "engineer-123",
+    assignedEngineer: { id: "engineer-123", label: "Sarah Chen" },
     project: {
       id: "project-001",
       label: "Customer Portal – Subscription",
@@ -804,7 +804,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2025-12-18 15:00:00",
     title: "Localization issue: Japanese translation",
     description: "Several buttons have incorrect Japanese text.",
-    assignedEngineer: "engineer-456",
+    assignedEngineer: { id: "engineer-456", label: "Mike Johnson" },
     project: {
       id: "project-001",
       label: "Customer Portal – Subscription",
@@ -831,7 +831,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2025-12-15 10:00:00",
     title: "Unauthorized access attempt alert",
     description: "Suspicious activity detected on user accounts.",
-    assignedEngineer: "engineer-789",
+    assignedEngineer: { id: "engineer-789", label: "Emma Wilson" },
     project: {
       id: "project-001",
       label: "Customer Portal – Subscription",
@@ -888,7 +888,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2025-12-10 11:30:00",
     title: "Deployment failure in QA",
     description: "Automated deployment pipeline failed for QA environment.",
-    assignedEngineer: "engineer-123",
+    assignedEngineer: { id: "engineer-123", label: "Sarah Chen" },
     project: {
       id: "project-001",
       label: "Customer Portal – Subscription",
@@ -945,7 +945,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2025-12-05 16:20:00",
     title: "Slow query performance",
     description: "Analytics queries taking longer than expected.",
-    assignedEngineer: "engineer-456",
+    assignedEngineer: { id: "engineer-456", label: "Mike Johnson" },
     project: {
       id: "project-002",
       label: "Customer Analytics Platform",
@@ -999,7 +999,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2025-11-30 10:00:00",
     title: "API documentation error",
     description: "Found incorrect parameter description in v1 docs.",
-    assignedEngineer: "engineer-789",
+    assignedEngineer: { id: "engineer-789", label: "Emma Wilson" },
     project: {
       id: "project-003",
       label: "Internal Tools",
@@ -1056,7 +1056,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2025-11-25 09:30:00",
     title: "User permission issue",
     description: "Client cannot access project settings.",
-    assignedEngineer: "engineer-123",
+    assignedEngineer: { id: "engineer-123", label: "Sarah Chen" },
     project: {
       id: "project-002",
       label: "Customer Analytics Platform",
@@ -1110,7 +1110,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2025-11-20 11:00:00",
     title: "Server 500 error on checkout",
     description: "Checkout process failing intermittently.",
-    assignedEngineer: "engineer-456",
+    assignedEngineer: { id: "engineer-456", label: "Mike Johnson" },
     project: {
       id: "project-001",
       label: "Customer Portal – Subscription",
@@ -1167,7 +1167,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2025-11-15 10:45:00",
     title: "SSL certificate expiry warning",
     description: "Certificate expiring in 3 days.",
-    assignedEngineer: "engineer-789",
+    assignedEngineer: { id: "engineer-789", label: "Emma Wilson" },
     project: {
       id: "project-001",
       label: "Customer Portal – Subscription",
@@ -1224,7 +1224,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2025-11-10 13:20:00",
     title: "Typo in footer",
     description: "Copyright year is incorrect.",
-    assignedEngineer: "engineer-123",
+    assignedEngineer: { id: "engineer-123", label: "Sarah Chen" },
     project: {
       id: "project-001",
       label: "Customer Portal – Subscription",
@@ -1278,7 +1278,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2025-11-05 09:10:00",
     title: "Search functionality broken",
     description: "Search returns no results for valid queries.",
-    assignedEngineer: "engineer-456",
+    assignedEngineer: { id: "engineer-456", label: "Mike Johnson" },
     project: {
       id: "project-001",
       label: "Customer Portal – Subscription",
@@ -1335,7 +1335,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2025-11-01 10:25:00",
     title: "New user onboarding issue",
     description: "Welcome email not being sent.",
-    assignedEngineer: "engineer-789",
+    assignedEngineer: { id: "engineer-789", label: "Emma Wilson" },
     project: {
       id: "project-002",
       label: "Customer Analytics Platform",
@@ -1392,7 +1392,7 @@ export const mockCases: CaseListItem[] = [
     createdOn: "2025-10-28 12:15:00",
     title: "Request for custom domain",
     description: "Client wants to use their own domain for portal.",
-    assignedEngineer: "engineer-123",
+    assignedEngineer: { id: "engineer-123", label: "Sarah Chen" },
     project: {
       id: "project-003",
       label: "Internal Tools",
@@ -1459,7 +1459,10 @@ export const mockCaseDetails: CaseDetails = {
     name: "Customer 3i",
   },
   csManager: null,
-  assignedEngineer: null,
+  assignedEngineer: {
+    id: "a4663745738734884988",
+    name: "dileepapp@wso2.com",
+  },
   project: {
     id: "project-001",
     name: "Customer Portal – Subscription",
