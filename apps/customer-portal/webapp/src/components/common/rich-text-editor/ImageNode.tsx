@@ -16,12 +16,15 @@
 
 import {
   DecoratorNode,
+  type DOMConversionMap,
   type EditorConfig,
+  type LexicalEditor,
   type NodeKey,
   type SerializedLexicalNode,
   type Spread,
 } from "lexical";
 import type { JSX } from "react";
+import { deriveAltFromFilename } from "@utils/richTextEditor";
 
 export type SerializedImageNode = Spread<
   {
@@ -71,6 +74,32 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
 
   updateDOM(): false {
     return false;
+  }
+
+  exportDOM(editor: LexicalEditor): { element: HTMLElement | null } {
+    void editor;
+    const img = document.createElement("img");
+    img.setAttribute("src", this.__src);
+    img.setAttribute("alt", this.__altText);
+    img.style.maxWidth = "100%";
+    img.style.borderRadius = "8px";
+    img.style.display = "block";
+    return { element: img };
+  }
+
+  static importDOM(): DOMConversionMap<HTMLElement> | null {
+    return {
+      img: () => ({
+        conversion: (element: HTMLElement) => {
+          const src = element.getAttribute("src") ?? "";
+          const alt =
+            element.getAttribute("alt") ?? deriveAltFromFilename(src);
+          if (!src) return null;
+          return { node: $createImageNode(src, alt) };
+        },
+        priority: 1,
+      }),
+    };
   }
 
   decorate(): JSX.Element {
