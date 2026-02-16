@@ -14,4 +14,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { vi } from "vitest";
 import "@testing-library/jest-dom";
+
+// Mock useAuthApiClient for API hooks that use authenticated fetch
+vi.mock("@context/AuthApiContext", () => ({
+  useAuthApiClient: () =>
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    ),
+  AuthApiProvider: ({ children }: { children: unknown }) => children,
+}));
