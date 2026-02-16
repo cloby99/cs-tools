@@ -72,7 +72,10 @@ import {
   ChevronRight,
 } from "@wso2/oxygen-ui-icons-react";
 import { mergeRegister } from "@lexical/utils";
-import { RICH_TEXT_BLOCK_TAGS } from "@constants/supportConstants";
+import {
+  MAX_IMAGE_SIZE_BYTES,
+  RICH_TEXT_BLOCK_TAGS,
+} from "@constants/supportConstants";
 import { useErrorBanner } from "@context/error-banner/ErrorBannerContext";
 import {
   INSERT_IMAGE_COMMAND,
@@ -196,10 +199,17 @@ const Toolbar = ({
   const onImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
       const resetInput = () => {
         if (imageInputRef.current) imageInputRef.current.value = "";
       };
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        showError(
+          `Image "${file.name}" exceeds the maximum allowed size of ${MAX_IMAGE_SIZE_BYTES / (1024 * 1024)}MB. Please choose a smaller file.`,
+        );
+        resetInput();
+        return;
+      }
+      const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === "string") {
           editor.dispatchCommand(INSERT_IMAGE_COMMAND, {
@@ -636,11 +646,9 @@ const Toolbar = ({
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}
                 autoFocus
-                InputProps={{
-                  sx: { fontSize: "0.8125rem" },
-                }}
-                InputLabelProps={{
-                  sx: { fontSize: "0.8125rem" },
+                slotProps={{
+                  input: { sx: { fontSize: "0.8125rem" } },
+                  inputLabel: { sx: { fontSize: "0.8125rem" } },
                 }}
               />
               <TextField
@@ -649,11 +657,9 @@ const Toolbar = ({
                 fullWidth
                 value={linkText}
                 onChange={(e) => setLinkText(e.target.value)}
-                InputProps={{
-                  sx: { fontSize: "0.8125rem" },
-                }}
-                InputLabelProps={{
-                  sx: { fontSize: "0.8125rem" },
+                slotProps={{
+                  input: { sx: { fontSize: "0.8125rem" } },
+                  inputLabel: { sx: { fontSize: "0.8125rem" } },
                 }}
               />
               <Button
