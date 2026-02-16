@@ -97,7 +97,9 @@ export function formatSlaResponseTime(
  * @param bytes - Size in bytes (number or string from API).
  * @returns {string} Formatted string like "1.2 MB" or "18 KB".
  */
-export function formatFileSize(bytes: number | string | null | undefined): string {
+export function formatFileSize(
+  bytes: number | string | null | undefined,
+): string {
   const n = typeof bytes === "string" ? parseInt(bytes, 10) : bytes;
   if (n == null || Number.isNaN(n)) return "--";
   if (n < 1024) return `${n} B`;
@@ -380,7 +382,10 @@ export function replaceInlineImageSources(
     /<img([^>]*?)\s+src\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))([^>]*)>/gi,
     (_match, before, doubleSrc, singleSrc, bareSrc, after) => {
       const src = (doubleSrc ?? singleSrc ?? bareSrc ?? "") as string;
-      const refId = src.replace(/^\//, "").replace(/\.iix$/i, "").trim();
+      const refId = src
+        .replace(/^\//, "")
+        .replace(/\.iix$/i, "")
+        .trim();
       const attachment = inlineAttachments.find(
         (a) =>
           a.id === refId ||
@@ -388,9 +393,9 @@ export function replaceInlineImageSources(
           (a?.id && src.includes(a.id)) ||
           (a?.sys_id && src.includes(a.sys_id)),
       );
-      const newSrc =
-        attachment?.downloadUrl ?? attachment?.url ?? src;
-      const quote = doubleSrc !== undefined ? '"' : singleSrc !== undefined ? "'" : '"';
+      const newSrc = attachment?.downloadUrl ?? attachment?.url ?? src;
+      const quote =
+        doubleSrc !== undefined ? '"' : singleSrc !== undefined ? "'" : '"';
       return `<img${before} src=${quote}${newSrc}${quote}${after}>`;
     },
   );
@@ -429,4 +434,15 @@ export function formatCommentDate(date: string | null | undefined): string {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+/**
+ * Strips HTML tags from a string.
+ *
+ * @param html - HTML content string.
+ * @returns {string} Plain text without HTML tags.
+ */
+export function stripHtml(html: string | null | undefined): string {
+  if (!html || typeof html !== "string") return "";
+  return html.replace(/<[^>]+>/g, "").trim();
 }
