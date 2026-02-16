@@ -20,8 +20,7 @@ import "@testing-library/jest-dom";
 // Mock useAuthApiClient for API hooks that use authenticated fetch
 vi.mock("@context/AuthApiContext", () => ({
   useAuthApiClient: () =>
-    vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 200 }),
+    vi.fn().mockImplementation(() =>
     ),
   AuthApiProvider: ({ children }: { children: unknown }) => children,
 }));
