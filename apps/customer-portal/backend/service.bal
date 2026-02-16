@@ -1254,14 +1254,14 @@ service http:InterceptableService / on new http:Listener(9090) {
         }
 
         entity:ProductVulnerabilitySearchResponse|error response =
-            entity:searchProductVunerabilities(userInfo.idToken, payload);
+            entity:searchProductVulnerabilities(userInfo.idToken, payload);
         if response is error {
             if getStatusCode(response) == http:STATUS_FORBIDDEN {
                 log:printWarn(string `Access to product vulnerabilities information is forbidden for user: ${
                         userInfo.userId}`);
                 return <http:Forbidden>{
                     body: {
-                        message: "Access to product vulnerabilitues information is forbidden for the user!"
+                        message: "Access to product vulnerabilities information is forbidden for the user!"
                     }
                 };
             }

@@ -193,7 +193,7 @@ public isolated function createComment(string idToken, CommentCreatePayload payl
 # + idToken - ID token for authorization
 # + payload - Product vulnerability search payload
 # + return - Product vulnerability search response or error
-public isolated function searchProductVunerabilities(string idToken, ProductVulnerabilitySearchPayload payload)
+public isolated function searchProductVulnerabilities(string idToken, ProductVulnerabilitySearchPayload payload)
     returns ProductVulnerabilitySearchResponse|error {
 
     return csEntityClient->/products/vulnerabilities/search.post(payload, generateHeaders(idToken));
