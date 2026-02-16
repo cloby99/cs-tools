@@ -34,7 +34,10 @@ public enum SortOrder {
 }
 
 # Common ID string type with length constraint.
-@constraint:String {length: 32}
+@constraint:String {
+    length: 32,
+    pattern: re `^[A-Za-z0-9]{32}$`
+}
 public type IdString string;
 
 # Pagination information.

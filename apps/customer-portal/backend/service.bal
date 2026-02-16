@@ -268,14 +268,6 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        if isEmptyId(id) {
-            return <http:BadRequest>{
-                body: {
-                    message: ERR_MSG_PROJECT_ID_EMPTY
-                }
-            };
-        }
-
         entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
         if projectResponse is error {
             if getStatusCode(projectResponse) == http:STATUS_UNAUTHORIZED {
@@ -323,14 +315,6 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        if isEmptyId(id) {
-            return <http:BadRequest>{
-                body: {
-                    message: ERR_MSG_PROJECT_ID_EMPTY
-                }
-            };
-        }
-
         entity:DeploymentsResponse|error deploymentsResponse = entity:getDeployments(userInfo.idToken, id);
         if deploymentsResponse is error {
             if getStatusCode(deploymentsResponse) == http:STATUS_FORBIDDEN {
@@ -367,14 +351,6 @@ service http:InterceptableService / on new http:Listener(9090) {
             return <http:InternalServerError>{
                 body: {
                     message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
-                }
-            };
-        }
-
-        if isEmptyId(id) {
-            return <http:BadRequest>{
-                body: {
-                    message: ERR_MSG_PROJECT_ID_EMPTY
                 }
             };
         }
@@ -428,14 +404,6 @@ service http:InterceptableService / on new http:Listener(9090) {
             return <http:InternalServerError>{
                 body: {
                     message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
-                }
-            };
-        }
-
-        if isEmptyId(id) {
-            return <http:BadRequest>{
-                body: {
-                    message: ERR_MSG_PROJECT_ID_EMPTY
                 }
             };
         }
@@ -550,14 +518,6 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        if isEmptyId(id) {
-            return <http:BadRequest>{
-                body: {
-                    message: ERR_MSG_PROJECT_ID_EMPTY
-                }
-            };
-        }
-
         // Verify project access
         entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
         if projectResponse is error {
@@ -620,14 +580,6 @@ service http:InterceptableService / on new http:Listener(9090) {
             return <http:InternalServerError>{
                 body: {
                     message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
-                }
-            };
-        }
-
-        if isEmptyId(id) {
-            return <http:BadRequest>{
-                body: {
-                    message: ERR_MSG_PROJECT_ID_EMPTY
                 }
             };
         }
@@ -705,14 +657,6 @@ service http:InterceptableService / on new http:Listener(9090) {
             return <http:InternalServerError>{
                 body: {
                     message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
-                }
-            };
-        }
-
-        if isEmptyId(id) {
-            return <http:BadRequest>{
-                body: {
-                    message: ERR_MSG_CASE_ID_EMPTY
                 }
             };
         }
@@ -816,14 +760,6 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        if isEmptyId(id) {
-            return <http:BadRequest>{
-                body: {
-                    message: ERR_MSG_PROJECT_ID_EMPTY
-                }
-            };
-        }
-
         types:CaseSearchResponse|error casesResponse = searchCases(userInfo.idToken, id, payload);
         if casesResponse is error {
             if getStatusCode(casesResponse) == http:STATUS_UNAUTHORIZED {
@@ -861,14 +797,6 @@ service http:InterceptableService / on new http:Listener(9090) {
             return <http:InternalServerError>{
                 body: {
                     message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
-                }
-            };
-        }
-
-        if isEmptyId(id) {
-            return <http:BadRequest>{
-                body: {
-                    message: ERR_MSG_PROJECT_ID_EMPTY
                 }
             };
         }
@@ -952,14 +880,6 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        if isEmptyId(id) {
-            return <http:BadRequest>{
-                body: {
-                    message: ERR_MSG_CASE_ID_EMPTY
-                }
-            };
-        }
-
         if isInvalidLimitOffset('limit, offset) {
             return <http:BadRequest>{
                 body: {
@@ -1029,14 +949,6 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        if isEmptyId(id) {
-            return <http:BadRequest>{
-                body: {
-                    message: ERR_MSG_CASE_ID_EMPTY
-                }
-            };
-        }
-
         if isInvalidLimitOffset('limit, offset) {
             return <http:BadRequest>{
                 body: {
@@ -1097,14 +1009,6 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        if isEmptyId(id) {
-            return <http:BadRequest>{
-                body: {
-                    message: ERR_MSG_CASE_ID_EMPTY
-                }
-            };
-        }
-
         entity:CommentCreateResponse|error createdCaseResponse = entity:createComment(userInfo.idToken,
                 {
                     referenceId: id,
@@ -1156,14 +1060,6 @@ service http:InterceptableService / on new http:Listener(9090) {
             return <http:InternalServerError>{
                 body: {
                     message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
-                }
-            };
-        }
-
-        if isEmptyId(id) {
-            return <http:BadRequest>{
-                body: {
-                    message: ERR_MSG_CASE_ID_EMPTY
                 }
             };
         }
@@ -1226,14 +1122,6 @@ service http:InterceptableService / on new http:Listener(9090) {
             return <http:InternalServerError>{
                 body: {
                     message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
-                }
-            };
-        }
-
-        if isEmptyId(id) {
-            return <http:BadRequest>{
-                body: {
-                    message: "Deployment ID cannot be empty!"
                 }
             };
         }

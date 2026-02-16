@@ -98,12 +98,6 @@ public isolated function getProjectFilters(entity:ProjectMetadataResponse projec
     };
 }
 
-# Check if the given ID is empty or whitespace.
-#
-# + id - ID to validate
-# + return - True if empty/whitespace, else false
-public isolated function isEmptyId(string id) returns boolean => id.trim().length() == 0;
-
 # Get HTTP status code from the given error.
 #
 # + err - Error to handle
