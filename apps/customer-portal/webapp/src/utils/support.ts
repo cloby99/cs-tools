@@ -481,7 +481,7 @@ export function getAvailableCaseActions(
 
   switch (normalized) {
     case CaseStatus.CLOSED.toLowerCase():
-      return [];
+      return ["Open Related Case"];
 
     case CaseStatus.SOLUTION_PROPOSED.toLowerCase():
       return [

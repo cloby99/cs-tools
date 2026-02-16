@@ -402,6 +402,7 @@ const Editor = ({
                         <IconButton
                           size="small"
                           onClick={() => onAttachmentRemove?.(index)}
+                          aria-label={`Remove attachment ${index + 1}`}
                           sx={{
                             p: 0.25,
                             color: "text.secondary",
