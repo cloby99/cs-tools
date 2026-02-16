@@ -33,6 +33,7 @@ import {
   TriangleAlert,
   TrendingUp,
   Zap,
+  RotateCcw,
 } from "@wso2/oxygen-ui-icons-react";
 import { type ComponentType } from "react";
 import type {
@@ -236,6 +237,7 @@ export const CASE_STATUS_ACTIONS: CaseStatusAction[] = [
   { label: "Waiting on WSO2", Icon: CirclePause, paletteIntent: "warning" },
   { label: "Accept Solution", Icon: CircleCheck, paletteIntent: "success" },
   { label: "Reject Solution", Icon: TriangleAlert, paletteIntent: "error" },
+  { label: "Open Related Case", Icon: RotateCcw, paletteIntent: "info" },
 ];
 
 // Number of outstanding cases to show on support overview cards.

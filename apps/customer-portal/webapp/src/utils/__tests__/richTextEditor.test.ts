@@ -67,6 +67,18 @@ describe("richTextEditor utils", () => {
       expect(sanitizeUrl("javascript:alert(1)")).toBe("");
       expect(sanitizeUrl("data:text/html,<script>")).toBe("");
     });
+
+    it("returns empty string for protocol-relative URLs", () => {
+      expect(sanitizeUrl("//evil.com")).toBe("");
+      expect(sanitizeUrl("//example.com/path")).toBe("");
+    });
+
+    it("returns decoded and trimmed value for valid URLs", () => {
+      expect(sanitizeUrl("  https://example.com  ")).toBe(
+        "https://example.com",
+      );
+      expect(sanitizeUrl("  /path  ")).toBe("/path");
+    });
   });
 
   describe("getFileIcon", () => {
