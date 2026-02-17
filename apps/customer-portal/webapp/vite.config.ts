@@ -34,17 +34,32 @@ export default defineConfig({
       "@components": fileURLToPath(
         new URL("./src/components", import.meta.url),
       ),
+      "@update-cards": fileURLToPath(
+        new URL("./src/components/updates/update-cards", import.meta.url),
+      ),
       "@case-details": fileURLToPath(
-        new URL("./src/components/support/case-details/header", import.meta.url),
+        new URL(
+          "./src/components/support/case-details/header",
+          import.meta.url,
+        ),
       ),
       "@case-details-attachments": fileURLToPath(
-        new URL("./src/components/support/case-details/attachments-tab", import.meta.url),
+        new URL(
+          "./src/components/support/case-details/attachments-tab",
+          import.meta.url,
+        ),
       ),
       "@case-details-details": fileURLToPath(
-        new URL("./src/components/support/case-details/details-tab", import.meta.url),
+        new URL(
+          "./src/components/support/case-details/details-tab",
+          import.meta.url,
+        ),
       ),
       "@case-details-activity": fileURLToPath(
-        new URL("./src/components/support/case-details/activity-tab", import.meta.url),
+        new URL(
+          "./src/components/support/case-details/activity-tab",
+          import.meta.url,
+        ),
       ),
       "@config": fileURLToPath(new URL("./src/config", import.meta.url)),
       "@constants": fileURLToPath(new URL("./src/constants", import.meta.url)),
