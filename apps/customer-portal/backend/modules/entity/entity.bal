@@ -54,8 +54,14 @@ public isolated function getProjectActivityStats(string idToken, string id) retu
 #
 # + idToken - ID token for authorization
 # + id - Unique ID of the project
+# + caseTypes - Optional array of case types to filter statistics
 # + return - Project cases statistics or error
-public isolated function getCaseStatsForProject(string idToken, string id) returns ProjectCaseStatsResponse|error {
+public isolated function getCaseStatsForProject(string idToken, string id, string[]? caseTypes)
+    returns ProjectCaseStatsResponse|error {
+
+    if caseTypes is string[] {
+        return csEntityClient->/projects/[id]/cases/stats.get(generateHeaders(idToken), caseTypes = caseTypes);
+    }
     return csEntityClient->/projects/[id]/cases/stats.get(generateHeaders(idToken));
 }
 

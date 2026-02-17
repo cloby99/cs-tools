@@ -223,12 +223,14 @@ public type ReferenceTableItem record {|
 public type CaseSearchFilters record {|
     # List of project IDs to filter
     string[] projectIds?;
+    # List of case type IDs to filter
+    string[] caseTypeIds?;
     # Search query for case number, title and description
     string searchQuery?;
     # List of issue types to filter
     int[] issueTypeKeys?;
     # State key
-    int stateKey?;
+    int[] stateKeys?;
     # Severity key
     int severityKey?;
     # Deployment ID
@@ -362,20 +364,31 @@ public type ResolvedCaseCount record {|
     json...;
 |};
 
+# Count of a specific item with its ID (State, severity, etc.)
+public type CountItem record {|
+    # ID of the item
+    int id;
+    # Count value
+    int count;
+    json...;
+|};
+
 # Project cases statistics response.
 public type ProjectCaseStatsResponse record {|
     # Total case count
     int totalCount;
-    # Open case count
-    int openCount;
     # Average response time
     decimal averageResponseTime;
-    # Active case count breakdown
-    ActiveCaseCount activeCount;
-    # Outstanding cases count breakdown
-    OutstandingCasesCount outstandingCasesCount;
     # Resolved case count breakdown
     ResolvedCaseCount resolvedCount;
+    # Count of cases by state
+    map<CountItem> stateCount;
+    # Count of cases by severity
+    map<CountItem> severityCount;
+    # Outstanding cases count by severity
+    map<CountItem> outstandingSeverityCount;
+    # Cases trend by quarter and week
+    map<map<CountItem>> casesTrend;
     json...;
 |};
 

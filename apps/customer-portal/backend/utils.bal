@@ -35,7 +35,8 @@ public isolated function searchCases(string idToken, string projectId, types:Cas
             searchQuery: payload.filters?.searchQuery,
             issueTypeKeys: issueId != () ? [issueId] : (),
             severityKey: payload.filters?.severityId,
-            stateKey: payload.filters?.statusId,
+            caseTypeIds: payload.filters?.caseTypeIds,
+            stateKeys: payload.filters?.statusIds,
             deploymentId: payload.filters?.deploymentId
         },
         pagination: payload.pagination,
@@ -320,4 +321,8 @@ public isolated function mapProductVulnerabilityMetadataResponse(entity:Vulnerab
     types:ReferenceItem[] severities = from entity:ChoiceListItem item in response.severities
         select {id: item.id.toString(), label: item.label};
     return {severities};
+}
+
+public isolated function mapCaseStats(entity:ProjectCaseStatsResponse caseStats) {
+    
 }

@@ -396,7 +396,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     #
     # + id - ID of the project
     # + return - Project statistics response or error
-    resource function get projects/[string id]/stats(http:RequestContext ctx)
+    resource function get projects/[string id]/stats(http:RequestContext ctx, string[]? caseTypes)
         returns types:ProjectStatsResponse|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
@@ -438,7 +438,8 @@ service http:InterceptableService / on new http:Listener(9090) {
         }
 
         // Fetch case stats
-        entity:ProjectCaseStatsResponse|error caseStats = entity:getCaseStatsForProject(userInfo.idToken, id);
+        entity:ProjectCaseStatsResponse|error caseStats =
+            entity:getCaseStatsForProject(userInfo.idToken, id, caseTypes);
         if caseStats is error {
             string customError = "Failed to retrieve project case statistics.";
             log:printError(customError, caseStats);
@@ -488,7 +489,7 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         return {
             projectStats: {
-                openCases: caseStats.openCount,
+                openCases: caseStats.stateCount.get(STATE_OPEN).count,
                 activeChats: chatStats.activeCount,
                 deployments: deploymentStats.totalCount,
                 slaStatus: projectActivityStats.slaStatus
@@ -506,7 +507,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     #
     # + id - ID of the project
     # + return - Project statistics overview or error response
-    resource function get projects/[string id]/stats/cases(http:RequestContext ctx)
+    resource function get projects/[string id]/stats/cases(http:RequestContext ctx, string[]? caseTypes)
         returns types:ProjectCaseStats|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
@@ -547,7 +548,8 @@ service http:InterceptableService / on new http:Listener(9090) {
             };
         }
 
-        entity:ProjectCaseStatsResponse|error caseStats = entity:getCaseStatsForProject(userInfo.idToken, id);
+        entity:ProjectCaseStatsResponse|error caseStats =
+            entity:getCaseStatsForProject(userInfo.idToken, id, caseTypes);
         if caseStats is error {
             string customError = "Failed to retrieve project case statistics.";
             log:printError(customError, caseStats);
@@ -560,11 +562,13 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         return {
             totalCases: caseStats.totalCount,
-            openCases: caseStats.openCount,
+            openCases: caseStats.stateCount.get(STATE_OPEN).count,
             averageResponseTime: caseStats.averageResponseTime,
-            activeCases: caseStats.activeCount,
             resolvedCases: caseStats.resolvedCount,
-            outstandingCases: caseStats.outstandingCasesCount
+            stateCount: caseStats.stateCount,
+            severityCount: caseStats.severityCount,
+            outstandingSeverityCount: caseStats.outstandingSeverityCount,
+            casesTrend: caseStats.casesTrend
         };
     }
 
@@ -572,7 +576,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     #
     # + id - ID of the project
     # + return - Project support statistics or error response
-    resource function get projects/[string id]/stats/support(http:RequestContext ctx)
+    resource function get projects/[string id]/stats/support(http:RequestContext ctx, string[]? caseTypes)
         returns types:ProjectSupportStats|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
@@ -614,7 +618,8 @@ service http:InterceptableService / on new http:Listener(9090) {
         }
 
         // Fetch case stats 
-        entity:ProjectCaseStatsResponse|error caseStats = entity:getCaseStatsForProject(userInfo.idToken, id);
+        entity:ProjectCaseStatsResponse|error caseStats =
+            entity:getCaseStatsForProject(userInfo.idToken, id, caseTypes);
         if caseStats is error {
             string customError = "Failed to retrieve project case statistics.";
             log:printError(customError, caseStats);

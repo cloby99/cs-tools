@@ -37,8 +37,10 @@ public type CaseSearchFilters record {|
     string searchQuery?;
     # Issue ID
     int issueId?;
-    # Status ID
-    int statusId?;
+    # Status IDs
+    int[] statusIds?;
+    # List of case type IDs
+    string[] caseTypeIds?;
     # Severity ID
     int severityId?;
     # Deployment ID
@@ -161,12 +163,16 @@ public type ProjectCaseStats record {|
     int openCases;
     # Average response time
     decimal averageResponseTime;
-    # Active case count breakdown
-    entity:ActiveCaseCount activeCases;
-    # Outstanding cases count breakdown
-    entity:OutstandingCasesCount outstandingCases;
     # Resolved case count breakdown
     entity:ResolvedCaseCount resolvedCases;
+    # Count of cases by state
+    map<entity:CountItem> stateCount;
+    # Count of cases by severity
+    map<entity:CountItem> severityCount;
+    # Outstanding cases count by severity
+    map<entity:CountItem> outstandingSeverityCount;
+    # Cases trend by quarter and week
+    map<map<entity:CountItem>> casesTrend;
 |};
 
 # Project support statistics.
