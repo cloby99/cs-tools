@@ -132,6 +132,7 @@ public type UpdateResponse record {|
     int total\-security\-updates;
     # Applied update numbers
     int[] applied\-updates\-numbers;
+    json...;
 |};
 
 # Update payload for listing updates.

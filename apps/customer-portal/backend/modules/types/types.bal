@@ -535,7 +535,6 @@ public type UpdateResponse record {|
     int totalSecurityUpdates;
     # Applied update numbers
     int[] appliedUpdatesNumbers;
-    json...;
 |};
 
 # Update payload for listing updates.
