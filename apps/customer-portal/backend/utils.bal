@@ -81,7 +81,7 @@ public isolated function searchCases(string idToken, string projectId, types:Cas
 public isolated function getProjectFilters(entity:ProjectMetadataResponse projectMetadata)
     returns types:ProjectFilterOptions {
 
-    types:ReferenceItem[] statuses = from entity:ChoiceListItem item in projectMetadata.states
+    types:ReferenceItem[] caseStates = from entity:ChoiceListItem item in projectMetadata.caseStates
         select {id: item.id.toString(), label: item.label};
     types:ReferenceItem[] severities = from entity:ChoiceListItem item in projectMetadata.severities
         select {id: item.id.toString(), label: item.label};
@@ -89,12 +89,25 @@ public isolated function getProjectFilters(entity:ProjectMetadataResponse projec
         select {id: item.id.toString(), label: item.label};
     types:ReferenceItem[] deploymentTypes = from entity:ChoiceListItem item in projectMetadata.deploymentTypes
         select {id: item.id.toString(), label: item.label};
+    types:ReferenceItem[] callRequestStates = from entity:ChoiceListItem item in projectMetadata.callRequestStates
+        select {id: item.id.toString(), label: item.label};
+    types:ReferenceItem[] changeRequestStates = from entity:ChoiceListItem item in projectMetadata.changeRequestStates
+        select {id: item.id.toString(), label: item.label};
+    types:ReferenceItem[] changeRequestImpacts = from entity:ChoiceListItem item in projectMetadata.changeRequestImpacts
+        select {id: item.id.toString(), label: item.label};
+    types:ReferenceItem[] caseTypes = from entity:ReferenceTableItem item in projectMetadata.caseTypes
+        select {id: item.id, label: item.name};
 
     return {
-        statuses,
+        caseStates,
         severities,
         issueTypes,
-        deploymentTypes
+        deploymentTypes,
+        callRequestStates,
+        changeRequestStates,
+        changeRequestImpacts,
+        caseTypes,
+        severityBasedAllocationTime: projectMetadata.severityBasedAllocationTime
     };
 }
 
@@ -243,4 +256,68 @@ public isolated function mapCreatedCase(entity:CreatedCase createdCase) returns 
         state: {id: createdCase.state.id.toString(), label: createdCase.state.label},
         'type: {id: createdCase.'type.id.toString(), label: createdCase.'type.name}
     };
+}
+
+# Map product vulnerability search response to the desired structure.
+#
+# + response - Product vulnerability search response from the entity service
+# + return - Mapped product vulnerability search response
+public isolated function mapProductVulnerabilitySearchResponse(entity:ProductVulnerabilitySearchResponse response)
+    returns types:ProductVulnerabilitySearchResponse {
+
+    types:ProductVulnerability[] productVulnerabilities =
+    from entity:ProductVulnerability vulnerability in response.productVulnerabilities
+    select {
+        id: vulnerability.id,
+        cveId: vulnerability.cveId,
+        vulnerabilityId: vulnerability.vulnerabilityId,
+        severity: {id: vulnerability.severity.id.toString(), label: vulnerability.severity.label},
+        componentName: vulnerability.componentName,
+        version: vulnerability.version,
+        'type: vulnerability.'type,
+        useCase: vulnerability.useCase,
+        justification: vulnerability.justification,
+        resolution: vulnerability.resolution
+    };
+    return {
+        productVulnerabilities,
+        totalRecords: response.totalRecords,
+        'limit: response.'limit,
+        offset: response.offset
+    };
+}
+
+# Map product vulnerability response to the desired structure.
+#
+# + response - Product vulnerability response from the entity service
+# + return - Mapped product vulnerability response
+public isolated function mapProductVulnerabilityResponse(entity:ProductVulnerabilityResponse response)
+    returns types:ProductVulnerabilityResponse {
+
+    return {
+        id: response.id,
+        cveId: response.cveId,
+        vulnerabilityId: response.vulnerabilityId,
+        severity: {id: response.severity.id.toString(), label: response.severity.label},
+        componentName: response.componentName,
+        version: response.version,
+        'type: response.'type,
+        useCase: response.useCase,
+        justification: response.justification,
+        resolution: response.resolution,
+        componentType: response.componentType,
+        updateLevel: response.updateLevel
+    };
+}
+
+# Map product vulnerability metadata response to the desired structure.
+#
+# + response - Product vulnerability metadata response from the entity service
+# + return - Mapped product vulnerability metadata response
+public isolated function mapProductVulnerabilityMetadataResponse(entity:VulnerabilityMetaResponse response)
+    returns types:ProductVulnerabilityMetaResponse {
+
+    types:ReferenceItem[] severities = from entity:ChoiceListItem item in response.severities
+        select {id: item.id.toString(), label: item.label};
+    return {severities};
 }

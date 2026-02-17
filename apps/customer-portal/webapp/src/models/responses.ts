@@ -282,7 +282,12 @@ export interface CaseMetadataResponse {
   statuses?: MetadataItem[];
   severities?: MetadataItem[];
   issueTypes?: MetadataItem[];
-  deployments?: MetadataItem[];
+  deploymentTypes?: MetadataItem[];
+  callRequestStates?: MetadataItem[];
+  changeRequestStates?: MetadataItem[];
+  changeRequestImpacts?: MetadataItem[];
+  caseTypes?: MetadataItem[];
+  severityBasedAllocationTime?: Record<string, number>;
 }
 
 // Chat history list item (support chat session summary).
@@ -476,4 +481,37 @@ export interface ProductVulnerabilitiesSearchResponse {
   totalRecords: number;
   offset: number;
   limit: number;
+}
+
+// Response for creating a deployment.
+export interface CreateDeploymentResponse {
+  createdBy: string;
+  createdOn: string;
+  id: string;
+}
+
+// Call request structure.
+export interface CallRequest {
+  id: string;
+  type: string;
+  status: string;
+  requestedOn: string;
+  preferredTime: {
+    start: string;
+    end: string;
+    timezone: string;
+  };
+  scheduledFor: string;
+  durationInMinutes: number;
+  notes: string;
+}
+
+// Response for case call requests list.
+export interface CallRequestsResponse {
+  callRequests: CallRequest[];
+}
+
+// Response for creating a call request.
+export interface CreateCallResponse {
+  id: string;
 }

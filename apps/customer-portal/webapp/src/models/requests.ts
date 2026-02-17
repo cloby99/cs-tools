@@ -81,3 +81,20 @@ export interface PostCaseAttachmentRequest {
   type: string;
   content: string;
 }
+
+// Request body for creating a deployment.
+export interface CreateDeploymentRequest {
+  deploymentTypeKey: number;
+  description: string;
+  name: string;
+}
+
+// Request body for creating a call request.
+export interface CreateCallRequest {
+  preferredTime: {
+    startTime: string;
+    endTime: string;
+  };
+  timezone: string;
+  notes: string;
+}

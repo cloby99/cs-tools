@@ -27,19 +27,6 @@ type ClientCredentialsOauth2Config record {|
     string[] scopes = [];
 |};
 
-# Basic product information.
-public type BasicProductInfo record {|
-    # Product name
-    @constraint:String {minLength: 1}
-    string product\-name;
-    # Product base version
-    @constraint:String {minLength: 1}
-    string product\-base\-version;
-    # Channel
-    @constraint:String {minLength: 1}
-    string channel;
-|};
-
 # Recommended update level.
 public type RecommendedUpdateLevel record {|
     # Product name
@@ -64,6 +51,7 @@ public type RecommendedUpdateLevel record {|
     int available\-updates\-count;
     # Available security updates count
     int available\-security\-updates\-count;
+    json...;
 |};
 
 # File changes.
@@ -124,16 +112,10 @@ public type ChangeType record {|
 public type UpdateResponse record {|
     # File changes
     FileChanges file\-changes;
-    # JWT token
-    string jwt;
-    # Platform name
-    string platform\-name;
-    # Platform version
-    string platform\-version;
     # Product name
     string product\-name;
-    # Product base version
-    string product\-base\-version;
+    # Product version
+    string product\-version;
     # Starting update level
     string starting\-update\-level;
     # Ending update level
@@ -149,12 +131,21 @@ public type UpdateResponse record {|
     # Total security updates
     int total\-security\-updates;
     # Applied update numbers
-    int[] applied\-update\-numbers;
+    int[] applied\-updates\-numbers;
+    json...;
 |};
 
 # Update payload for listing updates.
 public type ListUpdatePayload record {|
-    *BasicProductInfo;
+    # Product name
+    @constraint:String {minLength: 1}
+    string product\-name;
+    # Product version
+    @constraint:String {minLength: 1}
+    string product\-version;
+    # Channel
+    @constraint:String {minLength: 1}
+    string channel;
     # Starting update level
     @constraint:String {minLength: 1}
     string start\-update\-level;
@@ -171,6 +162,7 @@ public type ProductUpdateLevel record {|
     string product\-name;
     # Product update levels
     UpdateLevel[] product\-update\-levels;
+    json...;
 |};
 
 # Update level.
@@ -181,4 +173,5 @@ public type UpdateLevel record {|
     string channel;
     # Update level
     int[] update\-levels;
+    json...;
 |};

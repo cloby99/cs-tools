@@ -33,6 +33,10 @@
       "@case-details-activity/*": [
         "src/components/support/case-details/activity-tab/*"
       ],
+      "@case-details-calls": ["src/components/support/case-details/calls-tab"],
+      "@case-details-calls/*": [
+        "src/components/support/case-details/calls-tab/*"
+      ],
       "@config/*": ["src/config/*"],
       "@constants/*": ["src/constants/*"],
       "@context/*": ["src/context/*"],

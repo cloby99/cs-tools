@@ -133,14 +133,24 @@ public type UpdatedUser record {|
 
 # Project filter options.
 public type ProjectFilterOptions record {|
-    # List of case statuses
-    ReferenceItem[] statuses;
+    # List of case states
+    ReferenceItem[] caseStates;
     # List of case severities
     ReferenceItem[] severities;
     # List of issue types
     ReferenceItem[] issueTypes;
     # List of deployment types
     ReferenceItem[] deploymentTypes;
+    # List of available call request states
+    ReferenceItem[] callRequestStates;
+    # List of available change request states
+    ReferenceItem[] changeRequestStates;
+    # List of available change request impacts
+    ReferenceItem[] changeRequestImpacts;
+    # List of available case types
+    ReferenceItem[] caseTypes;
+    # Severity based allocation time mapping (severity ID to allocation time in minutes)
+    map<int> severityBasedAllocationTime;
 |};
 
 # Case statistics for a project.
@@ -361,6 +371,13 @@ public type CaseClassificationPayload record {|
     string tier;
 |};
 
+# Product vulnerability metadata response.
+public type ProductVulnerabilityMetaResponse record {|
+    # List of vulnerability severities
+    ReferenceItem[] severities;
+    json...;
+|};
+
 # Product vulnerability search filters.
 public type ProductVulnerabilitySearchFilters record {|
     # Search query for CVE ID, Vulnerability ID, Component Name and etc.
@@ -371,47 +388,38 @@ public type ProductVulnerabilitySearchFilters record {|
     int severityId?;
 |};
 
-# Payload for product vulnerability search.
-public type ProductVulnerabilitySearchPayload record {|
-    # Filter criteria
-    ProductVulnerabilitySearchFilters filters?;
-    # Sort configuration
-    entity:SortBy sortBy?;
-    # Pagination details
-    entity:Pagination pagination?;
-|};
-
 # Base product vulnerability.
 public type ProductVulnerability record {|
-    # ID of the vulnerability
+    # ID
     string id;
     # CVE identifier
     string cveId;
     # Vulnerability identifier
     string vulnerabilityId;
-    # Severity level of the vulnerability
-    entity:ChoiceListItem severity;
+    # Severity level
+    ReferenceItem severity;
     # Name of the component
     string componentName;
     # Version of the component
     string version;
-    # Type of the vulnerability
+    # Type
     string 'type;
     # Use case description
-    string useCase;
-    # Justification for the vulnerability
-    string justification;
-    # Resolution details for the vulnerability
-    string resolution;
+    string? useCase;
+    # Justification
+    string? justification;
+    # Resolution details
+    string? resolution;
+    json...;
 |};
 
 # Product vulnerability information.
 public type ProductVulnerabilityResponse record {|
     *ProductVulnerability;
     # Type of the component
-    string componentType;
+    string componentType?;
     # Update level for the vulnerability
-    string updateLevel;
+    string updateLevel?;
 |};
 
 # Product vulnerabilities response with pagination.
@@ -421,19 +429,6 @@ public type ProductVulnerabilitySearchResponse record {|
     # Total records count
     int totalRecords;
     *entity:Pagination;
-|};
-
-# Basic product information.
-public type BasicProductInfo record {|
-    # Product name
-    @constraint:String {minLength: 1}
-    string productName;
-    # Product base version
-    @constraint:String {minLength: 1}
-    string productBaseVersion;
-    # Channel
-    @constraint:String {minLength: 1}
-    string channel;
 |};
 
 # Recommended update level.
@@ -520,16 +515,10 @@ public type ChangeType record {|
 public type UpdateResponse record {|
     # File changes
     FileChanges fileChanges;
-    # JWT token
-    string jwt;
-    # Platform name
-    string platformName;
-    # Platform version
-    string platformVersion;
     # Product name
     string productName;
-    # Product base version
-    string productBaseVersion;
+    # Product version
+    string productVersion;
     # Starting update level
     string startingUpdateLevel;
     # Ending update level
@@ -545,12 +534,20 @@ public type UpdateResponse record {|
     # Total security updates
     int totalSecurityUpdates;
     # Applied update numbers
-    int[] appliedUpdateNumbers;
+    int[] appliedUpdatesNumbers;
 |};
 
 # Update payload for listing updates.
 public type ListUpdatePayload record {|
-    *BasicProductInfo;
+    # Product name
+    @constraint:String {minLength: 1}
+    string productName;
+    # Product version
+    @constraint:String {minLength: 1}
+    string productVersion;
+    # Channel
+    @constraint:String {minLength: 1}
+    string channel;
     # Starting update level
     @constraint:String {minLength: 1}
     string startUpdateLevel;
