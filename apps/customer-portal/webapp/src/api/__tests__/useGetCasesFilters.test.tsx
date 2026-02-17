@@ -84,6 +84,7 @@ describe("useGetCasesFilters", () => {
       statuses: [{ id: "1", label: "Open" }],
       severities: [{ id: "2", label: "High" }],
       issueTypes: [{ id: "3", label: "Incident" }],
+      deploymentTypes: [{ id: "4", label: "Production" }],
     };
 
     const mockFetch = vi.fn().mockResolvedValue({
