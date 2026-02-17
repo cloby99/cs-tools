@@ -28,7 +28,7 @@ import type { CaseDetails } from "@models/responses";
 import AssignedEngineerDisplay from "@case-details-details/AssignedEngineerDisplay";
 import CaseDetailsCard from "@case-details-details/CaseDetailsCard";
 import ErrorStateIcon from "@components/common/error-state/ErrorStateIcon";
-import { getStatusColor, getSeverityColor } from "@utils/casesTable";
+import { getSeverityColor, getStatusColor } from "@utils/support";
 import {
   formatValue,
   formatSlaResponseTime,
