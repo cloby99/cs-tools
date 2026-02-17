@@ -48,6 +48,12 @@ vi.mock("@time-tracking/TimeTrackingErrorState", () => ({
   default: () => <div data-testid="error-state">Error State</div>,
 }));
 
+vi.mock("@components/common/empty-state/EmptyState", () => ({
+  default: ({ description }: any) => (
+    <div data-testid="empty-state">{description}</div>
+  ),
+}));
+
 describe("ProjectTimeTracking", () => {
   const projectId = "proj-1";
 
@@ -134,5 +140,24 @@ describe("ProjectTimeTracking", () => {
     render(<ProjectTimeTracking projectId={projectId} />);
 
     expect(screen.getByTestId("stat-cards")).toBeInTheDocument();
+  });
+
+  it("should render empty state when there are no time logs", () => {
+    vi.mocked(useGetProjectTimeTrackingStat).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+    } as any);
+
+    vi.mocked(useGetTimeTrackingDetails).mockReturnValue({
+      data: { timeLogs: [] },
+      isLoading: false,
+      isError: false,
+    } as any);
+
+    render(<ProjectTimeTracking projectId={projectId} />);
+
+    expect(screen.getByTestId("empty-state")).toBeInTheDocument();
+    expect(screen.getByText("No time logs available.")).toBeInTheDocument();
   });
 });
