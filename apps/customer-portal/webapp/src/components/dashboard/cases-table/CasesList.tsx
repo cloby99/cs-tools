@@ -32,8 +32,12 @@ import {
 import { ExternalLink, MoreVertical } from "@wso2/oxygen-ui-icons-react";
 import { type JSX, type ChangeEvent } from "react";
 import type { CaseSearchResponse, CaseListItem } from "@models/responses";
-import { getStatusColor } from "@utils/casesTable";
-import { formatValue, getInitials, getSeverityColor } from "@utils/support";
+import {
+  formatValue,
+  getInitials,
+  getSeverityColor,
+  getStatusColor,
+} from "@utils/support";
 import ErrorIndicator from "@components/common/error-indicator/ErrorIndicator";
 import CasesTableSkeleton from "@components/dashboard/cases-table/CasesTableSkeleton";
 
