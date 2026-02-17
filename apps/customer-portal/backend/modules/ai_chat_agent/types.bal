@@ -30,11 +30,9 @@ type ClientCredentialsOauth2Config record {|
 # Case classification payload.
 public type CaseClassificationPayload record {|
     # Chat history
-    string chat_history;
-    # Product details
-    string[] productDetails;
-    # Environments
-    string[] environments;
+    string chatHistory;
+    # Environment products
+    map<string[]> envProducts;
     # Region
     string region;
     # Tier

@@ -813,7 +813,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     #
     # + payload - Case classification payload
     # + return - Case classification response or an error
-    resource function post cases/classify(http:RequestContext ctx, types:CaseClassificationPayload payload)
+    resource function post cases/classify(http:RequestContext ctx, ai_chat_agent:CaseClassificationPayload payload)
         returns ai_chat_agent:CaseClassificationResponse|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
@@ -827,14 +827,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
 
         // TODO: Need to persist the chat history
         ai_chat_agent:CaseClassificationResponse|error classificationResponse =
-            ai_chat_agent:createCaseClassification(
-                {
-                    chat_history: payload.chatHistory,
-                    productDetails: payload.productDetails,
-                    environments: payload.environments,
-                    region: payload.region,
-                    tier: payload.tier
-                });
+            ai_chat_agent:createCaseClassification(payload);
         if classificationResponse is error {
             string customError = "Failed to classify chat message.";
             log:printError(customError, classificationResponse);

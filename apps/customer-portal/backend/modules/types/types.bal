@@ -375,20 +375,6 @@ public type AttachmentPayload record {|
     string content;
 |};
 
-# Case classification payload.
-public type CaseClassificationPayload record {|
-    # Chat history
-    string chatHistory;
-    # Product details
-    string[] productDetails;
-    # Environments
-    string[] environments;
-    # Region
-    string region;
-    # Tier
-    string tier;
-|};
-
 # Product vulnerability metadata response.
 public type ProductVulnerabilityMetaResponse record {|
     # List of vulnerability severities
