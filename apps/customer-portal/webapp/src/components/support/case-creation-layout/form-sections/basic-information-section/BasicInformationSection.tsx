@@ -29,7 +29,7 @@ import {
   Tooltip,
 } from "@wso2/oxygen-ui";
 import { PencilLine, Sparkles } from "@wso2/oxygen-ui-icons-react";
-import { useState, useRef, useEffect, type JSX } from "react";
+import { useState, type JSX } from "react";
 
 export interface BasicInformationSectionProps {
   project?: string;
