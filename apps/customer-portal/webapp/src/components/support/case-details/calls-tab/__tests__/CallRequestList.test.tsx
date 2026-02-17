@@ -22,22 +22,24 @@ import CallRequestList from "@case-details-calls/CallRequestList";
 const mockRequests: CallRequest[] = [
   {
     id: "call-1",
+    type: "CALL_REQUEST",
     status: "SCHEDULED",
     requestedOn: "2024-10-29T10:00:00Z",
     preferredTime: { start: "14:00", end: "16:00", timezone: "EST" },
     scheduledFor: "2024-11-05T14:00:00Z",
     durationInMinutes: 60,
     notes: "Note 1",
-  } as CallRequest,
+  },
   {
     id: "call-2",
+    type: "CALL_REQUEST",
     status: "PENDING",
     requestedOn: "2024-11-01T09:30:00Z",
     preferredTime: { start: "10:00", end: "11:00", timezone: "EST" },
     scheduledFor: "2024-11-06T10:00:00Z",
     durationInMinutes: 30,
     notes: "Note 2",
-  } as CallRequest,
+  },
 ];
 
 describe("CallRequestList", () => {

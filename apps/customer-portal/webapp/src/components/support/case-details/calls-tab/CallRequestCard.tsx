@@ -33,6 +33,7 @@ import {
   getCallRequestStatusColor,
   resolveColorFromTheme,
 } from "@utils/support";
+
 export interface CallRequestCardProps {
   call: CallRequest;
 }
@@ -87,7 +88,7 @@ export default function CallRequestCard({
                 Call Request
               </Typography>
               <Chip
-                label={call.status}
+                label={call.status || "--"}
                 size="small"
                 variant="outlined"
                 icon={<Clock size={10} />}
@@ -140,8 +141,9 @@ export default function CallRequestCard({
               Preferred Time
             </Typography>
             <Typography variant="body2">
-              {call.preferredTime.start} - {call.preferredTime.end}{" "}
-              {call.preferredTime.timezone}
+              {call.preferredTime?.start || "--"} -{" "}
+              {call.preferredTime?.end || "--"}{" "}
+              {call.preferredTime?.timezone || "--"}
             </Typography>
           </Box>
           <Box>
@@ -165,7 +167,7 @@ export default function CallRequestCard({
               Duration
             </Typography>
             <Typography variant="body2">
-              {call.durationInMinutes} minutes
+              {call.durationInMinutes ?? "--"} minutes
             </Typography>
           </Box>
         </Box>
@@ -181,7 +183,7 @@ export default function CallRequestCard({
           >
             Notes
           </Typography>
-          <Typography variant="body2">{call.notes}</Typography>
+          <Typography variant="body2">{call.notes || "--"}</Typography>
         </Box>
       </CardContent>
     </Card>

@@ -49,4 +49,19 @@ describe("CallRequestCard", () => {
     render(<CallRequestCard call={mockCall} />);
     expect(screen.getByText(/Requested on Oct 29/i)).toBeInTheDocument();
   });
+
+  it("should display '--' for missing or nullish values", () => {
+    const incompleteCall = {
+      id: "call-incomplete",
+      type: "CALL_REQUEST",
+    } as any;
+
+    render(<CallRequestCard call={incompleteCall} />);
+
+    const exactFallbacks = screen.getAllByText("--");
+    expect(exactFallbacks).toHaveLength(3);
+    expect(screen.getByText(/Requested on --/i)).toBeInTheDocument();
+    expect(screen.getByText(/-- - -- --/i)).toBeInTheDocument();
+    expect(screen.getByText(/-- minutes/i)).toBeInTheDocument();
+  });
 });
