@@ -1447,7 +1447,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + email - Email of the contact to be removed
     # + return - Membership information or error response
     resource function delete projects/[string id]/contacts/[string email](http:RequestContext ctx)
-        returns user_management:Membership|http:Forbidden|http:InternalServerError {
+        returns http:Ok|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -1480,7 +1480,11 @@ service http:InterceptableService / on new http:Listener(9090) {
                 }
             };
         }
-        return response;
+        return <http:Ok>{
+            body: {
+                message: "Project contact removed successfully!"
+            }
+        };
     }
 
     # Update a contact's role in a project by project ID and contact email.
