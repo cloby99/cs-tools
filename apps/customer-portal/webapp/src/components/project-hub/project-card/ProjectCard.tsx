@@ -75,9 +75,8 @@ export default function ProjectCard({
   }, [isStatsLoading, showLoader, hideLoader]);
 
   const resolvedStatus = statsData?.projectStats?.slaStatus ?? "—";
-  const resolvedOpenCases = statsData?.projectStats?.openCases ?? "-";
-  const resolvedActiveChats =
-    statsData?.projectStats?.activeChats ?? "-";
+  const resolvedOpenCases = statsData?.projectStats?.openCases;
+  const resolvedActiveChats = statsData?.projectStats?.activeChats;
 
   const resolvedIsStatsError = isStatsQueryError;
 
