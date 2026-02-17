@@ -20,6 +20,7 @@ import customer_portal.entity;
 import customer_portal.scim;
 import customer_portal.types;
 import customer_portal.updates;
+import customer_portal.user_management;
 
 import ballerina/cache;
 import ballerina/http;
@@ -1345,5 +1346,227 @@ service http:InterceptableService / on new http:Listener(9090) {
         }
 
         return mapProductVulnerabilityMetadataResponse(response);
+    }
+
+    # Get contacts of a project by project ID.
+    #
+    # + id - ID of the project
+    # + return - List of project contacts or error
+    resource function get projects/[string id]/contacts(http:RequestContext ctx)
+        returns user_management:Contact[]|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        //TODO: Do the project validation
+
+        user_management:Contact[]|error response = user_management:getProjectContacts(id);
+        if response is error {
+            if getStatusCode(response) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `Access to project contacts information is forbidden for user: ${
+                        userInfo.userId}`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "Access to project contacts information is forbidden for the user!"
+                    }
+                };
+            }
+
+            string customError = "Failed to retrieve project contacts.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return response;
+    }
+
+    # Add a contact to a project by project ID.
+    #
+    # + id - ID of the project
+    # + payload - Contact information to be added
+    # + return - Membership information or error response
+    resource function post projects/[string id]/contacts(http:RequestContext ctx,
+            user_management:OnBoardContactPayload payload)
+        returns user_management:Membership|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        //TODO: Do the project validation
+
+        user_management:Membership|error response = user_management:createProjectContact(id, payload);
+        if response is error {
+            if getStatusCode(response) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `Access to add project contact is forbidden for user: ${
+                        userInfo.userId}`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "Access to add project contact is forbidden for the user!"
+                    }
+                };
+            }
+
+            string customError = "Failed to add project contact.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return response;
+    }
+
+    # Remove a contact from a project by project ID and contact email.
+    #
+    # + id - ID of the project
+    # + email - Email of the contact to be removed
+    # + return - Membership information or error response
+    resource function delete projects/[string id]/contacts/[string email](http:RequestContext ctx, string adminEmail)
+        returns user_management:Membership|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        //TODO: Do the project validation
+
+        user_management:Membership|error response = user_management:removeProjectContact(id, email, adminEmail);
+        if response is error {
+            if getStatusCode(response) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `Access to remove project contact is forbidden for user: ${
+                        userInfo.userId}`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "Access to remove project contact is forbidden for the user!"
+                    }
+                };
+            }
+
+            string customError = "Failed to remove project contact.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return response;
+    }
+
+    # Update a contact's role in a project by project ID and contact email.
+    #
+    # + id - ID of the project
+    # + email - Email of the contact whose role is to be updated
+    # + payload - Updated role information
+    # + return - Membership information or error response
+    resource function patch projects/[string id]/contacts/[string email](http:RequestContext ctx,
+            user_management:MembershipSecurityPayload payload)
+        returns user_management:Membership|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        //TODO: Do the project validation
+
+        user_management:Membership|error response = user_management:updateMembershipFlag(id, email, payload);
+        if response is error {
+            if getStatusCode(response) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `Access to update project contact is forbidden for user: ${
+                        userInfo.userId}`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "Access to update project contact is forbidden for the user!"
+                    }
+                };
+            }
+
+            string customError = "Failed to update project contact.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return response;
+    }
+
+    # Validate if a contact can be added to a project by project ID.
+    #
+    # + payload - Contact information to be validated
+    # + return - Contact information if valid or error response
+    resource function post projects/contacts/validate(http:RequestContext ctx,
+            user_management:ValidationPayload payload)
+        returns user_management:Contact|http:BadRequest|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        //TODO: Do the project validation
+
+        user_management:Contact|error? response = user_management:validateProjectContact(payload);
+        if response is error {
+            if getStatusCode(response) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `Access to validate project contact is forbidden for user: ${
+                        userInfo.userId}`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "Access to validate project contact is forbidden for the user!"
+                    }
+                };
+            }
+
+            string customError = "Failed to validate project contact.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+
+        if response is () {
+            string customError = "The provided information is not valid.";
+            log:printWarn(customError);
+            return <http:BadRequest>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return response;
     }
 }
