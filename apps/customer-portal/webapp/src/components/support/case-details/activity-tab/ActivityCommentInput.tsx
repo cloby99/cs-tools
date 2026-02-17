@@ -20,6 +20,7 @@ import { useState } from "react";
 import { usePostComment } from "@api/usePostComment";
 import { useAsgardeo } from "@asgardeo/react";
 import { useErrorBanner } from "@context/error-banner/ErrorBannerContext";
+import { stripHtml } from "@utils/support";
 import Editor from "@components/common/rich-text-editor/Editor";
 import type { JSX } from "react";
 
@@ -46,12 +47,10 @@ export default function ActivityCommentInput({
   const isDisabled = !isSignedIn || isAuthLoading || postComment.isPending;
 
   const handleSend = () => {
-    const trimmedValue = value.trim();
-    const isEffectivelyEmpty = !trimmedValue || trimmedValue === "<p><br></p>";
-    if (isEffectivelyEmpty || isDisabled) return;
+    if (stripHtml(value).length === 0 || isDisabled) return;
 
     postComment.mutate(
-      { caseId, body: { content: trimmedValue } },
+      { caseId, body: { content: value.trim() } },
       {
         onSuccess: () => {
           setValue("");
@@ -100,7 +99,7 @@ export default function ActivityCommentInput({
           }}
         >
           <IconButton
-            disabled={!value.trim() || value === "<p><br></p>" || isDisabled}
+            disabled={stripHtml(value).length === 0 || isDisabled}
             onClick={handleSend}
             color="warning"
             aria-label="Send comment"
