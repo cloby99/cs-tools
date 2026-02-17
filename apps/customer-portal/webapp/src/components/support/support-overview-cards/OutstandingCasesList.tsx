@@ -27,6 +27,7 @@ import {
 import { Clock } from "@wso2/oxygen-ui-icons-react";
 import type { JSX } from "react";
 import type { CaseListItem } from "@models/responses";
+import ErrorIndicator from "@components/common/error-indicator/ErrorIndicator";
 import OutstandingCasesSkeleton from "./OutstandingCasesSkeleton";
 import { getStatusColor, getSeverityColor } from "@utils/casesTable";
 import {
@@ -39,6 +40,7 @@ import {
 export interface OutstandingCasesListProps {
   cases: CaseListItem[];
   isLoading?: boolean;
+  isError?: boolean;
   /** When provided, clicking a case card navigates to case details (caller should navigate). */
   onCaseClick?: (caseItem: CaseListItem) => void;
 }
@@ -52,9 +54,14 @@ export interface OutstandingCasesListProps {
 export default function OutstandingCasesList({
   cases,
   isLoading,
+  isError,
   onCaseClick,
 }: OutstandingCasesListProps): JSX.Element {
   const theme = useTheme();
+
+  if (isError) {
+    return <ErrorIndicator entityName="outstanding cases" size="medium" />;
+  }
 
   if (isLoading) {
     return <OutstandingCasesSkeleton />;
