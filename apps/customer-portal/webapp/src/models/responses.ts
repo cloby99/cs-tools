@@ -484,3 +484,8 @@ export interface CreateDeploymentResponse {
   createdOn: string;
   id: string;
 }
+
+// Call request structure.
+export interface CallRequest {
+  id: string;
+  type: string;
