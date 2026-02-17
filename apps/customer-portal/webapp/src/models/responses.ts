@@ -332,6 +332,29 @@ export interface ChatHistoryResponse {
   chatHistory: ChatHistoryItem[];
 }
 
+// Interface for items in the time tracking logs.
+import { type TimeTrackingBadgeType } from "@constants/projectDetailsConstants";
+
+export interface TimeTrackingLogBadge {
+  text: string;
+  type: TimeTrackingBadgeType;
+}
+
+export interface TimeTrackingLog {
+  id: string;
+  badges: TimeTrackingLogBadge[];
+  description: string | null;
+  user: string | null;
+  role: string | null;
+  date: string | null;
+  hours: number | null;
+}
+
+// Response for project time tracking details.
+export interface TimeTrackingDetailsResponse {
+  timeLogs: TimeTrackingLog[];
+}
+
 // Interface for all cases filters state
 export interface AllCasesFilterValues {
   statusId?: string;
