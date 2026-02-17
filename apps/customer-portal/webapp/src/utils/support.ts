@@ -18,14 +18,17 @@ import {
   CircleAlert,
   CircleCheck,
   CircleQuestionMark,
+  CircleX,
   Clock,
   MessageCircle,
+  RotateCcw,
 } from "@wso2/oxygen-ui-icons-react";
 import {
   ChatAction,
   ChatStatus,
   CaseStatus,
   CallRequestStatus,
+  CaseSeverity,
 } from "@constants/supportConstants";
 import type { CaseComment } from "@models/responses";
 import type { Theme } from "@wso2/oxygen-ui";
@@ -382,23 +385,28 @@ export function getAttachmentFileCategory(
 export function getStatusIcon(
   statusLabel?: string,
 ): ComponentType<{ size?: number }> {
-  const normalized = statusLabel?.toLowerCase() || "";
-
-  switch (true) {
-    case normalized.includes("open"):
-      return CircleAlert;
-    case normalized.includes("progress"):
-      return Clock;
-    case normalized.includes("awaiting"):
-      return MessageCircle;
-    case normalized.includes("waiting"):
-      return CircleQuestionMark;
-    case normalized.includes("resolved"):
-    case normalized.includes("closed"):
-      return CircleCheck;
-    default:
-      return CircleAlert;
+  if (statusLabel === CaseStatus.OPEN) {
+    return CircleAlert;
   }
+  if (statusLabel === CaseStatus.WORK_IN_PROGRESS) {
+    return Clock;
+  }
+  if (statusLabel === CaseStatus.AWAITING_INFO) {
+    return MessageCircle;
+  }
+  if (statusLabel === CaseStatus.WAITING_ON_WSO2) {
+    return CircleQuestionMark;
+  }
+  if (statusLabel === CaseStatus.SOLUTION_PROPOSED) {
+    return CircleCheck;
+  }
+  if (statusLabel === CaseStatus.CLOSED) {
+    return CircleX;
+  }
+  if (statusLabel === CaseStatus.REOPENED) {
+    return RotateCcw;
+  }
+  return CircleAlert;
 }
 
 /**
@@ -423,6 +431,62 @@ export function getCallRequestStatusColor(status?: string): string {
     default:
       return "text.secondary";
   }
+}
+
+/**
+ * Returns the Oxygen UI color path for a given severity label.
+ *
+ * @param {string} label - The severity label (e.g., "Critical (P1)", "Low (P4)").
+ * @returns {string} The Oxygen UI color path.
+ */
+export function getSeverityColor(label?: string): string {
+  if (label === CaseSeverity.CATASTROPHIC) {
+    return "error.main";
+  }
+  if (label === CaseSeverity.CRITICAL) {
+    return "warning.main";
+  }
+  if (label === CaseSeverity.HIGH) {
+    return "info.main";
+  }
+  if (label === CaseSeverity.MEDIUM) {
+    return "secondary.main";
+  }
+  if (label === CaseSeverity.LOW) {
+    return "success.main";
+  }
+  return "text.primary";
+}
+
+/**
+ * Returns the Oxygen UI color path for a given case status label.
+ *
+ * @param {string} label - The case status label.
+ * @returns {string} The Oxygen UI color path.
+ */
+export function getStatusColor(label?: string): string {
+  if (label === CaseStatus.OPEN) {
+    return "info.main";
+  }
+  if (label === CaseStatus.WORK_IN_PROGRESS) {
+    return "warning.main";
+  }
+  if (label === CaseStatus.AWAITING_INFO) {
+    return "text.secondary";
+  }
+  if (label === CaseStatus.WAITING_ON_WSO2) {
+    return "success.main";
+  }
+  if (label === CaseStatus.SOLUTION_PROPOSED) {
+    return "text.disabled";
+  }
+  if (label === CaseStatus.CLOSED) {
+    return "error.main";
+  }
+  if (label === CaseStatus.REOPENED) {
+    return "secondary.main";
+  }
+  return "text.secondary";
 }
 
 /**
