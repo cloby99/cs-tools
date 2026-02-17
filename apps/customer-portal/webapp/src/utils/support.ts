@@ -25,11 +25,51 @@ import {
   ChatAction,
   ChatStatus,
   CaseStatus,
+  CallRequestStatus,
 } from "@constants/supportConstants";
 import type { CaseComment } from "@models/responses";
 import type { Theme } from "@wso2/oxygen-ui";
 import DOMPurify from "dompurify";
 import { createElement, type ComponentType, type ReactNode } from "react";
+
+/**
+ * Formats a date string into a user-friendly date and time format.
+ *
+ * @param {string} dateStr - The date string to format.
+ * @param {"short" | "long"} [formatStr="long"] - The format style.
+ * @returns {string} The formatted date and time.
+ */
+export function formatDateTime(
+  dateStr: string | null | undefined,
+  formatStr: "short" | "long" = "long",
+): string {
+  if (!dateStr) {
+    return "--";
+  }
+
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) {
+    return "--";
+  }
+
+  if (formatStr === "short") {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      hour12: true,
+    }).format(date);
+  }
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true,
+  }).format(date);
+}
 
 export type ChatActionState =
   | "primary"
@@ -46,9 +86,11 @@ export type AssignedEngineerValue =
   | undefined;
 
 /** Extracts display string from assigned engineer object (label or name). */
-function getAssignedEngineerDisplayValue(
-  obj: { id: string; label?: string; name?: string },
-): string {
+function getAssignedEngineerDisplayValue(obj: {
+  id: string;
+  label?: string;
+  name?: string;
+}): string {
   return obj.label ?? obj.name ?? "";
 }
 
@@ -356,6 +398,30 @@ export function getStatusIcon(
       return CircleCheck;
     default:
       return CircleAlert;
+  }
+}
+
+/**
+ * Returns the Oxygen UI color path for a given call request status label.
+ *
+ * @param status - The call request status (e.g., "SCHEDULED", "PENDING").
+ * @returns {string} The Oxygen UI color path.
+ */
+export function getCallRequestStatusColor(status?: string): string {
+  const normalized = status?.toLowerCase() || "";
+
+  switch (true) {
+    case normalized.includes(CallRequestStatus.SCHEDULED.toLowerCase()):
+      return "info.main";
+    case normalized.includes(CallRequestStatus.PENDING.toLowerCase()):
+      return "warning.main";
+    case normalized.includes(CallRequestStatus.COMPLETED.toLowerCase()):
+      return "success.main";
+    case normalized.includes(CallRequestStatus.CANCELLED.toLowerCase()):
+    case normalized.includes(CallRequestStatus.REJECTED.toLowerCase()):
+      return "error.main";
+    default:
+      return "text.secondary";
   }
 }
 
