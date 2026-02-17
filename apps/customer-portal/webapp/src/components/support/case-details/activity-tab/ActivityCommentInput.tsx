@@ -47,7 +47,6 @@ export default function ActivityCommentInput({
 
   const handleSend = () => {
     const trimmedValue = value.trim();
-    // Check if it's effectively empty (e.g., "<p><br></p>")
     const isEffectivelyEmpty = !trimmedValue || trimmedValue === "<p><br></p>";
     if (isEffectivelyEmpty || isDisabled) return;
 
@@ -55,9 +54,6 @@ export default function ActivityCommentInput({
       { caseId, body: { content: trimmedValue } },
       {
         onSuccess: () => {
-          // Immediately reset the local value state for UI responsiveness.
-          // ResetPlugin will eventually clear the Lexical editor, which triggers
-          // OnChangeHTMLPlugin to repopulate this value with an empty paragraph ("<p><br></p>").
           setValue("");
           setResetTrigger((prev) => prev + 1);
         },
@@ -91,6 +87,7 @@ export default function ActivityCommentInput({
           resetTrigger={resetTrigger}
           minHeight={40}
           showToolbar={true}
+          placeholder="Write a comment..."
         />
         <Box
           sx={{

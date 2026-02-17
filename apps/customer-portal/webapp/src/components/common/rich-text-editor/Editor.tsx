@@ -178,6 +178,7 @@ const Editor = ({
   resetTrigger?: number;
   minHeight?: number | string;
   showToolbar?: boolean;
+  placeholder?: string;
 }): JSX.Element => {
   const oxygenTheme = useTheme();
   const logger = useLogger();
