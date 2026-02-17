@@ -98,7 +98,7 @@ public type ContactMinimal record {|
 
 # Payload for updating membership security flag.
 public type MembershipSecurityPayload record {|
-    # Admin Email address
+    # Admin email
     string adminEmail;
     # Whether the contact is a security contact or not
     boolean isSecurityContact;

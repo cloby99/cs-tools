@@ -1395,7 +1395,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + payload - Contact information to be added
     # + return - Membership information or error response
     resource function post projects/[string id]/contacts(http:RequestContext ctx,
-            user_management:OnBoardContactPayload payload)
+            types:OnBoardContactPayload payload)
         returns user_management:Membership|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
@@ -1409,7 +1409,16 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         //TODO: Do the project validation
 
-        user_management:Membership|error response = user_management:createProjectContact(id, payload);
+        user_management:Membership|error response = user_management:createProjectContact(id,
+                {
+                    contactEmail: payload.contactEmail,
+                    adminEmail: userInfo.email,
+                    contactFirstName: payload.contactFirstName,
+                    contactLastName: payload.contactLastName,
+                    isCsIntegrationUser: payload.isCsIntegrationUser,
+                    isSecurityContact: payload.isSecurityContact
+
+                });
         if response is error {
             if getStatusCode(response) == http:STATUS_FORBIDDEN {
                 log:printWarn(string `Access to add project contact is forbidden for user: ${
@@ -1437,7 +1446,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + id - ID of the project
     # + email - Email of the contact to be removed
     # + return - Membership information or error response
-    resource function delete projects/[string id]/contacts/[string email](http:RequestContext ctx, string adminEmail)
+    resource function delete projects/[string id]/contacts/[string email](http:RequestContext ctx)
         returns user_management:Membership|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
@@ -1451,7 +1460,7 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         //TODO: Do the project validation
 
-        user_management:Membership|error response = user_management:removeProjectContact(id, email, adminEmail);
+        user_management:Membership|error response = user_management:removeProjectContact(id, email, userInfo.email);
         if response is error {
             if getStatusCode(response) == http:STATUS_FORBIDDEN {
                 log:printWarn(string `Access to remove project contact is forbidden for user: ${
@@ -1481,7 +1490,7 @@ service http:InterceptableService / on new http:Listener(9090) {
     # + payload - Updated role information
     # + return - Membership information or error response
     resource function patch projects/[string id]/contacts/[string email](http:RequestContext ctx,
-            user_management:MembershipSecurityPayload payload)
+            types:MembershipSecurityPayload payload)
         returns user_management:Membership|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
@@ -1495,7 +1504,11 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         //TODO: Do the project validation
 
-        user_management:Membership|error response = user_management:updateMembershipFlag(id, email, payload);
+        user_management:Membership|error response = user_management:updateMembershipFlag(id, email,
+                {
+                    adminEmail: userInfo.email,
+                    isSecurityContact: payload.isSecurityContact
+                });
         if response is error {
             if getStatusCode(response) == http:STATUS_FORBIDDEN {
                 log:printWarn(string `Access to update project contact is forbidden for user: ${
@@ -1520,10 +1533,10 @@ service http:InterceptableService / on new http:Listener(9090) {
 
     # Validate if a contact can be added to a project by project ID.
     #
+    # + id - ID of the project
     # + payload - Contact information to be validated
     # + return - Contact information if valid or error response
-    resource function post projects/contacts/validate(http:RequestContext ctx,
-            user_management:ValidationPayload payload)
+    resource function post projects/[string id]/contacts/validate(http:RequestContext ctx, types:ValidationPayload payload)
         returns user_management:Contact|http:BadRequest|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
@@ -1537,7 +1550,12 @@ service http:InterceptableService / on new http:Listener(9090) {
 
         //TODO: Do the project validation
 
-        user_management:Contact|error? response = user_management:validateProjectContact(payload);
+        user_management:Contact|error? response = user_management:validateProjectContact(
+                {
+                    contactEmail: payload.contactEmail,
+                    adminEmail: userInfo.email,
+                    projectId: id
+                });
         if response is error {
             if getStatusCode(response) == http:STATUS_FORBIDDEN {
                 log:printWarn(string `Access to validate project contact is forbidden for user: ${
