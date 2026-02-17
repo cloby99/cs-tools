@@ -64,21 +64,6 @@ export function BasicInformationSection({
   extraProductOptions,
 }: BasicInformationSectionProps): JSX.Element {
   const [isEditing, setIsEditing] = useState(false);
-  const editSnapshotRef = useRef<{
-    product: string;
-    deployment: string;
-  } | null>(null);
-  const prevEditingRef = useRef(false);
-
-  useEffect(() => {
-    if (isEditing && !prevEditingRef.current) {
-      editSnapshotRef.current = { product, deployment };
-    }
-    prevEditingRef.current = isEditing;
-    if (!isEditing) {
-      editSnapshotRef.current = null;
-    }
-  }, [isEditing, product, deployment]);
 
   const deploymentOptions = Array.from(
     new Set(
