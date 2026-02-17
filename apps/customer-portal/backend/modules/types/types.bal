@@ -133,14 +133,24 @@ public type UpdatedUser record {|
 
 # Project filter options.
 public type ProjectFilterOptions record {|
-    # List of case statuses
-    ReferenceItem[] statuses;
+    # List of case states
+    ReferenceItem[] caseStates;
     # List of case severities
     ReferenceItem[] severities;
     # List of issue types
     ReferenceItem[] issueTypes;
     # List of deployment types
     ReferenceItem[] deploymentTypes;
+    # List of available call request states
+    ReferenceItem[] callRequestStates;
+    # List of available change request states
+    ReferenceItem[] changeRequestStates;
+    # List of available change request impacts
+    ReferenceItem[] changeRequestImpacts;
+    # List of available case types
+    ReferenceItem[] caseTypes;
+    # Severity based allocation time mapping (severity ID to allocation time in minutes)
+    map<int> severityBasedAllocationTime;
 |};
 
 # Case statistics for a project.
@@ -421,19 +431,6 @@ public type ProductVulnerabilitySearchResponse record {|
     *entity:Pagination;
 |};
 
-# Basic product information.
-public type BasicProductInfo record {|
-    # Product name
-    @constraint:String {minLength: 1}
-    string productName;
-    # Product base version
-    @constraint:String {minLength: 1}
-    string productBaseVersion;
-    # Channel
-    @constraint:String {minLength: 1}
-    string channel;
-|};
-
 # Recommended update level.
 public type RecommendedUpdateLevel record {|
     # Product name
@@ -548,7 +545,15 @@ public type UpdateResponse record {|
 
 # Update payload for listing updates.
 public type ListUpdatePayload record {|
-    *BasicProductInfo;
+    # Product name
+    @constraint:String {minLength: 1}
+    string productName;
+    # Product version
+    @constraint:String {minLength: 1}
+    string productVersion;
+    # Channel
+    @constraint:String {minLength: 1}
+    string channel;
     # Starting update level
     @constraint:String {minLength: 1}
     string startUpdateLevel;
