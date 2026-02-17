@@ -28,7 +28,7 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import { PencilLine, Sparkles } from "@wso2/oxygen-ui-icons-react";
-import { useState, useRef, type JSX } from "react";
+import { useState, type JSX } from "react";
 import type { CaseMetadataResponse } from "@models/responses";
 import { getSeverityColor } from "@utils/support";
 import Editor from "@components/common/rich-text-editor/Editor";
