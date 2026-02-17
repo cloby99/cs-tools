@@ -385,28 +385,26 @@ export function getAttachmentFileCategory(
 export function getStatusIcon(
   statusLabel?: string,
 ): ComponentType<{ size?: number }> {
-  if (statusLabel === CaseStatus.OPEN) {
-    return CircleAlert;
+  const normalized = statusLabel?.toLowerCase() || "";
+
+  switch (true) {
+    case normalized === CaseStatus.OPEN.toLowerCase():
+      return CircleAlert;
+    case normalized === CaseStatus.WORK_IN_PROGRESS.toLowerCase():
+      return Clock;
+    case normalized === CaseStatus.AWAITING_INFO.toLowerCase():
+      return MessageCircle;
+    case normalized === CaseStatus.WAITING_ON_WSO2.toLowerCase():
+      return CircleQuestionMark;
+    case normalized === CaseStatus.SOLUTION_PROPOSED.toLowerCase():
+      return CircleCheck;
+    case normalized === CaseStatus.CLOSED.toLowerCase():
+      return CircleX;
+    case normalized === CaseStatus.REOPENED.toLowerCase():
+      return RotateCcw;
+    default:
+      return CircleAlert;
   }
-  if (statusLabel === CaseStatus.WORK_IN_PROGRESS) {
-    return Clock;
-  }
-  if (statusLabel === CaseStatus.AWAITING_INFO) {
-    return MessageCircle;
-  }
-  if (statusLabel === CaseStatus.WAITING_ON_WSO2) {
-    return CircleQuestionMark;
-  }
-  if (statusLabel === CaseStatus.SOLUTION_PROPOSED) {
-    return CircleCheck;
-  }
-  if (statusLabel === CaseStatus.CLOSED) {
-    return CircleX;
-  }
-  if (statusLabel === CaseStatus.REOPENED) {
-    return RotateCcw;
-  }
-  return CircleAlert;
 }
 
 /**
