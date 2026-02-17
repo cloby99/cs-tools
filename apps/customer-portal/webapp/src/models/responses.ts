@@ -62,6 +62,33 @@ export interface UserDetails {
   timeZone: string;
 }
 
+// Project user (invited/registered) for project users list.
+export interface ProjectUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  status: "Invited" | "Registered";
+}
+
+// Case creation form metadata (projects, products, severity levels, conversation summary, etc.).
+export interface CaseCreationMetadata {
+  projects: string[];
+  products: string[];
+  deploymentTypes: string[];
+  issueTypes: string[];
+  severityLevels: {
+    id: string;
+    label: string;
+    description: string;
+  }[];
+  conversationSummary: {
+    messagesExchanged: number;
+    troubleshootingAttempts: string;
+    kbArticlesReviewed: string;
+  };
+}
+
 // Project support statistics.
 export interface ProjectSupportStats {
   totalCases: number;
