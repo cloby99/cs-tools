@@ -489,3 +489,19 @@ export interface CreateDeploymentResponse {
 export interface CallRequest {
   id: string;
   type: string;
+  status: string;
+  requestedOn: string;
+  preferredTime: {
+    start: string;
+    end: string;
+    timezone: string;
+  };
+  scheduledFor: string;
+  durationInMinutes: number;
+  notes: string;
+}
+
+// Response for case call requests list.
+export interface CallRequestsResponse {
+  callRequests: CallRequest[];
+}
