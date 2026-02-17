@@ -31,7 +31,10 @@ const mockCases = [
     project: { id: "p1", label: "Project A" },
     issueType: { id: "1", label: "Bug" },
     state: { id: 1, label: "Open" },
-    severity: { id: 1, label: "High" },
+    severity: { id: "1", label: "High" },
+    deployedProduct: null,
+    deployment: { id: "d1", label: "Production" },
+    status: { id: "s1", label: "Open" },
   },
   {
     id: "case-2",
@@ -44,7 +47,10 @@ const mockCases = [
     project: { id: "p1", label: "Project A" },
     issueType: { id: "1", label: "Bug" },
     state: { id: 1, label: "Open" },
-    severity: { id: 1, label: "High" },
+    severity: { id: "2", label: "High" },
+    deployedProduct: null,
+    deployment: { id: "d1", label: "Production" },
+    status: { id: "s1", label: "Open" },
   },
 ];
 
