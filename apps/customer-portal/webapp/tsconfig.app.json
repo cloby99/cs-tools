@@ -45,7 +45,8 @@
       "@models/*": ["src/models/*"],
       "@pages/*": ["src/pages/*"],
       "@providers/*": ["src/providers/*"],
-      "@utils/*": ["src/utils/*"]
+      "@utils/*": ["src/utils/*"],
+      "@update-cards/*": ["src/components/updates/update-cards/*"]
     },
 
     /* Bundler mode */

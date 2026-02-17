@@ -34,6 +34,9 @@ export default defineConfig({
       "@components": fileURLToPath(
         new URL("./src/components", import.meta.url),
       ),
+      "@update-cards": fileURLToPath(
+        new URL("./src/components/updates/update-cards", import.meta.url),
+      ),
       "@case-details": fileURLToPath(
         new URL(
           "./src/components/support/case-details/header",
