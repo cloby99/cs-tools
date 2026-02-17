@@ -49,6 +49,7 @@ export default function CallsPanel({
         color="primary"
         startIcon={<PhoneCall size={16} />}
         sx={{ alignSelf: "flex-start" }}
+        disabled
       >
         Request Call
       </Button>

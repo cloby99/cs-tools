@@ -40,10 +40,18 @@ import { createElement, type ComponentType, type ReactNode } from "react";
  * @returns {string} The formatted date and time.
  */
 export function formatDateTime(
-  dateStr: string,
+  dateStr: string | null | undefined,
   formatStr: "short" | "long" = "long",
 ): string {
+  if (!dateStr) {
+    return "--";
+  }
+
   const date = new Date(dateStr);
+  if (isNaN(date.getTime())) {
+    return "--";
+  }
+
   if (formatStr === "short") {
     return new Intl.DateTimeFormat("en-US", {
       month: "short",

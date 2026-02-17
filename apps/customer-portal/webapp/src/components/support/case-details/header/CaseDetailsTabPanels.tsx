@@ -27,6 +27,7 @@ export interface CaseDetailsTabPanelsProps {
   caseId: string;
   data?: CaseDetails;
   isError?: boolean;
+  projectId?: string;
 }
 
 /**
@@ -40,6 +41,7 @@ export default function CaseDetailsTabPanels({
   caseId,
   data,
   isError = false,
+  projectId = "",
 }: CaseDetailsTabPanelsProps): JSX.Element | null {
   switch (activeTab) {
     case 0: {
@@ -74,7 +76,13 @@ export default function CaseDetailsTabPanels({
     case 2:
       return <CaseDetailsAttachmentsPanel caseId={caseId} />;
     case 3: {
-      const projectId = data?.project?.id ?? "";
+      if (!projectId) {
+        return (
+          <Typography variant="body2" color="text.secondary">
+            Call requests will appear here.
+          </Typography>
+        );
+      }
       return <CallsPanel projectId={projectId} caseId={caseId} />;
     }
     case 4:

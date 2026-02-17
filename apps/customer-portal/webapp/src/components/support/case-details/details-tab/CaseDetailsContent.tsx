@@ -203,6 +203,7 @@ export default function CaseDetailsContent({
           caseId={caseId}
           data={data}
           isError={isError}
+          projectId={projectId}
         />
       </Box>
     </Box>
