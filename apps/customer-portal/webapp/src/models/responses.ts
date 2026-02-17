@@ -14,6 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { type TimeTrackingBadgeType } from "@constants/projectDetailsConstants";
+
 // Basic project definition returned in search list responses.
 export interface ProjectListItem {
   id: string;
@@ -333,8 +335,6 @@ export interface ChatHistoryResponse {
 }
 
 // Interface for items in the time tracking logs.
-import { type TimeTrackingBadgeType } from "@constants/projectDetailsConstants";
-
 export interface TimeTrackingLogBadge {
   text: string;
   type: TimeTrackingBadgeType;
