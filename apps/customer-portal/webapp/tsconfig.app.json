@@ -46,6 +46,8 @@
       "@pages/*": ["src/pages/*"],
       "@providers/*": ["src/providers/*"],
       "@utils/*": ["src/utils/*"],
+      "@time-tracking": ["src/components/project-details/time-tracking"],
+      "@time-tracking/*": ["src/components/project-details/time-tracking/*"],
       "@update-cards/*": ["src/components/updates/update-cards/*"]
     },
 

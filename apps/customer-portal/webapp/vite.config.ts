@@ -75,6 +75,12 @@ export default defineConfig({
       "@models": fileURLToPath(new URL("./src/models", import.meta.url)),
       "@pages": fileURLToPath(new URL("./src/pages", import.meta.url)),
       "@providers": fileURLToPath(new URL("./src/providers", import.meta.url)),
+      "@time-tracking": fileURLToPath(
+        new URL(
+          "./src/components/project-details/time-tracking",
+          import.meta.url,
+        ),
+      ),
       "@utils": fileURLToPath(new URL("./src/utils", import.meta.url)),
       buffer: "buffer",
       "buffer/": "buffer/index.js",

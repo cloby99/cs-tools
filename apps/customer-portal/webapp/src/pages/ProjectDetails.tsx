@@ -27,9 +27,9 @@ import ContactInfoCard from "@components/project-details/project-overview/contac
 import RecentActivityCard from "@components/project-details/project-overview/recent-activity/RecentActivityCard";
 import TimeTrackingStatCards from "@components/project-details/time-tracking/TimeTrackingStatCards";
 import ProjectDeployments from "@components/project-details/deployments/ProjectDeployments";
+import ProjectTimeTracking from "@components/project-details/time-tracking/ProjectTimeTracking";
 import useGetProjectDetails from "@api/useGetProjectDetails";
 import { useGetProjectStat } from "@api/useGetProjectStat";
-import useGetProjectTimeTrackingStat from "@api/useGetProjectTimeTrackingStat";
 import { useLogger } from "@hooks/useLogger";
 import { useLoader } from "@context/linear-loader/LoaderContext";
 
@@ -62,12 +62,6 @@ export default function ProjectDetails(): JSX.Element {
     isFetching: isStatsFetching,
     error: statsError,
   } = useGetProjectStat(projectId || "");
-
-  const {
-    data: timeTrackingStats,
-    isFetching: isTimeTrackingFetching,
-    error: timeTrackingError,
-  } = useGetProjectTimeTrackingStat(projectId || "");
 
   const isDetailsLoading =
     isAuthLoading ||
@@ -146,18 +140,7 @@ export default function ProjectDetails(): JSX.Element {
           </Box>
         );
       case "time-tracking":
-        return (
-          <Box>
-            <TimeTrackingStatCards
-              stats={timeTrackingStats}
-              isLoading={
-                isTimeTrackingFetching ||
-                (!timeTrackingStats && !timeTrackingError)
-              }
-              isError={!!timeTrackingError}
-            />
-          </Box>
-        );
+        return <ProjectTimeTracking projectId={projectId || ""} />;
       case "users":
         return <ProjectUsersTab projectId={projectId ?? ""} />;
       default:
