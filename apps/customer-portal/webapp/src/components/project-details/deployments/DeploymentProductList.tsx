@@ -36,10 +36,12 @@ import {
   Trash2,
   Zap,
 } from "@wso2/oxygen-ui-icons-react";
-import type { JSX } from "react";
+import { useState, type JSX } from "react";
+import AddProductModal from "@components/project-details/deployments/AddProductModal";
 
 interface DeploymentProductListProps {
   products: DeploymentProduct[];
+  deploymentId: string;
 }
 
 /**
@@ -50,7 +52,9 @@ interface DeploymentProductListProps {
  */
 export default function DeploymentProductList({
   products,
+  deploymentId,
 }: DeploymentProductListProps): JSX.Element {
+  const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
   return (
     <Box>
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
@@ -65,6 +69,7 @@ export default function DeploymentProductList({
           size="small"
           startIcon={<Plus />}
           sx={{ height: 32, fontSize: "0.75rem" }}
+          onClick={() => setIsAddProductModalOpen(true)}
         >
           Add Product
         </Button>
@@ -275,6 +280,16 @@ export default function DeploymentProductList({
           ))}
         </Box>
       )}
+
+      <AddProductModal
+        open={isAddProductModalOpen}
+        deploymentId={deploymentId}
+        onClose={() => setIsAddProductModalOpen(false)}
+        onSuccess={() => {
+          // Refresh logic to be added here
+          // setIsAddProductModalOpen(false);
+        }}
+      />
     </Box>
   );
 }
