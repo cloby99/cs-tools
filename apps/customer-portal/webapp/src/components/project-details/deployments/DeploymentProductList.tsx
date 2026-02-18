@@ -226,7 +226,7 @@ export default function DeploymentProductList({
                     </Box>
                   </Box>
                 </Box>
-                <Button size="small">
+                <Button size="small" aria-label={`Delete ${product.name}`}>
                   <Trash2 size={16} />
                 </Button>
               </Box>

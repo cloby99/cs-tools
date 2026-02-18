@@ -84,7 +84,7 @@ export interface ActivityItem {
   label: string;
   value: string;
   type?: "text" | "chip";
-  chipColor?: "success" | "warning" | "error" | "default" | "primary" | "info";
+  chipColor?: ProjectStatusChipColor;
 }
 
 export const statItems: Stat[] = [
@@ -229,6 +229,7 @@ export type DeploymentStatus =
 export type ProjectStatusChipColor =
   | "default"
   | "primary"
+  | "secondary"
   | "error"
   | "info"
   | "success"

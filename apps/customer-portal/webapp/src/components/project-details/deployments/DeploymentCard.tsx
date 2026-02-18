@@ -28,6 +28,7 @@ import {
   Card,
   Chip,
   Divider,
+  Link,
   Typography,
   useTheme,
 } from "@wso2/oxygen-ui";
@@ -113,9 +114,15 @@ export default function DeploymentCard({
                 </Typography>
               </Box>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <Typography variant="body2" color="text.secondary">
+                <Link
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="body2"
+                  sx={{ color: "text.secondary" }}
+                >
                   {url}
-                </Typography>
+                </Link>
               </Box>
             </Box>
             <Chip
@@ -154,7 +161,7 @@ export default function DeploymentCard({
             >
               <Calendar size={14} />
               <Typography variant="caption">
-                {formatProjectDate(deployedAt)} • v{version}
+                {formatProjectDate(deployedAt)} • {version}
               </Typography>
             </Box>
             <Box

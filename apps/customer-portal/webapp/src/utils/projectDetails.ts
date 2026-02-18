@@ -255,12 +255,15 @@ export const getUserStatusColor = (status: string): ProjectStatusChipColor => {
 };
 
 /**
- * Formats bytes into a human-readable string (KB or MB).
+ * Formats bytes into a human-readable string (KB, MB, or GB).
  *
  * @param {number} bytes - The number of bytes.
- * @returns {string} The formatted string (e.g., "1.50 MB").
+ * @returns {string} The formatted string (e.g., "1.50 MB" or "2.29 GB").
  */
 export const formatBytes = (bytes: number): string => {
+  if (bytes >= 1024 ** 3) {
+    return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+  }
   if (bytes >= 1024 * 1024) {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   }

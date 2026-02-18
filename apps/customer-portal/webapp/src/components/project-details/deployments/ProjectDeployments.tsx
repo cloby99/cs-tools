@@ -49,7 +49,7 @@ export default function ProjectDeployments({
     );
   }
 
-  if (isLoading || (!data && !isError)) {
+  if (isLoading) {
     return (
       <Box>
         <DeploymentHeader count={0} />

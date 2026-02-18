@@ -95,10 +95,10 @@ function DocumentRow({ doc }: DocumentRowProps): JSX.Element {
         </Box>
       </Box>
       <Box sx={{ display: "flex", gap: 1 }}>
-        <Button size="small">
+        <Button size="small" aria-label={`Download ${doc.name}`}>
           <Download size={16} />
         </Button>
-        <Button size="small">
+        <Button size="small" aria-label={`Delete ${doc.name}`}>
           <Trash2 size={16} />
         </Button>
       </Box>
