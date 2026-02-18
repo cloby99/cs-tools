@@ -14,13 +14,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import AddProductModal from "@components/project-details/deployments/AddProductModal";
 
 describe("AddProductModal", () => {
   const mockOnClose = vi.fn();
   const mockOnSuccess = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it("should not render when open is false", () => {
     render(
@@ -110,16 +114,19 @@ describe("AddProductModal", () => {
     const submitButton = screen.getByRole("button", { name: "Add Product" });
     expect(submitButton).not.toBeDisabled();
 
+    vi.useFakeTimers();
     fireEvent.click(submitButton);
 
-    // Wait for async submission (mocked with setTimeout)
-    await waitFor(() => {
-      expect(mockOnSuccess).toHaveBeenCalled();
-    });
+    // Advance timers to trigger the setTimeout callback
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(mockOnSuccess).toHaveBeenCalled();
+
+    vi.useRealTimers();
   });
 
-  it("should reset form on close", () => {
-    render(
+  it("should reset form on close", async () => {
+    const { rerender } = render(
       <AddProductModal
         open={true}
         deploymentId="dep-1"
@@ -127,13 +134,27 @@ describe("AddProductModal", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText(/Version/), {
+    const versionInput = screen.getByLabelText(/Version/);
+    fireEvent.change(versionInput, {
       target: { value: "4.2.0" },
     });
+    expect(versionInput).toHaveValue("4.2.0");
 
     const closeButton = screen.getByRole("button", { name: "Cancel" });
     fireEvent.click(closeButton);
 
     expect(mockOnClose).toHaveBeenCalled();
+
+    // Re-render to check if reset
+    rerender(
+      <AddProductModal
+        open={true}
+        deploymentId="dep-1"
+        onClose={mockOnClose}
+      />,
+    );
+
+    // Version should be empty (initial value)
+    expect(screen.getByLabelText(/Version/)).toHaveValue("");
   });
 });

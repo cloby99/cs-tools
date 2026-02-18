@@ -46,7 +46,7 @@ const INITIAL_FORM = {
   name: "",
   version: "",
   cores: "",
-  tps: "0",
+  tps: "",
   description: "",
   supportStatus: "Active Support",
   updateLevel: "",
@@ -71,6 +71,7 @@ const SUPPORT_STATUS_OPTIONS = ["Active Support", "End of Life", "Deprecated"];
  */
 export default function AddProductModal({
   open,
+  deploymentId,
   onClose,
   onSuccess,
   onError,
@@ -81,6 +82,8 @@ export default function AddProductModal({
   const isValid =
     form.name !== "" &&
     form.version.trim() !== "" &&
+    Number(form.cores) > 0 &&
+    Number(form.tps) >= 0 &&
     form.cores.trim() !== "" &&
     form.tps.trim() !== "" &&
     form.supportStatus !== "" &&
@@ -110,14 +113,22 @@ export default function AddProductModal({
 
     setIsSubmitting(true);
 
-    // TODO: Integrate actual API hook here
-    // Simulating API call
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      // TODO: Integrate actual API hook here using deploymentId
+
+      // Simulating API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       handleClose();
       onSuccess?.();
-    }, 1000);
-  }, [isValid, form, handleClose, onSuccess]);
+    } catch (error) {
+      onError?.(
+        error instanceof Error ? error.message : "Failed to add product",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [isValid, handleClose, onSuccess, onError, deploymentId]);
 
   return (
     <Dialog
@@ -200,6 +211,7 @@ export default function AddProductModal({
             fullWidth
             size="small"
             disabled={isSubmitting}
+            inputProps={{ min: 1 }}
           />
         </Box>
 
@@ -214,6 +226,7 @@ export default function AddProductModal({
           size="small"
           sx={{ mb: 2 }}
           disabled={isSubmitting}
+          inputProps={{ min: 0 }}
         />
 
         <TextField
