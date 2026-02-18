@@ -13,7 +13,6 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-import ballerina/data.jsondata;
 
 # [Configurable] Client credentials grant type oauth2 configuration.
 type ClientCredentialsOauth2Config record {|
@@ -43,16 +42,6 @@ public type CaseClassificationPayload record {|
 public type CaseClassificationResponse record {|
     # Issue type
     string issueType;
-    # Case information
-    @jsondata:Name {value: "case_info"}
-    ChatCaseInfo caseInfo;
-    # Severity level
-    string severityLevel;
-    json...;
-|};
-
-# Chat case information.
-public type ChatCaseInfo record {|
     # Description
     string description;
     # Short description
@@ -63,9 +52,7 @@ public type ChatCaseInfo record {|
     string productVersion;
     # Environment
     string environment;
-    # Tier
-    string tier;
-    # Region
-    string region;
+    # Severity level
+    string severityLevel;
     json...;
 |};
