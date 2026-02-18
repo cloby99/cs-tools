@@ -22,7 +22,35 @@ import {
   PROJECT_TYPE,
   SYSTEM_HEALTH,
   PROJECT_USER_STATUSES,
+  TIME_TRACKING_BADGE_TYPES,
+  type TimeTrackingBadgeType,
 } from "@constants/projectDetailsConstants";
+
+/**
+ * Get the palette color key for a time tracking badge type.
+ *
+ * @param {TimeTrackingBadgeType | string} type - The badge type.
+ * @returns {"warning" | "success" | "info" | "secondary" | "primary"} The palette color key.
+ */
+export const getTimeTrackingBadgePaletteKey = (
+  type: TimeTrackingBadgeType | string,
+): "warning" | "success" | "info" | "secondary" | "primary" => {
+  const normalizedType = type?.toLowerCase();
+
+  switch (normalizedType) {
+    case TIME_TRACKING_BADGE_TYPES.SUPPORT:
+      return "warning";
+    case TIME_TRACKING_BADGE_TYPES.BILLABLE:
+    case TIME_TRACKING_BADGE_TYPES.CONSULTATION:
+      return "success";
+    case TIME_TRACKING_BADGE_TYPES.MAINTENANCE:
+      return "secondary";
+    case TIME_TRACKING_BADGE_TYPES.CASE:
+      return "info";
+    default:
+      return "primary";
+  }
+};
 
 /**
  * Formats a date string into "MMM DD, YYYY" format.

@@ -16,9 +16,9 @@
 
 import { createContext, useContext, type JSX, type ReactNode } from "react";
 
-/** Mock mode is removed; this stub exists so existing imports resolve. isMockEnabled is always false. */
+/** Mock mode is enabled as requested to show time tracking data. */
 const MockConfigContext = createContext<{ isMockEnabled: boolean }>({
-  isMockEnabled: false,
+  isMockEnabled: true,
 });
 
 export function useMockConfig(): { isMockEnabled: boolean } {
@@ -30,14 +30,16 @@ interface MockConfigProviderProps {
 }
 
 /**
- * Stub provider for mock config. Renders children only; mock mode is disabled.
+ * Provider for mock config. Enables mock mode by default.
  *
  * @param props - children.
  * @returns {JSX.Element}
  */
-export function MockConfigProvider({ children }: MockConfigProviderProps): JSX.Element {
+export function MockConfigProvider({
+  children,
+}: MockConfigProviderProps): JSX.Element {
   return (
-    <MockConfigContext.Provider value={{ isMockEnabled: false }}>
+    <MockConfigContext.Provider value={{ isMockEnabled: true }}>
       {children}
     </MockConfigContext.Provider>
   );
