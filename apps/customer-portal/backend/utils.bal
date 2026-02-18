@@ -19,6 +19,8 @@ import customer_portal.types;
 import ballerina/http;
 import ballerina/log;
 
+configurable int stateIdOpen = 1;
+
 # Search cases for a given project.
 #
 # + idToken - ID token for authorization
@@ -35,7 +37,8 @@ public isolated function searchCases(string idToken, string projectId, types:Cas
             searchQuery: payload.filters?.searchQuery,
             issueTypeKeys: issueId != () ? [issueId] : (),
             severityKey: payload.filters?.severityId,
-            stateKey: payload.filters?.statusId,
+            caseTypeIds: payload.filters?.caseTypeIds,
+            stateKeys: payload.filters?.statusIds,
             deploymentId: payload.filters?.deploymentId
         },
         pagination: payload.pagination,
@@ -320,4 +323,41 @@ public isolated function mapProductVulnerabilityMetadataResponse(entity:Vulnerab
     types:ReferenceItem[] severities = from entity:ChoiceListItem item in response.severities
         select {id: item.id.toString(), label: item.label};
     return {severities};
+}
+
+# Map project case stats response to the desired structure.
+#
+# + response - Project case stats response from the entity service
+# + return - Mapped project case stats response
+public isolated function mapCaseStats(entity:ProjectCaseStatsResponse response) returns types:ProjectCaseStats {
+    types:ReferenceItem[] stateCount = from entity:ChoiceListItem item in response.stateCount
+        select {id: item.id.toString(), label: item.label, count: item.count};
+    types:ReferenceItem[] severityCount = from entity:ChoiceListItem item in response.severityCount
+        select {id: item.id.toString(), label: item.label, count: item.count};
+    types:ReferenceItem[] outstandingSeverityCount =
+        from entity:ChoiceListItem item in response.outstandingSeverityCount
+    select {id: item.id.toString(), label: item.label, count: item.count};
+    types:ReferenceItem[] caseTypeCount = from entity:ReferenceTableItem item in response.caseTypeCount
+        select {id: item.id, label: item.name, count: item.count};
+
+    return {
+        totalCases: response.totalCount,
+        averageResponseTime: response.averageResponseTime,
+        resolvedCases: response.resolvedCount,
+        stateCount,
+        severityCount,
+        outstandingSeverityCount,
+        caseTypeCount,
+        casesTrend: response.casesTrend
+    };
+}
+
+# Get open cases count from project case stats response.
+#
+# + response - Project case stats response from the entity service
+# + return - Count of open cases, or null if not available
+public isolated function getOpenCasesCountFromProjectCasesStats(entity:ProjectCaseStatsResponse response) returns int? {
+    types:ProjectCaseStats stats = mapCaseStats(response);
+    types:ReferenceItem[] openCases = stats.stateCount.filter(stat => stat.id == stateIdOpen.toString());
+    return openCases.length() > 0 ? openCases[0].count : ();
 }

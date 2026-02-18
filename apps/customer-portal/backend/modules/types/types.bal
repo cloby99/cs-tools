@@ -37,8 +37,10 @@ public type CaseSearchFilters record {|
     string searchQuery?;
     # Issue ID
     int issueId?;
-    # Status ID
-    int statusId?;
+    # Status IDs
+    int[] statusIds?;
+    # List of case type IDs
+    string[] caseTypeIds?;
     # Severity ID
     int severityId?;
     # Deployment ID
@@ -91,6 +93,8 @@ public type ReferenceItem record {|
     string id;
     # Label
     string label;
+    # Count
+    int count?;
 |};
 
 # Cases list response with pagination.
@@ -157,52 +161,54 @@ public type ProjectFilterOptions record {|
 public type ProjectCaseStats record {|
     # Total case count
     int totalCases;
-    # Open cases count
-    int openCases;
     # Average response time
     decimal averageResponseTime;
-    # Active case count breakdown
-    entity:ActiveCaseCount activeCases;
-    # Outstanding cases count breakdown
-    entity:OutstandingCasesCount outstandingCases;
     # Resolved case count breakdown
     entity:ResolvedCaseCount resolvedCases;
+    # Count of cases by state
+    ReferenceItem[] stateCount;
+    # Count of cases by severity
+    ReferenceItem[] severityCount;
+    # Outstanding cases count by severity
+    ReferenceItem[] outstandingSeverityCount;
+    # Count of cases by type
+    ReferenceItem[] caseTypeCount;
+    # Cases trend
+    entity:CasesTrend[] casesTrend;
 |};
 
 # Project support statistics.
 public type ProjectSupportStats record {|
     # Total cases count
-    int totalCases;
+    int totalCases?;
     # Active chats count
-    int activeChats;
+    int activeChats?;
     # Session chats count
-    int sessionChats;
+    int sessionChats?;
     # Resolved chats count
-    int resolvedChats;
+    int resolvedChats?;
 |};
 
 # Project statistics.
 public type ProjectStats record {|
     # Open cases count
-    int openCases;
+    int openCases?;
     # Active chats count
-    int activeChats;
+    int activeChats?;
     # Deployments count
-    int deployments;
+    int deployments?;
     # SLA status
-    string slaStatus;
+    string slaStatus?;
 |};
 
 # Recent activity details.
 public type RecentActivity record {|
     # Total time logged
-    decimal totalTimeLogged;
+    decimal totalTimeLogged?;
     # Billable hours
-    decimal billableHours;
+    decimal billableHours?;
     # Last deployment date
-    string? lastDeploymentOn;
-    # System health status
-    string systemHealth;
+    string? lastDeploymentOn?;
 |};
 
 # Project statistics response.
