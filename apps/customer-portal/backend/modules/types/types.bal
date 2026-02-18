@@ -590,3 +590,30 @@ public type DeploymentCreatePayload record {|
     string description;
     json...;
 |};
+
+# The request payload to be validated.
+public type OnBoardContactPayload record {|
+    # Email address of the Contact
+    @constraint:String {pattern: re `^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$`}
+    string contactEmail;
+    # First name of the Contact
+    string contactFirstName;
+    # Last name of the Contact
+    string contactLastName;
+    # Whether the contact is System User or not
+    boolean isCsIntegrationUser;
+    # Whether the contact is Security Contact or not
+    boolean isSecurityContact;
+|};
+
+# Payload for updating membership security flag.
+public type MembershipSecurityPayload record {|
+    # Whether the contact is a security contact or not
+    boolean isSecurityContact;
+|};
+
+# The request payload to be validated.
+public type ValidationPayload record {|
+    # Contact email
+    string contactEmail;
+|};

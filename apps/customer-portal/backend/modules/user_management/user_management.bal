@@ -1,0 +1,66 @@
+// Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
+//
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+# Get project contacts for the given project ID.
+#
+# + projectId - ID of the project to get contacts for
+# + return - Array of contacts or error
+public isolated function getProjectContacts(string projectId) returns Contact[]|error {
+    return userManagementClient->/projects/[projectId]/contacts.get();
+}
+
+# Create a new contact for the given project ID and payload.
+#
+# + projectId - ID of the project to create a contact for
+# + payload - Payload containing contact information
+# + return - Created contact or error
+public isolated function createProjectContact(string projectId, OnBoardContactPayload payload)
+    returns Membership|error {
+
+    return userManagementClient->/projects/[projectId]/contact.post(payload);
+}
+
+# Remove a contact from the given project ID using the contact's email and admin email.
+#
+# + projectId - ID of the project to remove the contact from
+# + contactEmail - Email of the contact to be removed
+# + adminEmail - Email of the admin performing the removal
+# + return - Membership information of the removed contact or error
+public isolated function removeProjectContact(string projectId, string contactEmail, string adminEmail)
+    returns Membership|error {
+
+    return userManagementClient->/projects/[projectId]/contacts/[contactEmail].delete(adminEmail = adminEmail);
+}
+
+# Update the membership flag of a contact in the given project ID using the contact's email and payload.
+#
+# + projectId - ID of the project to update the contact's membership flag for
+# + contactEmail - Email of the contact whose membership flag is to be updated
+# + payload - Payload containing the new membership flag information
+# + return - Updated membership information of the contact or error
+public isolated function updateMembershipFlag(string projectId, string contactEmail, MembershipSecurityPayload payload)
+    returns Membership|error {
+
+    return userManagementClient->/projects/[projectId]/contacts/[contactEmail].patch(payload);
+}
+
+# Validate a project contact using the provided payload.
+#
+# + payload - Payload containing information to validate the project contact
+# + return - Validated contact information or error
+public isolated function validateProjectContact(ValidationPayload payload) returns Contact?|error {
+    return userManagementClient->/validate\-project\-contact.post(payload);
+}
