@@ -38,10 +38,8 @@ public type CaseClassificationPayload record {|
     string tier;
 |};
 
-# Case classification response.
-public type CaseClassificationResponse record {|
-    # Issue type
-    string issueType;
+# Chat case information.
+public type ChatCaseInfo record {|
     # Description
     string description;
     # Short description
@@ -52,7 +50,20 @@ public type CaseClassificationResponse record {|
     string productVersion;
     # Environment
     string environment;
+    # Tier
+    string tier;
+    # Region
+    string region;
+    json...;
+|};
+
+# Case classification response.
+public type CaseClassificationResponse record {|
+    # Issue type
+    string issueType;
     # Severity level
     string severityLevel;
+    # Case information
+    ChatCaseInfo caseInfo;
     json...;
 |};
