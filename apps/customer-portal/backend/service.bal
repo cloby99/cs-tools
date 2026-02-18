@@ -441,14 +441,14 @@ service http:InterceptableService / on new http:Listener(9090) {
         entity:ProjectCaseStatsResponse|error caseStats =
             entity:getCaseStatsForProject(userInfo.idToken, id, caseTypes);
         if caseStats is error {
-            log:printError(ERR_MSG_CASES_STATISTICS_MISSING, caseStats);
+            log:printError(ERR_MSG_CASES_STATISTICS, caseStats);
             // To return other stats even if case stats retrieval fails, error will not be returned.
         }
 
         // Fetch chat stats
         entity:ProjectChatStatsResponse|error chatStats = entity:getChatStatsForProject(userInfo.idToken, id);
         if chatStats is error {
-            log:printError("Failed to retrieve project chat statistics.", chatStats);
+            log:printError(ERR_MSG_CHATS_STATISTICS, chatStats);
             // To return other stats even if chat stats retrieval fails, error will not be returned.
         }
 
@@ -534,11 +534,10 @@ service http:InterceptableService / on new http:Listener(9090) {
         entity:ProjectCaseStatsResponse|error caseStats =
             entity:getCaseStatsForProject(userInfo.idToken, id, caseTypes);
         if caseStats is error {
-            string customError = "Failed to retrieve project case statistics.";
-            log:printError(customError, caseStats);
+            log:printError(ERR_MSG_CASES_STATISTICS, caseStats);
             return <http:InternalServerError>{
                 body: {
-                    message: customError
+                    message: ERR_MSG_CASES_STATISTICS
                 }
             };
         }
@@ -595,14 +594,14 @@ service http:InterceptableService / on new http:Listener(9090) {
         entity:ProjectCaseStatsResponse|error caseStats =
             entity:getCaseStatsForProject(userInfo.idToken, id, caseTypes);
         if caseStats is error {
-            log:printError("Failed to retrieve project case statistics.", caseStats);
+            log:printError(ERR_MSG_CASES_STATISTICS, caseStats);
             // To return other stats even if case stats retrieval fails, error will not be returned.
         }
 
         // Fetch chat stats
         entity:ProjectChatStatsResponse|error chatStats = entity:getChatStatsForProject(userInfo.idToken, id);
         if chatStats is error {
-            log:printError("Failed to retrieve project chat statistics.", chatStats);
+            log:printError(ERR_MSG_CHATS_STATISTICS, chatStats);
             // To return other stats even if chat stats retrieval fails, error will not be returned.
         }
 
