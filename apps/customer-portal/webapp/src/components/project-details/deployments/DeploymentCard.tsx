@@ -105,13 +105,12 @@ export default function DeploymentCard({
                     }),
                   }}
                 />
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ ml: 1 }}
-                >
-                  Deployed on {formatProjectDate(deployedAt)}
-                </Typography>
+                <Chip
+                  label={version}
+                  size="small"
+                  variant="outlined"
+                  sx={{ height: 24, fontSize: "0.75rem", fontWeight: 500 }}
+                />
               </Box>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Link
@@ -125,12 +124,6 @@ export default function DeploymentCard({
                 </Link>
               </Box>
             </Box>
-            <Chip
-              label={version}
-              size="small"
-              variant="outlined"
-              sx={{ height: 24, fontSize: "0.75rem", fontWeight: 500 }}
-            />
           </Box>
         </AccordionSummary>
 
@@ -153,27 +146,38 @@ export default function DeploymentCard({
           <Box sx={{ display: "flex", gap: 3 }}>
             <Box
               sx={{
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
                 gap: 0.5,
                 color: "text.secondary",
+                flexShrink: 0,
+                fontSize: "0.75rem",
               }}
             >
-              <Calendar size={14} />
-              <Typography variant="caption">
-                {formatProjectDate(deployedAt)} • {version}
-              </Typography>
+              <Calendar
+                size={14}
+                style={{ verticalAlign: "middle", display: "inline-block" }}
+              />
+              <span style={{ verticalAlign: "middle", whiteSpace: "nowrap" }}>
+                Deployed on {formatProjectDate(deployedAt)} • {version}
+              </span>
             </Box>
             <Box
               sx={{
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
                 gap: 0.5,
                 color: "text.secondary",
+                fontSize: "0.75rem",
               }}
             >
-              <Activity size={14} />
-              <Typography variant="caption">Uptime: {uptimeStr}</Typography>
+              <Activity
+                size={14}
+                style={{ verticalAlign: "middle", display: "inline-block" }}
+              />
+              <span style={{ verticalAlign: "middle" }}>
+                Uptime: {uptimeStr}
+              </span>
             </Box>
           </Box>
         </AccordionDetails>

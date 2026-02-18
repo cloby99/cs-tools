@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ProjectDeployments from "@components/project-details/deployments/ProjectDeployments";
 import { useGetProjectDeploymentDetails } from "@api/useGetProjectDeploymentDetails";
@@ -37,6 +37,29 @@ const mockDeployments = {
 };
 
 vi.mock("@api/useGetProjectDeploymentDetails");
+
+// Mock AddDeploymentModal so we can test open/close without full modal rendering
+vi.mock("@components/project-details/deployments/AddDeploymentModal", () => ({
+  default: ({
+    open,
+    onClose,
+    onSuccess,
+    onError,
+  }: {
+    open: boolean;
+    onClose: () => void;
+    onSuccess?: () => void;
+    onError?: (msg: string) => void;
+  }) =>
+    open ? (
+      <div data-testid="add-deployment-modal">
+        <button onClick={onClose}>Close Modal</button>
+        <button onClick={() => onSuccess?.()}>Trigger Success</button>
+        <button onClick={() => onError?.("API error")}>Trigger Error</button>
+      </div>
+    ) : null,
+}));
+
 vi.mock(
   "@components/project-details/deployments/DeploymentCardSkeleton",
   () => ({
@@ -48,6 +71,22 @@ vi.mock("@components/common/error-state/ErrorStateIcon", () => ({
 }));
 vi.mock("@components/common/empty-state/EmptyState", () => ({
   default: () => <div data-testid="empty-state" />,
+}));
+vi.mock("@components/common/success-banner/SuccessBanner", () => ({
+  default: ({ message, onClose }: { message: string; onClose: () => void }) => (
+    <div data-testid="success-banner">
+      {message}
+      <button onClick={onClose}>Dismiss</button>
+    </div>
+  ),
+}));
+vi.mock("@components/common/error-banner/ErrorBanner", () => ({
+  default: ({ message, onClose }: { message: string; onClose: () => void }) => (
+    <div data-testid="error-banner">
+      {message}
+      <button onClick={onClose}>Dismiss</button>
+    </div>
+  ),
 }));
 
 describe("ProjectDeployments", () => {
@@ -76,7 +115,7 @@ describe("ProjectDeployments", () => {
     expect(screen.getByText("Invalid Project ID.")).toBeInTheDocument();
   });
 
-  it("should show loading indicator when isLoading is true", () => {
+  it("should show loading skeletons when isLoading is true", () => {
     vi.mocked(useGetProjectDeploymentDetails).mockReturnValue({
       data: undefined,
       isLoading: true,
@@ -89,7 +128,7 @@ describe("ProjectDeployments", () => {
     expect(screen.getAllByTestId("deployment-skeleton")).toHaveLength(3);
   });
 
-  it("should show loading indicator when data is undefined and no error (initial state)", () => {
+  it("should show empty state when data is undefined and not loading (initial state)", () => {
     vi.mocked(useGetProjectDeploymentDetails).mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -99,7 +138,8 @@ describe("ProjectDeployments", () => {
 
     render(<ProjectDeployments projectId="project-123" />);
 
-    expect(screen.getAllByTestId("deployment-skeleton")).toHaveLength(3);
+    // When data is undefined and not loading, deployments defaults to [] → empty state
+    expect(screen.getByTestId("empty-state")).toBeInTheDocument();
   });
 
   it("should show error state when isError is true", () => {
@@ -126,5 +166,62 @@ describe("ProjectDeployments", () => {
     render(<ProjectDeployments projectId="project-123" />);
 
     expect(screen.getByTestId("empty-state")).toBeInTheDocument();
+  });
+
+  it("should open AddDeploymentModal when Add Deployment button is clicked", () => {
+    render(<ProjectDeployments projectId="project-123" />);
+
+    expect(
+      screen.queryByTestId("add-deployment-modal"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Add Deployment/i }));
+
+    expect(screen.getByTestId("add-deployment-modal")).toBeInTheDocument();
+  });
+
+  it("should close AddDeploymentModal when onClose is called", () => {
+    render(<ProjectDeployments projectId="project-123" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Add Deployment/i }));
+    expect(screen.getByTestId("add-deployment-modal")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close Modal" }));
+    expect(
+      screen.queryByTestId("add-deployment-modal"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("should show SuccessBanner after successful deployment creation", () => {
+    render(<ProjectDeployments projectId="project-123" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Add Deployment/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Trigger Success" }));
+
+    expect(screen.getByTestId("success-banner")).toBeInTheDocument();
+    expect(
+      screen.getByText("Deployment created successfully."),
+    ).toBeInTheDocument();
+  });
+
+  it("should show ErrorBanner when deployment creation fails", () => {
+    render(<ProjectDeployments projectId="project-123" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Add Deployment/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Trigger Error" }));
+
+    expect(screen.getByTestId("error-banner")).toBeInTheDocument();
+    expect(screen.getByText("API error")).toBeInTheDocument();
+  });
+
+  it("should dismiss SuccessBanner when close is clicked", () => {
+    render(<ProjectDeployments projectId="project-123" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Add Deployment/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Trigger Success" }));
+    expect(screen.getByTestId("success-banner")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByTestId("success-banner")).not.toBeInTheDocument();
   });
 });
