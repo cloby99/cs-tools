@@ -14,8 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, Button, Typography } from "@wso2/oxygen-ui";
-import { Cloud } from "@wso2/oxygen-ui-icons-react";
+import { Box, Button, Divider, Stack, Typography } from "@wso2/oxygen-ui";
+import { ArrowRight } from "@wso2/oxygen-ui-icons-react";
 import { useAsgardeo } from "@asgardeo/react";
 import type { JSX } from "react";
 
@@ -27,29 +27,28 @@ export default function LoginBox(): JSX.Element {
   };
 
   return (
-    <Box>
-      <Box sx={{ mb: 6 }}>
+    <Stack spacing={3}>
+      <Box>
         <Typography variant="h3" gutterBottom>
           Login to Account
         </Typography>
-
-        <Typography color="text.secondary">
+        <Typography color="text.secondary" variant="body2">
           Ready to explore? Continue with your account to proceed.
         </Typography>
       </Box>
 
-      <Box>
-        <Button
-          fullWidth
-          variant="contained"
-          startIcon={<Cloud />}
-          color="primary"
-          sx={{ my: 1 }}
-          onClick={handleLogin}
-        >
-          Continue with Real APIs
-        </Button>
-      </Box>
-    </Box>
+      <Divider />
+
+      <Button
+        fullWidth
+        size="large"
+        variant="contained"
+        endIcon={<ArrowRight />}
+        color="primary"
+        onClick={handleLogin}
+      >
+        Continue
+      </Button>
+    </Stack>
   );
 }
