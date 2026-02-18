@@ -84,7 +84,7 @@ export interface ActivityItem {
   label: string;
   value: string;
   type?: "text" | "chip";
-  chipColor?: "success" | "warning" | "error" | "default" | "primary" | "info";
+  chipColor?: ProjectStatusChipColor;
 }
 
 export const statItems: Stat[] = [
@@ -216,3 +216,32 @@ export const TIME_TRACKING_BADGE_TYPES = {
 
 export type TimeTrackingBadgeType =
   (typeof TIME_TRACKING_BADGE_TYPES)[keyof typeof TIME_TRACKING_BADGE_TYPES];
+
+export const DEPLOYMENT_STATUS = {
+  HEALTHY: "Healthy",
+  WARNING: "Warning",
+  ERROR: "Error",
+} as const;
+
+export type DeploymentStatus =
+  (typeof DEPLOYMENT_STATUS)[keyof typeof DEPLOYMENT_STATUS];
+
+export const PRODUCT_SUPPORT_STATUS = {
+  ACTIVE: "Active Support",
+  END_OF_LIFE: "End of Life",
+  DEPRECATED: "Deprecated",
+  LIMITED: "Limited Support",
+  EXTENDED: "Extended Support",
+} as const;
+
+export type ProductSupportStatus =
+  (typeof PRODUCT_SUPPORT_STATUS)[keyof typeof PRODUCT_SUPPORT_STATUS];
+
+export type ProjectStatusChipColor =
+  | "default"
+  | "primary"
+  | "secondary"
+  | "error"
+  | "info"
+  | "success"
+  | "warning";

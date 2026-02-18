@@ -37,4 +37,5 @@ export const ApiQueryKeys = {
   PROJECT_USERS: "project-users",
   CASE_CALL_REQUESTS: "case-call-requests",
   TIME_TRACKING_DETAILS: "time-tracking-details",
+  PROJECT_DEPLOYMENT_DETAILS: "project-deployment-details",
 } as const;

@@ -25,6 +25,7 @@ import ProjectUsersTab from "@components/project-details/users/ProjectUsersTab";
 import ProjectStatisticsCard from "@components/project-details/project-overview/project-statistics/ProjectStatisticsCard";
 import ContactInfoCard from "@components/project-details/project-overview/contact-info/ContactInfoCard";
 import RecentActivityCard from "@components/project-details/project-overview/recent-activity/RecentActivityCard";
+import ProjectDeployments from "@components/project-details/deployments/ProjectDeployments";
 import ProjectTimeTracking from "@components/project-details/time-tracking/ProjectTimeTracking";
 import useGetProjectDetails from "@api/useGetProjectDetails";
 import { useGetProjectStat } from "@api/useGetProjectStat";
@@ -133,10 +134,8 @@ export default function ProjectDetails(): JSX.Element {
         );
       case "deployments":
         return (
-          <Box sx={{ p: 3, textAlign: "center" }}>
-            <Typography variant="h6" color="text.secondary">
-              Deployments (Coming Soon)
-            </Typography>
+          <Box>
+            <ProjectDeployments projectId={projectId ?? ""} />
           </Box>
         );
       case "time-tracking":
