@@ -37,7 +37,7 @@ import {
   Zap,
 } from "@wso2/oxygen-ui-icons-react";
 import { useState, type JSX } from "react";
-import AddProductModal from "@/components/project-details/deployments/AddProductModal";
+import AddProductModal from "@components/project-details/deployments/AddProductModal";
 
 interface DeploymentProductListProps {
   products: DeploymentProduct[];
@@ -286,9 +286,8 @@ export default function DeploymentProductList({
         deploymentId={deploymentId}
         onClose={() => setIsAddProductModalOpen(false)}
         onSuccess={() => {
-          // Ideally refresh the products list here
-          // For now just close the modal
-          setIsAddProductModalOpen(false);
+          // Refresh logic to be added here
+          // setIsAddProductModalOpen(false);
         }}
       />
     </Box>
