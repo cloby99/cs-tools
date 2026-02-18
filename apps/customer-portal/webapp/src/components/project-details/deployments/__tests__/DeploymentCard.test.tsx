@@ -84,10 +84,16 @@ describe("DeploymentCard", () => {
     expect(screen.getByText("Architecture.pdf")).toBeInTheDocument();
   });
 
-  it("should render deployed date and uptime", () => {
+  it("should render deployed date in the footer", () => {
     render(<DeploymentCard deployment={mockDeployment} />);
 
-    expect(screen.getByText(/Deployed/)).toBeInTheDocument();
+    // "Deployed on" text is now in the card footer (not the header)
+    expect(screen.getByText(/Deployed on/)).toBeInTheDocument();
+  });
+
+  it("should render uptime in the footer", () => {
+    render(<DeploymentCard deployment={mockDeployment} />);
+
     expect(screen.getByText(/Uptime: 99\.98%/)).toBeInTheDocument();
   });
 
@@ -100,5 +106,16 @@ describe("DeploymentCard", () => {
     render(<DeploymentCard deployment={deploymentNoProducts} />);
 
     expect(screen.getByText("No products added yet")).toBeInTheDocument();
+  });
+
+  it("should render version chip in the header row alongside the status chip", () => {
+    render(<DeploymentCard deployment={mockDeployment} />);
+
+    const versionChip = screen.getByText("v1.0");
+    const statusChip = screen.getByText("Healthy");
+
+    // Both should be present in the document
+    expect(versionChip).toBeInTheDocument();
+    expect(statusChip).toBeInTheDocument();
   });
 });
