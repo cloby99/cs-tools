@@ -203,10 +203,12 @@ public type Case record {|
 
 # Choice list item information.
 public type ChoiceListItem record {|
-    # ID
+    # Choice list item value
     int id;
-    # Label
+    # Choice list item label
     string label;
+    # Count
+    int count?;
     json...;
 |};
 
@@ -216,6 +218,8 @@ public type ReferenceTableItem record {|
     string id;
     # Display name
     string name;
+    # Count value
+    int count?;
     json...;
 |};
 
@@ -223,12 +227,14 @@ public type ReferenceTableItem record {|
 public type CaseSearchFilters record {|
     # List of project IDs to filter
     string[] projectIds?;
+    # List of case type IDs to filter
+    string[] caseTypeIds?;
     # Search query for case number, title and description
     string searchQuery?;
     # List of issue types to filter
     int[] issueTypeKeys?;
     # State key
-    int stateKey?;
+    int[] stateKeys?;
     # Severity key
     int severityKey?;
     # Deployment ID
@@ -289,6 +295,7 @@ public type SortBy record {|
     CaseSortField 'field;
     # Sort order
     SortOrder 'order;
+    json...;
 |};
 
 # Project metadata response.
@@ -317,13 +324,11 @@ public type ProjectMetadataResponse record {|
 # Project statistics response from ServiceNow.
 public type ProjectStatsResponse record {|
     # Total time logged
-    decimal totalTimeLogged;
+    decimal totalTimeLogged?;
     # Billable hours
-    decimal billableHours;
-    # System health status
-    string systemHealth;
+    decimal billableHours?;
     # SLA status
-    string slaStatus;
+    string slaStatus?;
     json...;
 |};
 
@@ -362,20 +367,33 @@ public type ResolvedCaseCount record {|
     json...;
 |};
 
+# Cases trend by time unit.
+public type CasesTrend record {|
+    # Time unit identifier (e.g., "2025 - Q1", "2025 - M1")
+    string period;
+    # Severity breakdown for the time unit
+    ChoiceListItem[] severities;
+    json...;
+|};
+
 # Project cases statistics response.
 public type ProjectCaseStatsResponse record {|
     # Total case count
     int totalCount;
-    # Open case count
-    int openCount;
     # Average response time
     decimal averageResponseTime;
-    # Active case count breakdown
-    ActiveCaseCount activeCount;
-    # Outstanding cases count breakdown
-    OutstandingCasesCount outstandingCasesCount;
     # Resolved case count breakdown
     ResolvedCaseCount resolvedCount;
+    # Count of cases by state
+    ChoiceListItem[] stateCount;
+    # Count of cases by severity
+    ChoiceListItem[] severityCount;
+    # Outstanding cases count by severity
+    ChoiceListItem[] outstandingSeverityCount;
+    # Count of cases by type
+    ReferenceTableItem[] caseTypeCount;
+    # Cases trend
+    CasesTrend[] casesTrend;
     json...;
 |};
 
