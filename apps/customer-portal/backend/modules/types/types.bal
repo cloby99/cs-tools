@@ -651,10 +651,11 @@ public type CallRequest record {|
     ReferenceItem state;
 |};
 
-# Call requests response from ServiceNow.
+# Call requests response.
 public type CallRequestsResponse record {|
     # List of call requests
     CallRequest[] callRequests;
+    // TODO: Remove after adding pagination
 |};
 
 # Request payload for creating a call request.

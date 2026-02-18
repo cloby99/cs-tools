@@ -321,7 +321,7 @@ public type ProjectMetadataResponse record {|
     json...;
 |};
 
-# Project statistics response from ServiceNow.
+# Project statistics response.
 public type ProjectStatsResponse record {|
     # Total time logged
     decimal totalTimeLogged?;
@@ -858,7 +858,6 @@ public type CallRequestUpdatePayload record {|
     string? reason;
     # New preferred UTC times for the call (mandatory when stateKey is 2)
     string[] utcTimes?;
-    json...;
 |};
 
 # Updated call request details.
@@ -878,4 +877,5 @@ public type CallRequestUpdateResponse record {|
     string message;
     # Updated call request details
     UpdatedCallRequest callRequest;
+    json...;
 |};

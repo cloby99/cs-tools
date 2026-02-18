@@ -1644,7 +1644,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
         return <http:Ok>{
-            body: response
+            body: mapSearchCallRequestResponse(response)
         };
     }
 
