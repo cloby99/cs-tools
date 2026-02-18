@@ -13,7 +13,9 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 import { CaseSeverityLevel, CaseStatus } from "@constants/supportConstants";
+
 /**
  * Returns the Oxygen ui color path for a given severity label.
  * @param label - The severity label (e.g., S0, S1, S2, S3, S4).
