@@ -852,12 +852,13 @@ public type CallRequestCreateResponse record {|
 
 # Request payload for updating a call request.
 public type CallRequestUpdatePayload record {|
-    # State key (2 - Pending on WSO2, 6 - Canceled)
+    # State key
     int stateKey;
     # Reason for the update
     string? reason;
     # New preferred UTC times for the call (mandatory when stateKey is 2)
     string[] utcTimes?;
+    json...;
 |};
 
 # Updated call request details.

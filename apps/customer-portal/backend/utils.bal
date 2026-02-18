@@ -397,7 +397,7 @@ public isolated function mapSearchCallRequestResponse(entity:CallRequestsRespons
 # Validate call request update payload.
 #
 # + payload - Call request update payload
-# + return - Error message if validation fails, () otherwise
+# + return - Error message if validation fails, nil otherwise
 isolated function validateCallRequestUpdatePayload(entity:CallRequestUpdatePayload payload) returns string? {
     // Validate stateKey is either 2 (Pending on WSO2) or 6 (Canceled)
     if payload.stateKey != PENDING_ON_WSO2 && payload.stateKey != CANCELED {
