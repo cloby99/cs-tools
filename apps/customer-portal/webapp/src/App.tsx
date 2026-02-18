@@ -22,6 +22,7 @@ import ProjectDetails from "@pages/ProjectDetails";
 import DashboardPage from "@pages/DashboardPage";
 import SupportPage from "@pages/SupportPage";
 import UpdatesPage from "@pages/UpdatesPage";
+import PendingUpdatesPage from "@pages/PendingUpdatesPage";
 import AllCasesPage from "@pages/AllCasesPage";
 import CaseDetailsPage from "@pages/CaseDetailsPage";
 import NoveraChatPage from "@pages/NoveraChatPage";
@@ -72,7 +73,10 @@ export default function App(): JSX.Element {
                   </Route>
                 </Route>
                 {/* Updates */}
-                <Route path="updates" element={<UpdatesPage />} />
+                <Route path="updates">
+                  <Route index element={<UpdatesPage />} />
+                  <Route path="pending" element={<PendingUpdatesPage />} />
+                </Route>
                 {/* SecurityCenter */}
                 <Route
                   path="security-center"
