@@ -15,7 +15,10 @@
 // under the License.
 
 import { type DeploymentProduct } from "@models/responses";
-import { formatProjectDate } from "@utils/projectDetails";
+import {
+  formatProjectDate,
+  getProductSupportStatusColor,
+} from "@utils/projectDetails";
 import {
   Box,
   Button,
@@ -129,13 +132,22 @@ export default function DeploymentProductList({
                       <Chip
                         label={product.supportStatus}
                         size="small"
-                        sx={{
-                          height: 20,
-                          fontSize: "0.75rem",
-                          bgcolor: (theme) =>
-                            alpha(theme.palette.success.main, 0.1),
-                          color: "success.main",
-                          fontWeight: 500,
+                        sx={(theme) => {
+                          const statusColor = getProductSupportStatusColor(
+                            product.supportStatus,
+                          );
+                          const paletteColor =
+                            statusColor === "default" ? "grey" : statusColor;
+                          return {
+                            height: 20,
+                            fontSize: "0.75rem",
+                            bgcolor: alpha(
+                              (theme.palette as any)[paletteColor].main,
+                              0.1,
+                            ),
+                            color: `${statusColor}.main`,
+                            fontWeight: 500,
+                          };
                         }}
                       />
                     </Box>

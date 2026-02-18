@@ -25,6 +25,7 @@ import {
   TIME_TRACKING_BADGE_TYPES,
   type TimeTrackingBadgeType,
   DEPLOYMENT_STATUS,
+  PRODUCT_SUPPORT_STATUS,
   type ProjectStatusChipColor,
 } from "@constants/projectDetailsConstants";
 
@@ -288,6 +289,31 @@ export const getDeploymentStatusColor = (
       return "warning";
     case DEPLOYMENT_STATUS.ERROR.toLowerCase():
       return "error";
+    default:
+      return "default";
+  }
+};
+
+/**
+ * Determines the color of the Product Support Status chip based on the status string.
+ *
+ * @param {string} status - The product support status string (e.g., "Active Support", "End of Life").
+ * @returns {"success" | "warning" | "error" | "default"} The color for the Chip component.
+ */
+export const getProductSupportStatusColor = (
+  status: string,
+): ProjectStatusChipColor => {
+  const normalizedStatus = status?.toLowerCase();
+
+  switch (normalizedStatus) {
+    case PRODUCT_SUPPORT_STATUS.ACTIVE.toLowerCase():
+      return "success";
+    case PRODUCT_SUPPORT_STATUS.END_OF_LIFE.toLowerCase():
+    case PRODUCT_SUPPORT_STATUS.DEPRECATED.toLowerCase():
+      return "error";
+    case PRODUCT_SUPPORT_STATUS.LIMITED.toLowerCase():
+    case PRODUCT_SUPPORT_STATUS.EXTENDED.toLowerCase():
+      return "warning";
     default:
       return "default";
   }

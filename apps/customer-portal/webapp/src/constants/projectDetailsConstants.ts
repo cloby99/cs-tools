@@ -226,6 +226,17 @@ export const DEPLOYMENT_STATUS = {
 export type DeploymentStatus =
   (typeof DEPLOYMENT_STATUS)[keyof typeof DEPLOYMENT_STATUS];
 
+export const PRODUCT_SUPPORT_STATUS = {
+  ACTIVE: "Active Support",
+  END_OF_LIFE: "End of Life",
+  DEPRECATED: "Deprecated",
+  LIMITED: "Limited Support",
+  EXTENDED: "Extended Support",
+} as const;
+
+export type ProductSupportStatus =
+  (typeof PRODUCT_SUPPORT_STATUS)[keyof typeof PRODUCT_SUPPORT_STATUS];
+
 export type ProjectStatusChipColor =
   | "default"
   | "primary"
