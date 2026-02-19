@@ -183,6 +183,18 @@ public isolated function createDeployment(string idToken, DeploymentCreatePayloa
     return csEntityClient->/deployments.post(payload, generateHeaders(idToken));
 }
 
+# Update a deployment.
+#
+# + idToken - ID token for authorization
+# + deploymentId - ID of the deployment to update
+# + payload - Deployment update payload
+# + return - Deployment update response or error
+public isolated function updateDeployment(string idToken, string deploymentId, DeploymentUpdatePayload payload)
+    returns DeploymentUpdateResponse|error {
+
+    return csEntityClient->/deployments/[deploymentId].patch(payload, generateHeaders(idToken));
+}
+
 # Create a comment for a case.
 #
 # + idToken - ID token for authorization
