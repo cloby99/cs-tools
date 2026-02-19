@@ -188,6 +188,8 @@ public type Case record {|
     ReferenceTableItem? assignedEngineer;
     # Associated project
     ReferenceTableItem? project;
+    # Associated case type
+    ReferenceTableItem? caseType;
     # Deployment information
     ReferenceTableItem? deployment;
     # Deployed product information

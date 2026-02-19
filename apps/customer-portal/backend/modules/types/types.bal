@@ -75,6 +75,8 @@ public type Case record {|
     ReferenceItem? assignedEngineer;
     # Associated project
     ReferenceItem? project;
+    # Case type
+    ReferenceItem? 'type;
     # Deployed product information
     ReferenceItem? deployedProduct;
     # issueType of the case
