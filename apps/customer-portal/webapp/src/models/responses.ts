@@ -429,6 +429,11 @@ export interface DeploymentsResponse {
   deployments: Deployment[];
 }
 
+// Response for GET /projects/:projectId/deployments (real API).
+export interface ProjectDeploymentsListResponse {
+  deployments: ProjectDeploymentItem[];
+}
+
 // Single item from GET /projects/:projectId/deployments (array response).
 export interface ProjectDeploymentItem {
   id: string;
@@ -449,6 +454,12 @@ export interface DeploymentProductItem {
   description: string | null;
   product: { id: string; label: string };
   deployment: { id: string; label: string };
+  version?: string | null;
+  cores?: number | null;
+  tps?: number | null;
+  releasedOn?: string | null;
+  endOfLifeOn?: string | null;
+  updateLevel?: string | null;
 }
 
 // Case attachment item (GET /cases/:id/attachments).
