@@ -30,6 +30,7 @@ import { UpdateCardBreakdown } from "@update-cards/UpdateCardBreakdown";
 
 export interface UpdateProductCardProps {
   item: RecommendedUpdateLevelItem;
+  onViewPendingUpdates?: () => void;
 }
 
 /**
@@ -40,6 +41,7 @@ export interface UpdateProductCardProps {
  */
 export function UpdateProductCard({
   item,
+  onViewPendingUpdates,
 }: UpdateProductCardProps): JSX.Element {
   const {
     productName,
@@ -106,6 +108,7 @@ export function UpdateProductCard({
           variant="outlined"
           color="warning"
           startIcon={<FileText size={16} />}
+          onClick={onViewPendingUpdates}
           sx={{
             textTransform: "none",
           }}
