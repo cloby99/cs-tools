@@ -170,7 +170,10 @@ export interface CaseListItem {
   title: string;
   description: string;
   /** API may return string or { id, label? } or { id, name? } object. */
-  assignedEngineer: string | { id: string; label?: string; name?: string } | null;
+  assignedEngineer:
+    | string
+    | { id: string; label?: string; name?: string }
+    | null;
   project: {
     id: string;
     label: string;
@@ -238,8 +241,10 @@ export interface CaseDetails {
   product: string | null;
   account: CaseDetailsAccount | null;
   csManager: string | null;
-  /** API may return string or { id, label? } or { id, name? } object. */
-  assignedEngineer: string | { id: string; label?: string; name?: string } | null;
+  assignedEngineer:
+    | string
+    | { id: string; label?: string; name?: string }
+    | null;
   project: CaseDetailsProject | null;
   deployment: { id: string; label: string } | null;
   deployedProduct: string | null;
@@ -493,7 +498,7 @@ export type ProductUpdateLevelsResponse = ProductUpdateLevelsItem[];
 export interface CaseClassificationResponse {
   issueType: string;
   severityLevel: string;
-  case_info: {
+  caseInfo: {
     description: string;
     shortDescription: string;
     productName: string;
