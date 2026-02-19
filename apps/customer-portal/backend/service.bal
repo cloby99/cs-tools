@@ -847,6 +847,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     # + return - Chat response or an error
     resource function post chat(http:RequestContext ctx, ai_chat_agent:ChatPayload payload)
         returns ai_chat_agent:ChatResponse|http:InternalServerError {
+
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
             return <http:InternalServerError>{
