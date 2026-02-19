@@ -17,6 +17,7 @@
 import { Card, Typography, Box, Skeleton, colors } from "@wso2/oxygen-ui";
 import {
   BarChart,
+  Bar,
   ResponsiveContainer,
 } from "@wso2/oxygen-ui-charts-react";
 import type { JSX } from "react";
@@ -90,23 +91,27 @@ export const CasesTrendChart = ({
             }}
           >
             <ResponsiveContainer width="100%" height="100%">
-  <BarChart
-    data={chartData}
-    xAxisDataKey="period"
-    bars={CASES_TREND_CHART_DATA.map((item) => ({
-      dataKey: item.key,
-      stackId: "a",
-      fill: isError ? colors.grey[300] : item.color,
-      radius: item.radius,
-    }))}
-    grid={{ show: true }}
-    xAxis={{ show: true }}
-    yAxis={{ show: true }}
-    tooltip={{ show: !isError }}
-    legend={{ show: false }}
-    margin={{ top: 10, right: 0, left: -20, bottom: 0 }}
-  />
-</ResponsiveContainer>
+              <BarChart
+                data={chartData}
+                xAxisDataKey="period"
+                grid={{ show: true }}
+                xAxis={{ show: true }}
+                yAxis={{ show: true }}
+                tooltip={{ show: !isError }}
+                legend={{ show: false }}
+                margin={{ top: 10, right: 0, left: -20, bottom: 0 }}
+              >
+                {CASES_TREND_CHART_DATA.map((item) => (
+                  <Bar
+                    key={item.key}
+                    dataKey={item.key}
+                    stackId="a"
+                    fill={isError ? colors.grey[300] : item.color}
+                    radius={item.radius}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
           </Box>
         </Box>
       )}

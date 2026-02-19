@@ -149,19 +149,16 @@ export const CASES_TREND_CHART_DATA: CasesTrendChartDataItem[] = [
     name: "Critical (P1)",
     key: "critical",
     color: colors.blue[500],
-    radius: [0, 0, 4, 4],
   },
   {
     name: "High (P2)",
     key: "high",
     color: colors.green[500],
-    radius: [0, 0, 4, 4],
   },
   {
     name: "Medium (P3)",
     key: "medium",
     color: colors.orange[500],
-    radius: [0, 0, 4, 4],
   },
   {
     name: "Low (P4)",

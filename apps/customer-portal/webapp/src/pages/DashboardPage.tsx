@@ -231,12 +231,13 @@ export default function DashboardPage(): JSX.Element {
       {/* Charts row */}
       <ChartLayout
         outstandingCases={outstandingCases || {
-            medium: 0,
-            high: 0,
-            critical: 0,
-            total: 0,
-          }
-        }
+          low: 0,
+          medium: 0,
+          high: 0,
+          critical: 0,
+          catastrophic: 0,
+          total: 0,
+        }}
         activeCases={activeCases || {
           workInProgress: 0,
           waitingOnClient: 0,
