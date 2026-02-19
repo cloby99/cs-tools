@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import PendingUpdatesListSkeleton from "@components/updates/pending-updates/PendingUpdatesListSkeleton";
 
@@ -27,7 +27,6 @@ describe("PendingUpdatesListSkeleton", () => {
 
   it("renders table structure", () => {
     render(<PendingUpdatesListSkeleton />);
-    const table = document.querySelector("table");
-    expect(table).toBeDefined();
+    expect(screen.getByRole("table")).toBeInTheDocument();
   });
 });

@@ -56,7 +56,7 @@ export const getTimeTrackingBadgePaletteKey = (
 };
 
 /** Value that may be a string, number, or {id, label} object from API. */
-type DisplayableValue =
+export type DisplayableValue =
   | string
   | number
   | null

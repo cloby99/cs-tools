@@ -35,7 +35,9 @@ import {
   Zap,
 } from "@wso2/oxygen-ui-icons-react";
 import { useState, type JSX } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useGetDeploymentsProducts } from "@api/useGetDeploymentsProducts";
+import { ApiQueryKeys } from "@constants/apiConstants";
 import ErrorIndicator from "@components/common/error-indicator/ErrorIndicator";
 import AddProductModal from "@components/project-details/deployments/AddProductModal";
 
@@ -52,6 +54,7 @@ interface DeploymentProductListProps {
 export default function DeploymentProductList({
   deploymentId,
 }: DeploymentProductListProps): JSX.Element {
+  const queryClient = useQueryClient();
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
   const { data: products = [], isLoading, isError } =
     useGetDeploymentsProducts(deploymentId);
@@ -62,7 +65,7 @@ export default function DeploymentProductList({
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Package size={16} />
           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            WSO2 Products ({products.length})
+            WSO2 Products {isLoading ? "" : `(${products.length})`}
           </Typography>
         </Box>
         <Button
@@ -106,7 +109,12 @@ export default function DeploymentProductList({
         open={isAddProductModalOpen}
         deploymentId={deploymentId}
         onClose={() => setIsAddProductModalOpen(false)}
-        onSuccess={() => {}}
+        onSuccess={() => {
+          setIsAddProductModalOpen(false);
+          queryClient.invalidateQueries({
+            queryKey: [ApiQueryKeys.DEPLOYMENT_PRODUCTS, deploymentId],
+          });
+        }}
       />
     </Box>
   );
@@ -157,7 +165,12 @@ function ProductItemRow({ item }: ProductItemRowProps): JSX.Element {
             flex: 1,
           }}
         >
-          <Checkbox sx={{ p: 0.5, mt: -0.5 }} />
+          <Checkbox
+            sx={{ p: 0.5, mt: -0.5 }}
+            disabled
+            aria-disabled
+            aria-label="Batch select (not yet implemented)"
+          />
           <Box sx={{ flex: 1 }}>
             <Box
               sx={{
@@ -299,7 +312,12 @@ function ProductItemRow({ item }: ProductItemRowProps): JSX.Element {
             </Box>
           </Box>
         </Box>
-        <Button size="small" aria-label={`Delete ${name}`}>
+        <Button
+          size="small"
+          aria-label={`Delete ${name}`}
+          disabled
+          aria-disabled
+        >
           <Trash2 size={16} />
         </Button>
       </Box>
