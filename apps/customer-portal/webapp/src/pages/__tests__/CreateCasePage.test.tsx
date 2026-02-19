@@ -125,8 +125,6 @@ vi.mock(
   () => ({ CaseCreationHeader: () => null }),
 );
 
-// ... existing imports and other mocks ...
-
 import { MemoryRouter, Routes, Route } from "react-router";
 
 const queryClient = new QueryClient({

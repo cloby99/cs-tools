@@ -74,10 +74,7 @@ const InitialValuePlugin = ({ initialHtml }: { initialHtml?: string }) => {
         const root = $getRoot();
         const currentContent = root.getTextContent();
 
-        if (
-          currentContent.trim() === "" ||
-          currentContent === "Please describe your issue here."
-        ) {
+        if (currentContent.trim() === "") {
           const parser = new DOMParser();
           const dom = parser.parseFromString(initialHtml, "text/html");
           const nodes = $generateNodesFromDOM(editor, dom);
@@ -264,9 +261,8 @@ const Editor = ({
               outline: "none",
               minHeight:
                 typeof minHeight === "number" ? `${minHeight}px` : minHeight,
-              fontSize: oxygenTheme.typography.body2.fontSize,
+              ...oxygenTheme.typography.body2,
               color: disabled ? "text.disabled" : "text.primary",
-              typography: "body1",
             },
             "& .editor-text-bold": {
               fontWeight: oxygenTheme.typography.fontWeightBold || "bold",

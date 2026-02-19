@@ -172,10 +172,17 @@ export default function CreateCasePage(): JSX.Element {
 
   useEffect(() => {
     if (locationState?.classificationResponse) {
-      sessionStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(locationState.classificationResponse),
-      );
+      try {
+        sessionStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify(locationState.classificationResponse),
+        );
+      } catch (e) {
+        console.error(
+          "Failed to store classification data in sessionStorage",
+          e,
+        );
+      }
       setClassificationResponse(locationState.classificationResponse);
     }
   }, [locationState?.classificationResponse, STORAGE_KEY]);
@@ -237,10 +244,10 @@ export default function CreateCasePage(): JSX.Element {
     if (info.shortDescription?.trim()) setTitle(info.shortDescription);
     if (info.description?.trim()) {
       const text = info.description.trim();
-      const html =
-        text.startsWith("<") && text.endsWith(">")
-          ? text
-          : `<p>${escapeHtml(text)}</p>`;
+      const isLikelyHtml = /<[a-zA-Z][^>]*>[\s\S]*<\/[a-zA-Z][^>]*>|<[a-zA-Z][^>]*\/>/.test(
+        text,
+      );
+      const html = isLikelyHtml ? text : `<p>${escapeHtml(text)}</p>`;
       setDescription(html);
     }
   }, [classificationResponse]);
@@ -441,6 +448,7 @@ export default function CreateCasePage(): JSX.Element {
           } finally {
             setIsUploadingAttachments(false);
           }
+          sessionStorage.removeItem(STORAGE_KEY);
           navigate(`/${projectId}/support/cases/${caseId}`);
         } else {
           showSuccess("Case created successfully");

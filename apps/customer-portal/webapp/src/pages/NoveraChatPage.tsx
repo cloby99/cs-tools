@@ -113,9 +113,6 @@ export default function NoveraChatPage(): JSX.Element {
         navigate(`/${projectId}/support/chat/create-case`, {
           state: { messages },
         });
-        navigate(`/${projectId}/support/chat/create-case`, {
-          state: { messages },
-        });
       }
     } finally {
       setIsCreateCaseLoading(false);

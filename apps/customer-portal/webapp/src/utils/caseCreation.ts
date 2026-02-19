@@ -49,6 +49,7 @@ export function normalizeProductLabel(label: string | undefined): string {
     .trim()
     .replace(/\s*-\s*/g, " ")
     .replace(/\s+/g, " ")
+    .toLowerCase()
     .trim();
 }
 
@@ -182,10 +183,12 @@ export function formatChatHistoryForClassification(
 ): string {
   return messages
     .map((m) => {
+      const text = (m.text || "").trim();
+      if (!text) return "";
       const role = m.sender === "user" ? "User" : "Assistant";
-      return `${role}: ${(m.text || "").trim()}`;
+      return `${role}: ${text}`;
     })
-    .filter((line) => line.length > 7)
+    .filter((line) => line.length > 0)
     .join("\n");
 }
 
