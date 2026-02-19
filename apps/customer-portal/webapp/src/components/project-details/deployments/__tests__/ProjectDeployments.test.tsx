@@ -17,26 +17,31 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ProjectDeployments from "@components/project-details/deployments/ProjectDeployments";
-import { useGetProjectDeploymentDetails } from "@api/useGetProjectDeploymentDetails";
+import { useGetDeployments } from "@api/useGetDeployments";
 
 const mockDeployments = {
   deployments: [
     {
       id: "dep-1",
       name: "Production",
-      status: "Healthy" as const,
-      url: "https://api.example.com",
-      version: "v1.0",
+      createdOn: "2026-01-17",
+      updatedOn: "2026-01-17",
       description: "Production env",
-      deployedAt: "2026-01-17",
-      uptimePercent: 99.98,
-      products: [],
-      documents: [],
+      url: "https://api.example.com",
+      project: { id: "proj-1", label: "Test Project" },
+      type: { id: "3", label: "Staging" },
     },
   ],
 };
 
-vi.mock("@api/useGetProjectDeploymentDetails");
+vi.mock("@api/useGetDeployments");
+vi.mock("@api/useGetDeploymentsProducts", () => ({
+  useGetDeploymentsProducts: () => ({
+    data: [],
+    isLoading: false,
+    isError: false,
+  }),
+}));
 
 // Mock AddDeploymentModal so we can test open/close without full modal rendering
 vi.mock("@components/project-details/deployments/AddDeploymentModal", () => ({
@@ -91,12 +96,12 @@ vi.mock("@components/common/error-banner/ErrorBanner", () => ({
 
 describe("ProjectDeployments", () => {
   beforeEach(() => {
-    vi.mocked(useGetProjectDeploymentDetails).mockReturnValue({
+    vi.mocked(useGetDeployments).mockReturnValue({
       data: mockDeployments,
       isLoading: false,
       isError: false,
       error: null,
-    } as unknown as ReturnType<typeof useGetProjectDeploymentDetails>);
+    } as unknown as ReturnType<typeof useGetDeployments>);
   });
 
   it("should render deployment cards when data is loaded", () => {
@@ -106,7 +111,7 @@ describe("ProjectDeployments", () => {
     expect(
       screen.getByRole("heading", { name: "Production" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Healthy")).toBeInTheDocument();
+    expect(screen.getAllByTestId("error-indicator").length).toBeGreaterThan(0);
   });
 
   it("should show Invalid Project ID when projectId is empty", () => {
@@ -116,12 +121,12 @@ describe("ProjectDeployments", () => {
   });
 
   it("should show loading skeletons when isLoading is true", () => {
-    vi.mocked(useGetProjectDeploymentDetails).mockReturnValue({
+    vi.mocked(useGetDeployments).mockReturnValue({
       data: undefined,
       isLoading: true,
       isError: false,
       error: null,
-    } as unknown as ReturnType<typeof useGetProjectDeploymentDetails>);
+    } as unknown as ReturnType<typeof useGetDeployments>);
 
     render(<ProjectDeployments projectId="project-123" />);
 
@@ -129,12 +134,12 @@ describe("ProjectDeployments", () => {
   });
 
   it("should show empty state when data is undefined and not loading (initial state)", () => {
-    vi.mocked(useGetProjectDeploymentDetails).mockReturnValue({
+    vi.mocked(useGetDeployments).mockReturnValue({
       data: undefined,
       isLoading: false,
       isError: false,
       error: null,
-    } as unknown as ReturnType<typeof useGetProjectDeploymentDetails>);
+    } as unknown as ReturnType<typeof useGetDeployments>);
 
     render(<ProjectDeployments projectId="project-123" />);
 
@@ -143,12 +148,12 @@ describe("ProjectDeployments", () => {
   });
 
   it("should show error state when isError is true", () => {
-    vi.mocked(useGetProjectDeploymentDetails).mockReturnValue({
+    vi.mocked(useGetDeployments).mockReturnValue({
       data: undefined,
       isLoading: false,
       isError: true,
       error: new Error("Network error"),
-    } as unknown as ReturnType<typeof useGetProjectDeploymentDetails>);
+    } as unknown as ReturnType<typeof useGetDeployments>);
 
     render(<ProjectDeployments projectId="project-123" />);
 
@@ -156,12 +161,12 @@ describe("ProjectDeployments", () => {
   });
 
   it("should show empty state when deployments are empty", () => {
-    vi.mocked(useGetProjectDeploymentDetails).mockReturnValue({
+    vi.mocked(useGetDeployments).mockReturnValue({
       data: { deployments: [] },
       isLoading: false,
       isError: false,
       error: null,
-    } as unknown as ReturnType<typeof useGetProjectDeploymentDetails>);
+    } as unknown as ReturnType<typeof useGetDeployments>);
 
     render(<ProjectDeployments projectId="project-123" />);
 
