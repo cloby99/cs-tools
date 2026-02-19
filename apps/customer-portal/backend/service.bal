@@ -1280,6 +1280,32 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         return productUpdateLevels;
     }
 
+    # Get products.
+    # 
+    # + return - List of products or an error
+    resource function get products(http:RequestContext ctx, int? offset, int? 'limit) returns entity:ProductsResponse|http:InternalServerError {
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        entity:ProductsResponse|error response = entity:getProducts(userInfo.idToken, {}); // TODO: Handle pagination
+        if response is error {
+            string customError = "Failed to retrieve products.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return response;
+    }
+
     # Search product vulnerabilities based on provided filters.
     #
     # + payload - Product vulnerability search payload containing filters

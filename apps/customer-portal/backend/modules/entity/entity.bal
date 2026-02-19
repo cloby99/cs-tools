@@ -269,3 +269,12 @@ public isolated function updateCallRequest(string idToken, string callRequestId,
 
     return csEntityClient->/call\-requests/[callRequestId].patch(payload, generateHeaders(idToken));
 }
+
+# Get products by search criteria.
+#
+# + idToken - ID token for authorization
+# + payload - Product search payload containing search criteria
+# + return - Products response containing matching products or error
+public isolated function getProducts(string idToken, ProductSearchPayload payload) returns ProductsResponse|error {
+    return csEntityClient->/products/search.post(payload, generateHeaders(idToken));
+}

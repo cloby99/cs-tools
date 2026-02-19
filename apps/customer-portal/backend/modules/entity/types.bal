@@ -891,6 +891,7 @@ public type CallRequestUpdateResponse record {|
     UpdatedCallRequest callRequest;
     json...;
 |};
+
 # Request payload for updating a deployment.
 public type DeploymentUpdatePayload record {|
     # Name
@@ -920,4 +921,26 @@ public type UpdatedDeployment record {|
     # User who updated the deployment
     string updatedBy;
     json...;
+|};
+
+# Request payload for searching products.
+public type ProductSearchPayload record {|
+    # Pagination details
+    Pagination pagination = {};
+|};
+
+# Product data.
+public type Product record {|
+    # ID
+    string id;
+    # Name
+    string name;
+    json...;
+|};
+
+# Products response.
+public type ProductsResponse record {|
+    # List of products
+    Product[] products;
+    json...; // TODO: Remove after adding pagination
 |};
