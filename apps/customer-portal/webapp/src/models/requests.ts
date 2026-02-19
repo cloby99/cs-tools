@@ -26,13 +26,14 @@ export interface SearchProjectsRequest {
 }
 
 // Request body for searching cases.
-//test comment
 export interface CaseSearchRequest {
   filters?: {
     issueId?: number;
     deploymentId?: string;
     severityId?: number;
     statusId?: number;
+    searchQuery?: string;
+    caseTypeIds?: string[];
   };
   pagination: PaginationRequest;
   sortBy?: {

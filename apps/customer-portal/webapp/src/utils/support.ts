@@ -673,3 +673,20 @@ export function getAvailableCaseActions(
       return ["Closed"];
   }
 }
+
+export const normalizeCaseTypeOptions = (
+  caseTypes: { id: string; label: string }[]
+) => {
+  const caseIds = caseTypes
+    .filter((c) => ["query", "incident"].includes(c.label.toLowerCase()))
+    .map((c) => c.id);
+
+  const others = caseTypes.filter(
+    (c) => !["query", "incident", "announcement"].includes(c.label.toLowerCase())
+  );
+
+  return [
+    ...others.map((c) => ({ label: c.label, value: c.id })),
+    ...(caseIds.length ? [{ label: "Case", value: caseIds.join(",") }] : []),
+  ];
+};
