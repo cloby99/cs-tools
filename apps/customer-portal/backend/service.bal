@@ -842,10 +842,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     }
 
     # AI chat agent.
-<<<<<<< HEAD
-=======
     # 
->>>>>>> d58df01c (Added a missing log entry)
     # + payload - Chat payload
     # + return - Chat response or an error
     resource function post chat(http:RequestContext ctx, ai_chat_agent:ChatPayload payload)
