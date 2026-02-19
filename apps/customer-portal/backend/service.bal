@@ -1696,7 +1696,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
                 });
         if response is error {
             if getStatusCode(response) == http:STATUS_FORBIDDEN {
-                log:printWarn(string `Access to create call request is forbidden for user: ${userInfo.userId}`);
+                log:printWarn(string `Access to create call request is forbidden for the user: ${userInfo.userId}`);
                 return <http:Forbidden>{
                     body: {
                         message: "Access to create call request is forbidden for the user!"
