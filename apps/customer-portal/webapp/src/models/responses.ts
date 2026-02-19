@@ -240,6 +240,10 @@ export interface CaseDetails {
   csManager: string | null;
   /** API may return string or { id, label? } or { id, name? } object. */
   assignedEngineer: string | { id: string; label?: string; name?: string } | null;
+  assignedEngineer:
+    | string
+    | { id: string; label?: string; name?: string }
+    | null;
   project: CaseDetailsProject | null;
   deployment: { id: string; label: string } | null;
   deployedProduct: string | null;
