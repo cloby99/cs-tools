@@ -46,7 +46,7 @@ public isolated function listConversations(string accountId) returns Conversatio
 # + conversationId - Conversation ID
 # + return - Chat history response or error
 public isolated function getChatHistory(string accountId, string conversationId) returns ChatHistoryResponse|error {
-    return aiChatAgentClient->/chat/history/[accountId]/[conversationId].get();
+    return aiChatAgentClient->/chat/history/[accountId]/[conversationId];
 }
 
 # Delete Chat Conversation
