@@ -231,7 +231,7 @@ public type RecommendationRequest record {|
 public type RecommendationItem record {| 
     # Article title
     string title;
-    # Article ID / sys_id
+    # Article ID
     string articleId;
     # Similarity score
     float score;
