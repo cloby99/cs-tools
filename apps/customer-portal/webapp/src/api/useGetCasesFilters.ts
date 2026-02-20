@@ -66,5 +66,7 @@ export default function useGetCasesFilters(
     },
     enabled: !!projectId && isSignedIn && !isAuthLoading,
     staleTime: 10 * 60 * 1000, // Filters don't change often, keep for 10 mins
+    gcTime: 10 * 60 * 1000,
+    refetchOnMount: false,
   });
 }
