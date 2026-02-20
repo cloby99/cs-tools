@@ -26,6 +26,7 @@ import { ApiQueryKeys } from "@constants/apiConstants";
 
 export interface PostCommentRequest {
   content: string;
+  type: "comments" | "work_note";
 }
 
 export interface PostCommentVariables {
@@ -68,7 +69,7 @@ export function usePostComment(): UseMutationResult<
       const requestUrl = `${baseUrl}/cases/${caseId}/comments`;
       const response = await fetchFn(requestUrl, {
         method: "POST",
-        body: JSON.stringify({ content: body.content }),
+       body: JSON.stringify({ content: body.content, type: "comments" }),
       });
 
       logger.debug("[usePostComment] Response status:", response.status);

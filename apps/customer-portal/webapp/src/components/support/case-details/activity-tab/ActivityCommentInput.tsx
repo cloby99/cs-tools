@@ -50,7 +50,7 @@ export default function ActivityCommentInput({
     if (stripHtml(value).length === 0 || isDisabled) return;
 
     postComment.mutate(
-      { caseId, body: { content: value.trim() } },
+      { caseId, body: { content: value.trim(), type: "comments" } },
       {
         onSuccess: () => {
           setValue("");
