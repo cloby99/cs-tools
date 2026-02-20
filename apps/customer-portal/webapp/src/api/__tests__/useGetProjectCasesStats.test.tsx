@@ -31,9 +31,22 @@ vi.mock("@/hooks/useLogger", () => ({
 
 const mockCasesStatsResponse = {
   totalCases: 50,
-  activeCases: { workInProgress: 1, waitingOnClient: 2, waitingOnWso2: 3, total: 6 },
-  outstandingCases: { medium: 1, high: 0, critical: 0, total: 1 },
+  averageResponseTime: 3600,
   resolvedCases: { total: 44, currentMonth: 5 },
+  stateCount: [
+    { id: "1", label: "Work In Progress", count: 1 },
+    { id: "2", label: "Awaiting Info", count: 2 },
+    { id: "3", label: "Waiting On WSO2", count: 3 },
+    { id: "4", label: "Closed", count: 40 },
+  ],
+  severityCount: [],
+  outstandingSeverityCount: [
+    { id: 1, label: "Medium (P3)", count: 1 },
+    { id: 2, label: "High (P2)", count: 0 },
+    { id: 3, label: "Critical (P1)", count: 0 },
+  ],
+  caseTypeCount: [],
+  casesTrend: [],
 };
 
 vi.mock("@asgardeo/react", () => ({
@@ -87,8 +100,8 @@ describe("useGetProjectCasesStats", () => {
 
     expect(result.current.data).toBeDefined();
     expect(result.current.data?.totalCases).toBe(50);
-    expect(result.current.data?.activeCases).toBeDefined();
-    expect(result.current.data?.outstandingCases).toBeDefined();
+    expect(result.current.data?.stateCount).toBeDefined();
+    expect(result.current.data?.outstandingSeverityCount).toBeDefined();
     expect(result.current.data?.resolvedCases).toBeDefined();
   });
 
@@ -98,7 +111,7 @@ describe("useGetProjectCasesStats", () => {
     });
 
     const query = queryClient.getQueryCache().findAll({
-      queryKey: ["cases-stats", "project-1"],
+      queryKey: ["cases-stats", "project-1", []],
     })[0];
 
     expect((query?.options as any).staleTime).toBe(5 * 60 * 1000);

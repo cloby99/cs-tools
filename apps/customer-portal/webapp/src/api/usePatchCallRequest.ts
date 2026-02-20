@@ -39,7 +39,7 @@ export function usePatchCallRequest(
 ): UseMutationResult<
   CallRequestResponse,
   Error,
-  PatchCallRequest & { callRequestId: string },
+  PatchCallRequest & { callRequestId: string }
 > {
   const logger = useLogger();
   const queryClient = useQueryClient();
@@ -49,7 +49,7 @@ export function usePatchCallRequest(
   return useMutation<
     CallRequestResponse,
     Error,
-    PatchCallRequest & { callRequestId: string },
+    PatchCallRequest & { callRequestId: string }
   >({
     mutationFn: async (
       payload: PatchCallRequest & { callRequestId: string },
