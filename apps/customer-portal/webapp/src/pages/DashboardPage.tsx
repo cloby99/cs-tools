@@ -14,8 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, Button, Grid } from "@wso2/oxygen-ui";
-import { useNavigate, useParams } from "react-router";
+import { Box, Grid } from "@wso2/oxygen-ui";
+import { useParams } from "react-router";
 import { useEffect, useRef, useMemo, type JSX } from "react";
 import { useAsgardeo } from "@asgardeo/react";
 import { useLogger } from "@hooks/useLogger";
@@ -33,8 +33,6 @@ import {
 import { StatCard } from "@components/dashboard/stats/StatCard";
 import ChartLayout from "@components/dashboard/charts/ChartLayout";
 import CasesTable from "@components/dashboard/cases-table/CasesTable";
-import { ArrowRight, MessageSquare } from "@wso2/oxygen-ui-icons-react";
-import { getNoveraChatEnabled } from "@utils/settingsStorage";
 
 /**
  * DashboardPage component to display project-specific statistics and overview.
@@ -42,7 +40,6 @@ import { getNoveraChatEnabled } from "@utils/settingsStorage";
  * @returns {JSX.Element} The rendered Dashboard page.
  */
 export default function DashboardPage(): JSX.Element {
-  const navigate = useNavigate();
   const logger = useLogger();
   const { projectId } = useParams<{ projectId: string }>();
   const { showLoader, hideLoader } = useLoader();
@@ -122,21 +119,6 @@ export default function DashboardPage(): JSX.Element {
       hasShownErrorRef.current = false;
     }
   }, [isErrorMock, isErrorCases, isErrorFilters, showError, logger, projectId]);
-
-  const handleSupportClick = () => {
-    if (projectId) {
-      const noveraEnabled = getNoveraChatEnabled();
-      if (noveraEnabled) {
-        navigate(`/${projectId}/support/chat`);
-      } else {
-        navigate(`/${projectId}/support/chat/create-case`, {
-          state: { skipChat: true },
-        });
-      }
-    } else {
-      navigate("/");
-    }
-  };
 
   const activeCases = useMemo(() => {
     const open = casesStats?.stateCount.find((s) => s.label === "Open")?.count ?? 0;
@@ -222,27 +204,6 @@ export default function DashboardPage(): JSX.Element {
 
   return (
     <Box sx={{ width: "100%", pt: 0, position: "relative" }}>
-      {/* Get support button */}
-      <Box
-        sx={{
-          mb: 3,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "flex-end",
-        }}
-      >
-        <Button
-          variant="contained"
-          size="small"
-          color="warning"
-          startIcon={<MessageSquare size={16} />}
-          endIcon={<ArrowRight size={14} />}
-          sx={{ px: 2 }}
-          onClick={handleSupportClick}
-        >
-          Get Support
-        </Button>
-      </Box>
       {/* Dashboard stats grid */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {DASHBOARD_STATS.map((stat) => {

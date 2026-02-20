@@ -238,15 +238,6 @@ describe("DashboardPage", () => {
       DASHBOARD_STATS.length,
     );
     expect(screen.getByTestId("chart-layout")).toBeInTheDocument();
-    expect(screen.getByText("Get Support")).toBeInTheDocument();
-  });
-
-  it("should navigate to support chat on button click", () => {
-    renderWithProviders(<DashboardPage />);
-    const button = screen.getByText("Get Support");
-    fireEvent.click(button);
-
-    expect(mockNavigate).toHaveBeenCalledWith("/project-1/support/chat");
   });
 
   it("should render error banner when statistics fail to load", () => {
