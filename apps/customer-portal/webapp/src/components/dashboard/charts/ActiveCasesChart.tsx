@@ -168,8 +168,8 @@ export const ActiveCasesChart = ({
         <Box
           sx={{
             display: "flex",
-            flexDirection: "column",
-            gap: 1,
+            justifyContent: "center",
+            gap: 2,
             mt: 2,
           }}
         >
