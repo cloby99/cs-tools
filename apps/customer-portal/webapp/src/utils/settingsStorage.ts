@@ -37,6 +37,7 @@ export function getNoveraChatEnabled(): boolean {
  *
  * @param {boolean} enabled - Whether Novera chat should be enabled.
  */
+export function setNoveraChatEnabled(enabled: boolean): void {
   try {
     localStorage.setItem(NOVERA_CHAT_ENABLED_KEY, String(enabled));
   } catch {}

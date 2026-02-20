@@ -28,6 +28,7 @@ import { StatCard } from "@components/dashboard/stats/StatCard";
 import ChartLayout from "@components/dashboard/charts/ChartLayout";
 import CasesTable from "@components/dashboard/cases-table/CasesTable";
 import { ArrowRight, MessageSquare } from "@wso2/oxygen-ui-icons-react";
+import { getNoveraChatEnabled } from "@utils/settingsStorage";
 
 /**
  * DashboardPage component to display project-specific statistics and overview.
@@ -95,7 +96,14 @@ export default function DashboardPage(): JSX.Element {
 
   const handleSupportClick = () => {
     if (projectId) {
-      navigate(`/${projectId}/support/chat`);
+      const noveraEnabled = getNoveraChatEnabled();
+      if (noveraEnabled) {
+        navigate(`/${projectId}/support/chat`);
+      } else {
+        navigate(`/${projectId}/support/chat/create-case`, {
+          state: { skipChat: true },
+        });
+      }
     } else {
       navigate("/");
     }
