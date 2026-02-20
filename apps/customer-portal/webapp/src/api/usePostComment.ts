@@ -69,7 +69,7 @@ export function usePostComment(): UseMutationResult<
       const requestUrl = `${baseUrl}/cases/${caseId}/comments`;
       const response = await fetchFn(requestUrl, {
         method: "POST",
-       body: JSON.stringify({ content: body.content, type: "comments" }),
+        body: JSON.stringify({ content: body.content, type: "comments" }),
       });
 
       logger.debug("[usePostComment] Response status:", response.status);
