@@ -73,58 +73,36 @@ export const DASHBOARD_STATS: StatConfigItem[] = [
   },
 ];
 
-// Configuration for Active Cases Chart data mapping.
+// Configuration for Active Cases Chart data mapping (stateCount labels, exclude Closed).
 export const ACTIVE_CASES_CHART_DATA = [
-  {
-    name: "Work In Progress",
-    key: "workInProgress",
-    color: colors.blue[500],
-  },
-  {
-    name: "Awaiting Info",
-    key: "waitingOnClient",
-    color: colors.green[500],
-  },
-  {
-    name: "Waiting On WSO2",
-    key: "waitingOnWso2",
-    color: colors.orange[500],
-  },
+  { name: "Open", key: "open", color: colors.blue[500] },
+  { name: "Work In Progress", key: "workInProgress", color: colors.teal?.[600] ?? "#0D9488" },
+  { name: "Awaiting Info", key: "awaitingInfo", color: colors.green[500] },
+  { name: "Waiting On WSO2", key: "waitingOnWso2", color: colors.orange[500] },
+  { name: "Solution Proposed", key: "solutionProposed", color: colors.grey?.[500] ?? "#9CA3AF" },
+  { name: "Reopened", key: "reopened", color: colors.purple[500] },
 ] as const;
 
-// Configuration for Outstanding Incidents Chart data mapping.
-export const OUTSTANDING_INCIDENTS_CHART_DATA = [
-  {
-    name: "S4 - Low",
-    key: "low",
-    label: "Low (P4)",
-    color: colors.grey[500],
-  },
-  {
-    name: "S3 - Medium",
-    key: "medium",
-    label: "Medium (P3)",
-    color: colors.blue[500],
-  },
-  {
-    name: "S2 - High",
-    key: "high",
-    label: "High (P2)",
-    color: colors.orange[500],
-  },
-  {
-    name: "S1 - Critical",
-    key: "critical",
-    label: "Critical (P1)",
-    color: colors.red[500],
-  },
-  {
-    name: "S0 - Catastrophic",
-    key: "catastrophic",
-    label: "Catastrophic (P0)",
-    color: colors.purple[500],
-  }
+/** Maps severity API label to display name (S0-S4) for charts and table. */
+export const SEVERITY_LABEL_TO_DISPLAY: Record<string, string> = {
+  "Catastrophic (P0)": "S0",
+  "Critical (P1)": "S1",
+  "High (P2)": "S2",
+  "Medium (P3)": "S3",
+  "Low (P4)": "S4",
+};
+
+// Legend display format: "S{n} - {Severity}". Same order for Outstanding Engagements and Cases Trend.
+// Order: S4 - Catastrophic, S3 - Medium, S2 - High, S1 - Critical, S0 - Low.
+export const SEVERITY_LEGEND_ORDER = [
+  { key: "catastrophic", label: "Catastrophic (P0)", displayName: "S4 - Catastrophic", color: colors.red[500] },
+  { key: "critical", label: "Critical (P1)", displayName: "S1 - Critical", color: colors.orange[500] },
+  { key: "high", label: "High (P2)", displayName: "S2 - High", color: colors.yellow[700] },
+  { key: "medium", label: "Medium (P3)", displayName: "S3 - Medium", color: colors.blue[500] },
+  { key: "low", label: "Low (P4)", displayName: "S0 - Low", color: colors.green[500] },
 ] as const;
+
+export const OUTSTANDING_INCIDENTS_CHART_DATA = SEVERITY_LEGEND_ORDER;
 
 /**
  * Type definition for Cases Trend Chart data item.
@@ -137,37 +115,15 @@ export interface CasesTrendChartDataItem {
   border?: boolean;
 }
 
-// Configuration for Cases Trend Chart data mapping.
-export const CASES_TREND_CHART_DATA: CasesTrendChartDataItem[] = [
-  {
-    name: "Catastrophic (P0)",
-    key: "catastrophic",
-    color: colors.red[600],
-    radius: [0, 0, 4, 4],
-  },
-  {
-    name: "Critical (P1)",
-    key: "critical",
-    color: colors.blue[500],
-  },
-  {
-    name: "High (P2)",
-    key: "high",
-    color: colors.green[500],
-  },
-  {
-    name: "Medium (P3)",
-    key: "medium",
-    color: colors.orange[500],
-  },
-  {
-    name: "Low (P4)",
-    key: "low",
-    color: colors.yellow[600],
-    radius: [4, 4, 0, 0],
-    border: true,
-  },
-];
+// Configuration for Cases Trend Chart (same legend order as Outstanding Engagements).
+export const CASES_TREND_CHART_DATA: CasesTrendChartDataItem[] =
+  SEVERITY_LEGEND_ORDER.map((item, i) => ({
+    name: item.displayName,
+    key: item.key,
+    color: item.color,
+    ...(i === 0 && { radius: [0, 0, 4, 4] as [number, number, number, number] }),
+    ...(i === 4 && { radius: [4, 4, 0, 0] as [number, number, number, number], border: true }),
+  }));
 
 // Placeholder data for Cases Trend Chart when in error state.
 export const TREND_CHART_ERROR_PLACEHOLDER_DATA = [
