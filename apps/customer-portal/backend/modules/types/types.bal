@@ -690,3 +690,29 @@ public type CallRequestUpdatePayload record {|
     # New preferred UTC times for the call (mandatory when stateKey is 2)
     Date[] utcTimes?;
 |};
+
+# Product version data.
+public type ProductVersion record {|
+    # ID
+    string id;
+    # Version number
+    string version;
+    # Current support status
+    string? currentSupportStatus;
+    # Release date
+    string? releaseDate;
+    # Support end of life date
+    string? supportEolDate;
+    # Earliest possible support end of life date
+    string? earliestPossibleSupportEolDate;
+    # Product information
+    ReferenceItem? product;
+    json...;
+|};
+
+# Product versions response.
+public type ProductVersionsResponse record {|
+    # List of product versions
+    ProductVersion[] versions;
+    json...; // TODO: Add pagination
+|};

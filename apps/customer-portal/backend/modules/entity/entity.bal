@@ -290,3 +290,15 @@ public isolated function updateCallRequest(string idToken, string callRequestId,
 public isolated function getProducts(string idToken, ProductSearchPayload payload) returns ProductsResponse|error {
     return csEntityClient->/products/search.post(payload, generateHeaders(idToken));
 }
+
+# Search product versions by criteria.
+#
+# + idToken - ID token for authorization
+# + productId - Unique ID of the product for which versions are to be searched
+# + payload - Product version search payload containing search criteria
+# + return - Product versions response containing matching product versions or error
+public isolated function searchProductVersions(string idToken, string productId, ProductVersionSearchPayload payload)
+    returns ProductVersionsResponse|error {
+
+    return csEntityClient->/products/[productId]/versions/search.post(payload, generateHeaders(idToken));
+}

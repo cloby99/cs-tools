@@ -1308,7 +1308,9 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     # Get products.
     #
     # + return - List of products or an error
-    resource function get products(http:RequestContext ctx, int? offset, int? 'limit) returns entity:ProductsResponse|http:InternalServerError {
+    resource function get products(http:RequestContext ctx, int? offset, int? 'limit)
+        returns entity:ProductsResponse|http:InternalServerError {
+
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
             return <http:InternalServerError>{
@@ -1932,5 +1934,55 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
         return response.callRequest;
+    }
+
+    # Search product versions based on provided filters.
+    #
+    # + id - ID of the product
+    # + payload - Product version search payload containing filters and pagination info
+    # + return - List of product versions matching the criteria or an error
+    resource function post products/[string id]/versions/search(http:RequestContext ctx,
+            entity:ProductVersionSearchPayload payload)
+        returns http:Ok|http:BadRequest|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        entity:ProductVersionsResponse|error response = entity:searchProductVersions(userInfo.idToken, id, payload);
+        if response is error {
+            if getStatusCode(response) == http:STATUS_BAD_REQUEST {
+                return <http:BadRequest>{
+                    body: {
+                        message: "Invalid request parameters for searching product versions."
+                    }
+                };
+            }
+
+            if getStatusCode(response) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `Access to product version information is forbidden for user: ${userInfo.userId}`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "Access to product version information is forbidden for the user!"
+                    }
+                };
+            }
+
+            string customError = "Failed to search product versions.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return <http:Ok>{
+            body: mapProductVersionsResponse(response)
+        };
     }
 }
