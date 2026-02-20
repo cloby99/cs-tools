@@ -63,15 +63,15 @@ export const OutstandingIncidentsChart = ({
 
   const chartData = isError
     ? OUTSTANDING_INCIDENTS_CHART_DATA.map((item) => ({
-        name: item.name,
+        name: item.displayName,
         value: 1,
-        color: colors.grey[300],
+        color: colors.grey?.[300] ?? "#D1D5DB",
       }))
     : isLoading
       ? []
       : OUTSTANDING_INCIDENTS_CHART_DATA.map((item) => ({
-          name: item.name,
-          value: safeData[item.key] || 0,
+          name: item.displayName,
+          value: safeData[item.key as keyof typeof safeData] || 0,
           color: item.color,
         }));
 
@@ -179,8 +179,8 @@ export const OutstandingIncidentsChart = ({
       ) : (
         <ChartLegend
           data={OUTSTANDING_INCIDENTS_CHART_DATA.map((item) => ({
-            name: item.name,
-            value: safeData[item.key] || 0,
+            name: item.displayName,
+            value: safeData[item.key as keyof typeof safeData] || 0,
             color: item.color,
           }))}
           isError={isError}

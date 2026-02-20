@@ -57,7 +57,7 @@ export const CasesTrendChart = ({
     <Card sx={{ p: 2, height: "100%" }}>
       {/* Title */}
       <Typography variant="h6" component="h3" sx={{ mb: 2 }}>
-        Cases trend
+        Cases Trend
       </Typography>
       {isLoading ? (
         <Box sx={{ height: 240 }}>

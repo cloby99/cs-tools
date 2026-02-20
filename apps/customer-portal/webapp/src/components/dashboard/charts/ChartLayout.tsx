@@ -30,9 +30,12 @@ interface ChartLayoutProps {
     catastrophic: number;
   };
   activeCases: {
+    open: number;
     workInProgress: number;
-    waitingOnClient: number;
+    awaitingInfo: number;
     waitingOnWso2: number;
+    solutionProposed: number;
+    reopened: number;
     total: number;
   };
   casesTrend: Array<{
