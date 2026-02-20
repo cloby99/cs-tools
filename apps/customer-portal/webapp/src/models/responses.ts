@@ -581,28 +581,31 @@ export interface CreateDeploymentResponse {
   id: string;
 }
 
-// Call request structure.
+// Call request structure (from POST /cases/:caseId/call-requests/search).
 export interface CallRequest {
   id: string;
-  type: string;
-  status: string;
-  requestedOn: string;
-  preferredTime: {
-    start: string;
-    end: string;
-    timezone: string;
-  };
-  scheduledFor: string;
-  durationInMinutes: number;
-  notes: string;
+  case: { id: string; label: string };
+  reason: string;
+  preferredTimes: string[];
+  durationMin?: number | null;
+  scheduleTime: string;
+  createdOn: string;
+  updatedOn: string;
+  state: { id: string; label: string };
 }
 
-// Response for case call requests list.
+// Response for case call requests list (POST /cases/:caseId/call-requests/search).
 export interface CallRequestsResponse {
   callRequests: CallRequest[];
+  totalRecords?: number;
+  offset?: number;
+  limit?: number;
 }
 
-// Response for creating a call request.
+// Response for creating or updating a call request (POST/PATCH).
 export interface CreateCallResponse {
   id: string;
 }
+
+/** Alias for create/update call request response (shared shape). */
+export type CallRequestResponse = CreateCallResponse;
