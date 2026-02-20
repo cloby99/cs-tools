@@ -20,7 +20,9 @@ import type { JSX } from "react";
 import { stripHtml } from "@utils/support";
 
 export interface RelatedCaseSummaryProps {
+  /** Related case number (e.g. CS0438826). */
   number: string;
+  /** Related case title. */
   title: string;
   description: string;
 }
@@ -43,3 +45,60 @@ export function RelatedCaseSummary({
         <Typography variant="h6">Related Case Details</Typography>
       </Box>
 
+      <Divider sx={{ mb: 3 }} />
+
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <Box>
+          <Typography variant="caption" color="text.secondary" display="block">
+            Case Number
+          </Typography>
+          <Box
+            sx={{
+              bgcolor: "action.hover",
+              px: 2,
+              py: 1.5,
+              mt: 0.5,
+            }}
+          >
+            <Typography variant="body2">{number || "--"}</Typography>
+          </Box>
+        </Box>
+        <Box>
+          <Typography variant="caption" color="text.secondary" display="block">
+            Title
+          </Typography>
+          <Box
+            sx={{
+              bgcolor: "action.hover",
+              px: 2,
+              py: 1.5,
+              mt: 0.5,
+            }}
+          >
+            <Typography variant="body2">{title || "--"}</Typography>
+          </Box>
+        </Box>
+        <Box>
+          <Typography variant="caption" color="text.secondary" display="block">
+            Description
+          </Typography>
+          <Box
+            sx={{
+              bgcolor: "action.hover",
+              px: 2,
+              py: 1.5,
+              mt: 0.5,
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+            >
+              {stripHtml(description) || "--"}
+            </Typography>
+          </Box>
+        </Box>
+      </Box>
+    </Paper>
+  );
+}
