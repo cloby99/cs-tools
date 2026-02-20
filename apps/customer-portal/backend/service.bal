@@ -781,6 +781,74 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         };
     }
 
+    # Update an existing case.
+    #
+    # + id - ID of the case to be updated
+    # + payload - Case update payload
+    # + return - Updated case details or error response
+    resource function patch cases/[string id](http:RequestContext ctx, entity:CaseUpdatePayload payload)
+        returns entity:UpdatedCase|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        string? validateCaseUpdatePayload = entity:validateCaseUpdatePayload(payload);
+        if validateCaseUpdatePayload is string {
+            log:printWarn(validateCaseUpdatePayload);
+            return <http:BadRequest>{
+                body: {
+                    message: validateCaseUpdatePayload
+                }
+            };
+        }
+
+        entity:CaseUpdateResponse|error response = entity:updateCase(userInfo.idToken, id, payload);
+        if response is error {
+            if getStatusCode(response) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `User: ${userInfo.userId} is forbidden to update case: ${
+                        id}`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "You're not authorized to update the selected case. " +
+                        "Please check your access permissions or contact support."
+                    }
+                };
+            }
+
+            if getStatusCode(response) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
+            if getStatusCode(response) == http:STATUS_BAD_REQUEST {
+                return <http:BadRequest>{
+                    body: {
+                        message: "Invalid request parameters for updating the case."
+                    }
+                };
+            }
+
+            string customError = "Failed to update the case.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return response.case;
+    }
+
     # Search cases for a specific project with filters and pagination.
     #
     # + id - ID of the project
@@ -1230,7 +1298,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     }
 
     # Get products.
-    # 
+    #
     # + return - List of products or an error
     resource function get products(http:RequestContext ctx, int? offset, int? 'limit) returns entity:ProductsResponse|http:InternalServerError {
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);

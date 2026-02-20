@@ -170,6 +170,35 @@ public type CreatedCase record {|
     json...;
 |};
 
+# Request payload for updating a case.
+public type CaseUpdatePayload record {|
+    # State key to update
+    int stateKey;
+|};
+
+# Response from updating a case.
+public type CaseUpdateResponse record {|
+    # Success message
+    string message;
+    # Updated case details
+    UpdatedCase case;
+|};
+
+# Updated case details.
+public type UpdatedCase record {|
+    # System ID of the updated case
+    string id;
+    # Updated date and time
+    string updatedOn;
+    # User who updated the case
+    string updatedBy;
+    # Updated state information
+    ChoiceListItem state;
+    # Case type information
+    ReferenceTableItem 'type;
+    json...;
+|};
+
 # Base case.
 public type Case record {|
     # Case ID

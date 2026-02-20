@@ -103,6 +103,18 @@ public isolated function createCase(string idToken, CaseCreatePayload payload) r
     return csEntityClient->/cases.post(payload, generateHeaders(idToken));
 }
 
+# Update an existing case.
+# 
+# + idToken - ID token for authorization
+# + caseId - Unique ID of the case to be updated
+# + payload - Case update payload
+# + return - Case update response or error
+public isolated function updateCase(string idToken, string caseId, CaseUpdatePayload payload)
+    returns CaseUpdateResponse|error {
+
+    return csEntityClient->/cases/[caseId].patch(payload, generateHeaders(idToken));
+}
+
 # Search cases of a project.
 #
 # + idToken - ID token for authorization
