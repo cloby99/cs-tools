@@ -120,12 +120,12 @@ export const CasesTrendChart = ({
         <Box
           sx={{
             display: "flex",
-            justifyContent: "center",
-            gap: 2,
+            flexDirection: "column",
+            gap: 1,
             mt: 2,
           }}
         >
-          {[1, 2, 3, 4].map((i) => (
+          {CASES_TREND_CHART_DATA.map((_, i) => (
             <Skeleton key={i} variant="rounded" width={60} height={20} />
           ))}
         </Box>
