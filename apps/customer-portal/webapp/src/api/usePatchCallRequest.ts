@@ -21,36 +21,45 @@ import {
 } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
 import { useLogger } from "@hooks/useLogger";
-import { useAuthApiClient } from "@context/AuthApiContext";
 import { ApiQueryKeys } from "@constants/apiConstants";
-import type { CreateCallRequest } from "@models/requests";
-import type { CreateCallResponse } from "@models/responses";
+import { useAuthApiClient } from "@context/AuthApiContext";
+import type { PatchCallRequest } from "@models/requests";
+import type { CallRequestResponse } from "@models/responses";
 
 /**
- * Hook to create a new call request for a case (POST /cases/:caseId/call-requests).
+ * Hook to update a call request (PATCH /cases/:caseId/call-requests/:id).
  *
  * @param {string} projectId - The ID of the project (used for cache invalidation).
  * @param {string} caseId - The ID of the case.
- * @returns {UseMutationResult<CreateCallResponse, Error, CreateCallRequest>} Mutation result.
+ * @returns {UseMutationResult<CallRequestResponse, Error, PatchCallRequest & { callRequestId: string }>} Mutation result.
  */
-export function usePostCallRequest(
+export function usePatchCallRequest(
   projectId: string,
   caseId: string,
-): UseMutationResult<CreateCallResponse, Error, CreateCallRequest> {
+): UseMutationResult<
+  CallRequestResponse,
+  Error,
+  PatchCallRequest & { callRequestId: string },
+> {
   const logger = useLogger();
   const queryClient = useQueryClient();
   const { isSignedIn, isLoading: isAuthLoading } = useAsgardeo();
   const fetchFn = useAuthApiClient();
 
-  return useMutation<CreateCallResponse, Error, CreateCallRequest>({
+  return useMutation<
+    CallRequestResponse,
+    Error,
+    PatchCallRequest & { callRequestId: string },
+  >({
     mutationFn: async (
-      body: CreateCallRequest,
-    ): Promise<CreateCallResponse> => {
-      logger.debug("[usePostCallRequest] Request payload:", body);
+      payload: PatchCallRequest & { callRequestId: string },
+    ): Promise<CallRequestResponse> => {
+      const { callRequestId, ...body } = payload;
+      logger.debug("[usePatchCallRequest] Request payload:", body);
 
       try {
         if (!isSignedIn || isAuthLoading) {
-          throw new Error("User must be signed in to create a call request");
+          throw new Error("User must be signed in to update a call request");
         }
 
         const baseUrl = window.config?.CUSTOMER_PORTAL_BACKEND_BASE_URL;
@@ -58,21 +67,21 @@ export function usePostCallRequest(
           throw new Error("CUSTOMER_PORTAL_BACKEND_BASE_URL is not configured");
         }
 
-        const requestUrl = `${baseUrl}/cases/${caseId}/call-requests`;
+        const requestUrl = `${baseUrl}/cases/${caseId}/call-requests/${callRequestId}`;
 
         const response = await fetchFn(requestUrl, {
-          method: "POST",
+          method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
 
         logger.debug(
-          `[usePostCallRequest] Response status: ${response.status}`,
+          `[usePatchCallRequest] Response status: ${response.status}`,
         );
 
         if (!response.ok) {
           const text = await response.text();
-          let errorMessage = `Error creating call request: ${response.status} ${response.statusText}`;
+          let errorMessage = `Error updating call request: ${response.status} ${response.statusText}`;
           try {
             const json = JSON.parse(text) as { message?: string };
             if (typeof json.message === "string") {
@@ -86,11 +95,11 @@ export function usePostCallRequest(
           throw new Error(errorMessage);
         }
 
-        const data: CreateCallResponse = await response.json();
-        logger.debug("[usePostCallRequest] Call request created:", data);
+        const data: CallRequestResponse = await response.json();
+        logger.debug("[usePatchCallRequest] Call request updated:", data);
         return data;
       } catch (error) {
-        logger.error("[usePostCallRequest] Error:", error);
+        logger.error("[usePatchCallRequest] Error:", error);
         throw error;
       }
     },

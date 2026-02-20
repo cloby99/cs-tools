@@ -39,6 +39,7 @@ export interface CaseDetailsContentProps {
   isError: boolean;
   caseId: string;
   onBack: () => void;
+  onOpenRelatedCase?: () => void;
   projectId?: string;
 }
 
@@ -54,6 +55,7 @@ export default function CaseDetailsContent({
   isError,
   caseId,
   onBack,
+  onOpenRelatedCase,
   projectId = "",
 }: CaseDetailsContentProps): JSX.Element {
   const theme = useTheme();
@@ -88,7 +90,8 @@ export default function CaseDetailsContent({
   const attachmentsQuery = useGetCaseAttachments(caseId);
   const attachmentCount = attachmentsQuery.data?.totalRecords;
 
-  const callsQuery = useGetCallRequests(projectId, caseId);
+  const resolvedProjectId = data?.project?.id ?? projectId;
+  const callsQuery = useGetCallRequests(resolvedProjectId, caseId);
   const callCount = callsQuery.data?.callRequests?.length;
 
   const assignedEngineer = data?.assignedEngineer;
@@ -168,6 +171,8 @@ export default function CaseDetailsContent({
                 assignedEngineer={assignedEngineer}
                 engineerInitials={engineerInitials}
                 statusLabel={statusLabel}
+                closedOn={data?.closedOn}
+                onOpenRelatedCase={onOpenRelatedCase}
                 isLoading={isLoading}
               />
             </>

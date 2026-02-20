@@ -14,12 +14,38 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { render, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useGetCallRequests } from "@api/useGetCallRequests";
 import CallsPanel from "@case-details-calls/CallsPanel";
 
 vi.mock("@api/useGetCallRequests");
+vi.mock("@api/usePostCallRequest", () => ({
+  usePostCallRequest: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+}));
+
+vi.mock("@api/usePatchCallRequest", () => ({
+  usePatchCallRequest: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+}));
+
+function createTestQueryClient() {
+  return new QueryClient({ defaultOptions: { queries: { retry: false } } });
+}
+
+function renderWithProviders(ui: ReactElement) {
+  const queryClient = createTestQueryClient();
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  );
+}
 
 const mockProjectId = "project-1";
 const mockCaseId = "case-1";
@@ -30,9 +56,10 @@ describe("CallsPanel", () => {
       isPending: true,
       data: undefined,
       isError: false,
-    } as any);
+      refetch: vi.fn(),
+    } as ReturnType<typeof useGetCallRequests>);
 
-    render(<CallsPanel projectId={mockProjectId} caseId={mockCaseId} />);
+    renderWithProviders(<CallsPanel projectId={mockProjectId} caseId={mockCaseId} />);
     expect(screen.getByTestId("calls-list-skeleton")).toBeInTheDocument();
   });
 
@@ -41,9 +68,10 @@ describe("CallsPanel", () => {
       isPending: false,
       isError: true,
       data: undefined,
-    } as any);
+      refetch: vi.fn(),
+    } as ReturnType<typeof useGetCallRequests>);
 
-    render(<CallsPanel projectId={mockProjectId} caseId={mockCaseId} />);
+    renderWithProviders(<CallsPanel projectId={mockProjectId} caseId={mockCaseId} />);
     expect(
       screen.getByText(/Error loading call requests/i),
     ).toBeInTheDocument();
@@ -53,28 +81,27 @@ describe("CallsPanel", () => {
     vi.mocked(useGetCallRequests).mockReturnValue({
       isPending: false,
       isError: false,
+      refetch: vi.fn(),
       data: {
         callRequests: [
           {
             id: "call-1",
-            status: "SCHEDULED",
-            requestedOn: "2024-10-29T10:00:00Z",
-            preferredTime: {
-              start: "14:00",
-              end: "16:00",
-              timezone: "EST",
-            },
-            scheduledFor: "2024-11-05T14:00:00Z",
-            durationInMinutes: 60,
-            notes: "Test notes",
+            case: { id: "case-1", label: "CS0438719" },
+            reason: "Test notes",
+            preferredTimes: ["2024-10-29 14:00:00"],
+            durationMin: 60,
+            scheduleTime: "2024-11-05 14:00:00",
+            createdOn: "2024-10-29 10:00:00",
+            updatedOn: "2024-10-29 10:00:00",
+            state: { id: "1", label: "Pending on WSO2" },
           },
         ],
       },
-    } as any);
+    } as ReturnType<typeof useGetCallRequests>);
 
-    render(<CallsPanel projectId={mockProjectId} caseId={mockCaseId} />);
+    renderWithProviders(<CallsPanel projectId={mockProjectId} caseId={mockCaseId} />);
     expect(screen.getByText(/Call Request/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/SCHEDULED/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Pending on WSO2/i)).toBeInTheDocument();
     expect(screen.getByText(/Test notes/i)).toBeInTheDocument();
   });
 
@@ -82,12 +109,35 @@ describe("CallsPanel", () => {
     vi.mocked(useGetCallRequests).mockReturnValue({
       isPending: false,
       isError: false,
+      refetch: vi.fn(),
       data: { callRequests: [] },
-    } as any);
+    } as ReturnType<typeof useGetCallRequests>);
 
-    render(<CallsPanel projectId={mockProjectId} caseId={mockCaseId} />);
+    renderWithProviders(<CallsPanel projectId={mockProjectId} caseId={mockCaseId} />);
     expect(
       screen.getByText(/No call requests found for this case/i),
+    ).toBeInTheDocument();
+  });
+
+  it("should open Request Call modal when button is clicked", () => {
+    vi.mocked(useGetCallRequests).mockReturnValue({
+      isPending: false,
+      isError: false,
+      refetch: vi.fn(),
+      data: { callRequests: [] },
+    } as ReturnType<typeof useGetCallRequests>);
+
+    renderWithProviders(<CallsPanel projectId={mockProjectId} caseId={mockCaseId} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Request Call/i }));
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Preferred Time/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Meeting Duration/i)).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(
+        /Any specific topics or questions you'd like to discuss/i,
+      ),
     ).toBeInTheDocument();
   });
 });

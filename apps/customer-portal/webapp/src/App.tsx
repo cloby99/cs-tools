@@ -81,6 +81,10 @@ export default function App(): JSX.Element {
                             path="create-case"
                             element={<CreateCasePage />}
                           />
+                          <Route
+                            path="create-related-case"
+                            element={<CreateCasePage />}
+                          />
                         </Route>
                       </Route>
                       {/* Updates */}

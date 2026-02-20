@@ -291,7 +291,7 @@ export default function AddProductModal({
             onChange={handleTextChange("releaseDate")}
             fullWidth
             size="small"
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
             disabled={isSubmitting}
           />
           <TextField
@@ -302,7 +302,7 @@ export default function AddProductModal({
             onChange={handleTextChange("eolDate")}
             fullWidth
             size="small"
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
             disabled={isSubmitting}
           />
         </Box>
