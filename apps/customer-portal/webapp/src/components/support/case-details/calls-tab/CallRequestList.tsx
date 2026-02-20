@@ -21,21 +21,27 @@ import CallRequestCard from "@case-details-calls/CallRequestCard";
 
 export interface CallRequestListProps {
   requests: CallRequest[];
+  onEditClick?: (call: CallRequest) => void;
 }
 
 /**
  * Renders a list of call request cards.
  *
- * @param {CallRequestListProps} props - The list of call requests.
+ * @param {CallRequestListProps} props - The list of call requests and edit handler.
  * @returns {JSX.Element} The rendered list.
  */
 export default function CallRequestList({
   requests,
+  onEditClick,
 }: CallRequestListProps): JSX.Element {
   return (
     <Stack spacing={2}>
       {requests.map((call) => (
-        <CallRequestCard key={call.id} call={call} />
+        <CallRequestCard
+          key={call.id}
+          call={call}
+          onEditClick={onEditClick}
+        />
       ))}
     </Stack>
   );

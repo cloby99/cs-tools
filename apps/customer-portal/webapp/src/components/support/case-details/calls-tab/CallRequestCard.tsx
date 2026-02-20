@@ -16,26 +16,38 @@
 
 import {
   Box,
+  Button,
   Card,
   CardContent,
   Chip,
   Divider,
+  IconButton,
   Stack,
   Typography,
   alpha,
   useTheme,
 } from "@wso2/oxygen-ui";
-import { Clock, Phone } from "@wso2/oxygen-ui-icons-react";
+import { Clock, Pencil, Phone, Trash2 } from "@wso2/oxygen-ui-icons-react";
 import { type JSX } from "react";
 import type { CallRequest } from "@models/responses";
 import {
-  formatDateTime,
+  formatUtcToLocal,
   getCallRequestStatusColor,
   resolveColorFromTheme,
 } from "@utils/support";
 
 export interface CallRequestCardProps {
   call: CallRequest;
+  onEditClick?: (call: CallRequest) => void;
+}
+
+/** Renders preferred times (UTC) converted to local. */
+function formatPreferredTimes(times: string[] | undefined): string {
+  if (!times?.length) return "--";
+  return times
+    .map((t) => formatUtcToLocal(t, "short"))
+    .filter(Boolean)
+    .join(", ");
 }
 
 /**
@@ -46,10 +58,11 @@ export interface CallRequestCardProps {
  */
 export default function CallRequestCard({
   call,
+  onEditClick,
 }: CallRequestCardProps): JSX.Element {
   const theme = useTheme();
-
-  const colorPath = getCallRequestStatusColor(call.status);
+  const statusLabel = call.state?.label ?? "--";
+  const colorPath = getCallRequestStatusColor(statusLabel);
   const resolvedColor = resolveColorFromTheme(colorPath, theme);
 
   return (
@@ -59,8 +72,10 @@ export default function CallRequestCard({
           direction="row"
           spacing={2}
           alignItems="flex-start"
+          justifyContent="space-between"
           sx={{ mb: 2 }}
         >
+          <Stack direction="row" spacing={2} alignItems="flex-start" sx={{ flex: 1 }}>
           <Box
             sx={{
               width: 40,
@@ -88,7 +103,7 @@ export default function CallRequestCard({
                 Call Request
               </Typography>
               <Chip
-                label={call.status || "--"}
+                label={statusLabel}
                 size="small"
                 variant="outlined"
                 icon={<Clock size={10} />}
@@ -119,9 +134,29 @@ export default function CallRequestCard({
               />
             </Stack>
             <Typography variant="caption" color="text.secondary">
-              Requested on {formatDateTime(call.requestedOn, "short")}
+              Requested on {formatUtcToLocal(call.createdOn, "short")}
             </Typography>
           </Box>
+          </Stack>
+          <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+            <IconButton
+              size="small"
+              aria-label={`Edit call request ${call.id}`}
+              onClick={() => onEditClick?.(call)}
+              sx={{ p: 0.5 }}
+            >
+              <Pencil size={16} />
+            </IconButton>
+            <IconButton
+              size="small"
+              aria-label={`Delete call request ${call.id}`}
+              disabled
+              aria-disabled
+              sx={{ p: 0.5 }}
+            >
+              <Trash2 size={16} />
+            </IconButton>
+          </Stack>
         </Stack>
 
         <Box
@@ -138,12 +173,10 @@ export default function CallRequestCard({
               color="text.secondary"
               display="block"
             >
-              Preferred Time
+              Preferred Times
             </Typography>
             <Typography variant="body2">
-              {call.preferredTime?.start || "--"} -{" "}
-              {call.preferredTime?.end || "--"}{" "}
-              {call.preferredTime?.timezone || "--"}
+              {formatPreferredTimes(call.preferredTimes)}
             </Typography>
           </Box>
           <Box>
@@ -155,7 +188,7 @@ export default function CallRequestCard({
               Scheduled For
             </Typography>
             <Typography variant="body2">
-              {formatDateTime(call.scheduledFor)}
+              {formatUtcToLocal(call.scheduleTime)}
             </Typography>
           </Box>
           <Box>
@@ -167,7 +200,7 @@ export default function CallRequestCard({
               Duration
             </Typography>
             <Typography variant="body2">
-              {call.durationInMinutes ?? "--"} minutes
+              {call.durationMin != null ? `${call.durationMin} minutes` : "--"}
             </Typography>
           </Box>
         </Box>
@@ -181,9 +214,9 @@ export default function CallRequestCard({
             display="block"
             sx={{ mb: 0.5 }}
           >
-            Notes
+            Reason / Notes
           </Typography>
-          <Typography variant="body2">{call.notes || "--"}</Typography>
+          <Typography variant="body2">{call.reason || "--"}</Typography>
         </Box>
       </CardContent>
     </Card>

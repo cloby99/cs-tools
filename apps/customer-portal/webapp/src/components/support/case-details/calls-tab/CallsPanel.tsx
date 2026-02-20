@@ -16,12 +16,16 @@
 
 import { Button, Stack } from "@wso2/oxygen-ui";
 import { PhoneCall } from "@wso2/oxygen-ui-icons-react";
-import { type JSX } from "react";
+import { useState, useCallback, type JSX } from "react";
+import type { CallRequest } from "@models/responses";
 import { useGetCallRequests } from "@api/useGetCallRequests";
 import CallsListSkeleton from "@case-details-calls/CallsListSkeleton";
 import CallRequestList from "@case-details-calls/CallRequestList";
 import CallsEmptyState from "@case-details-calls/CallsEmptyState";
 import CallsErrorState from "@case-details-calls/CallsErrorState";
+import RequestCallModal from "@case-details-calls/RequestCallModal";
+import ErrorBanner from "@components/common/error-banner/ErrorBanner";
+import SuccessBanner from "@components/common/success-banner/SuccessBanner";
 
 export interface CallsPanelProps {
   projectId: string;
@@ -38,18 +42,59 @@ export default function CallsPanel({
   projectId,
   caseId,
 }: CallsPanelProps): JSX.Element {
-  const { data, isPending, isError } = useGetCallRequests(projectId, caseId);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editCall, setEditCall] = useState<CallRequest | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const { data, isPending, isError, refetch } = useGetCallRequests(
+    projectId,
+    caseId,
+  );
 
   const callRequests = data?.callRequests ?? [];
 
+  const handleOpenModal = () => {
+    setEditCall(null);
+    setIsModalOpen(true);
+  };
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditCall(null);
+  };
+  const handleEditClick = (call: CallRequest) => {
+    setEditCall(call);
+    setIsModalOpen(true);
+  };
+  const handleSuccess = useCallback(() => {
+    setSuccessMessage("Call request submitted successfully.");
+    refetch();
+  }, [refetch]);
+  const handleError = useCallback((message: string) => {
+    setErrorMessage(message);
+  }, []);
+
   return (
     <Stack spacing={3}>
+      {successMessage && (
+        <SuccessBanner
+          message={successMessage}
+          onClose={() => setSuccessMessage(null)}
+        />
+      )}
+      {errorMessage && (
+        <ErrorBanner
+          message={errorMessage}
+          onClose={() => setErrorMessage(null)}
+        />
+      )}
+
       <Button
         variant="contained"
         color="primary"
         startIcon={<PhoneCall size={16} />}
         sx={{ alignSelf: "flex-start" }}
-        disabled
+        onClick={handleOpenModal}
       >
         Request Call
       </Button>
@@ -61,8 +106,21 @@ export default function CallsPanel({
       ) : callRequests.length === 0 ? (
         <CallsEmptyState />
       ) : (
-        <CallRequestList requests={callRequests} />
+        <CallRequestList
+          requests={callRequests}
+          onEditClick={handleEditClick}
+        />
       )}
+
+      <RequestCallModal
+        open={isModalOpen}
+        projectId={projectId}
+        caseId={caseId}
+        onClose={handleCloseModal}
+        onSuccess={handleSuccess}
+        onError={handleError}
+        editCall={editCall ?? undefined}
+      />
     </Stack>
   );
 }
