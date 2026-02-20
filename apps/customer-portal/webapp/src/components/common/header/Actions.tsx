@@ -14,16 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import {
-  Box,
-  Button,
-  ColorSchemeToggle,
-  Divider,
-  Header as HeaderUI,
-} from "@wso2/oxygen-ui";
-import { Users } from "@wso2/oxygen-ui-icons-react";
+import { Box, ColorSchemeToggle, Divider, Header as HeaderUI } from "@wso2/oxygen-ui";
 import type { JSX } from "react";
-import { JOIN_COMMUNITY_URL } from "@constants/appLayoutConstants";
 import UserProfile from "@components/common/header/UserProfile";
 
 interface ActionsProps {
@@ -41,18 +33,6 @@ export default function Actions({
 }: ActionsProps): JSX.Element {
   return (
     <HeaderUI.Actions>
-      {/* join community button */}
-      <Button
-        variant="outlined"
-        startIcon={<Users size={20} />}
-        color="secondary"
-        size="medium"
-        href={JOIN_COMMUNITY_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Join our community
-      </Button>
       {/* theme switcher */}
       <ColorSchemeToggle />
       {/* header action divider */}

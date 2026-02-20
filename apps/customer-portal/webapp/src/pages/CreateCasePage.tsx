@@ -77,7 +77,12 @@ export default function CreateCasePage(): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
   const { projectId } = useParams<{ projectId: string }>();
-  const relatedCase = (location.state as { relatedCase?: RelatedCaseState })?.relatedCase;
+  const locationStateRaw = location.state as {
+    relatedCase?: RelatedCaseState;
+    skipChat?: boolean;
+  } | null;
+  const relatedCase = locationStateRaw?.relatedCase;
+  const skipChat = !!locationStateRaw?.skipChat;
   const { showLoader, hideLoader } = useLoader();
   const { data: projectDetails, isLoading: isProjectLoading } =
     useGetProjectDetails(projectId || "");
@@ -135,6 +140,9 @@ export default function CreateCasePage(): JSX.Element {
   const hasInitializedRef = useRef(false);
   const hasClassificationAppliedRef = useRef(false);
 
+  const skipChatMode = skipChat;
+  const noAiMode = !!relatedCase || skipChatMode;
+
   const locationState = location.state as {
     messages?: ChatMessageForClassification[];
     classificationResponse?: {
@@ -166,6 +174,7 @@ export default function CreateCasePage(): JSX.Element {
       }
     | undefined
   >(() => {
+    if (skipChat) return undefined;
     if (locationState?.classificationResponse) {
       return locationState.classificationResponse;
     }
@@ -224,13 +233,13 @@ export default function CreateCasePage(): JSX.Element {
     if (isFiltersLoading || isDeploymentsLoading) return;
 
     const initialDeployment = baseDeploymentOptions[0] ?? "";
-    const initialIssueType = relatedCase
+    const initialIssueType = noAiMode
       ? ""
       : (issueTypesList[0]?.label ?? "");
-    const initialSeverity = relatedCase ? "" : (severityLevelsList[0]?.id ?? "");
+    const initialSeverity = noAiMode ? "" : (severityLevelsList[0]?.id ?? "");
 
     queueMicrotask(() => {
-      if (relatedCase) {
+      if (noAiMode) {
         setDeployment("");
         setProduct("");
         setIssueType("");
@@ -253,12 +262,12 @@ export default function CreateCasePage(): JSX.Element {
     isDeploymentsLoading,
     issueTypesList,
     isFiltersLoading,
-    relatedCase,
+    noAiMode,
     severityLevelsList,
   ]);
 
   useEffect(() => {
-    if (relatedCase) return;
+    if (noAiMode) return;
     if (!classificationResponse?.caseInfo) return;
     const info = classificationResponse.caseInfo;
     if (info.shortDescription?.trim()) setTitle(info.shortDescription);
@@ -270,10 +279,10 @@ export default function CreateCasePage(): JSX.Element {
       const html = isLikelyHtml ? text : `<p>${escapeHtml(text)}</p>`;
       setDescription(html);
     }
-  }, [classificationResponse, relatedCase]);
+  }, [classificationResponse, noAiMode]);
 
   useEffect(() => {
-    if (relatedCase) return;
+    if (noAiMode) return;
     if (hasClassificationAppliedRef.current || !classificationResponse) return;
     if (isFiltersLoading || isDeploymentsLoading) return;
 
@@ -323,7 +332,7 @@ export default function CreateCasePage(): JSX.Element {
   }, [
     classificationResponse,
     isFiltersLoading,
-    relatedCase,
+    noAiMode,
     isDeploymentsLoading,
     baseDeploymentOptions,
     issueTypesList,
@@ -339,7 +348,11 @@ export default function CreateCasePage(): JSX.Element {
 
   const handleBack = () => {
     if (projectId) {
-      navigate(`/${projectId}/support/chat`);
+      navigate(
+        skipChatMode
+          ? `/${projectId}/dashboard`
+          : `/${projectId}/support/chat`,
+      );
     } else {
       navigate(-1);
     }
@@ -506,8 +519,8 @@ export default function CreateCasePage(): JSX.Element {
 
   const renderContent = () => (
     <Grid container spacing={3}>
-      {/* left column - form content */}
-      <Grid size={{ xs: 12, md: 8 }}>
+      {/* left column - form content (full width when skipChat) */}
+      <Grid size={{ xs: 12, md: skipChatMode ? 12 : 8 }}>
         {/* case creation form */}
         <Box
           component="form"
@@ -526,7 +539,7 @@ export default function CreateCasePage(): JSX.Element {
             isProductLoading={
               !!selectedDeploymentId && deploymentProductsLoading
             }
-            isRelatedCaseMode={!!relatedCase}
+            isRelatedCaseMode={noAiMode}
             extraProductOptions={extraProductOptions}
           />
 
@@ -548,7 +561,7 @@ export default function CreateCasePage(): JSX.Element {
             storageKey={
               projectId ? `create-case-draft-${projectId}` : undefined
             }
-            isRelatedCaseMode={!!relatedCase}
+            isRelatedCaseMode={noAiMode}
           />
 
           {/* form actions container */}
@@ -582,18 +595,20 @@ export default function CreateCasePage(): JSX.Element {
         </Box>
       </Grid>
 
-      {/* right column - sidebar */}
-      <Grid size={{ xs: 12, md: 4 }}>
-        {relatedCase ? (
-          <RelatedCaseSummary
-            number={relatedCase.number}
-            title={relatedCase.title}
-            description={relatedCase.description}
-          />
-        ) : (
-          <ConversationSummary metadata={undefined} isLoading={false} />
-        )}
-      </Grid>
+      {/* right column - sidebar (hidden when skipChat) */}
+      {!skipChatMode && (
+        <Grid size={{ xs: 12, md: 4 }}>
+          {relatedCase ? (
+            <RelatedCaseSummary
+              number={relatedCase.number}
+              title={relatedCase.title}
+              description={relatedCase.description}
+            />
+          ) : (
+            <ConversationSummary metadata={undefined} isLoading={false} />
+          )}
+        </Grid>
+      )}
     </Grid>
   );
 
@@ -602,7 +617,13 @@ export default function CreateCasePage(): JSX.Element {
       {/* header section */}
       <CaseCreationHeader
         onBack={handleBack}
-        hideAiChip={!!relatedCase}
+        hideAiChip={noAiMode}
+        backLabel={skipChatMode ? "Back to Dashboard" : "Back to Chat"}
+        subtitle={
+          skipChatMode
+            ? "Fill in the case details below and submit"
+            : "Please review and edit the auto-populated information before submitting"
+        }
       />
 
       {/* main content grid container */}
