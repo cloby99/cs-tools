@@ -24,20 +24,20 @@ import { useLogger } from "@hooks/useLogger";
 import { ApiQueryKeys } from "@constants/apiConstants";
 import { useAuthApiClient } from "@context/AuthApiContext";
 import type { PatchCallRequest } from "@models/requests";
-import type { CreateCallResponse } from "@models/responses";
+import type { CallRequestResponse } from "@models/responses";
 
 /**
  * Hook to update a call request (PATCH /cases/:caseId/call-requests/:id).
  *
  * @param {string} projectId - The ID of the project (used for cache invalidation).
  * @param {string} caseId - The ID of the case.
- * @returns {UseMutationResult<CreateCallResponse, Error, PatchCallRequest & { callRequestId: string }>} Mutation result.
+ * @returns {UseMutationResult<CallRequestResponse, Error, PatchCallRequest & { callRequestId: string }>} Mutation result.
  */
 export function usePatchCallRequest(
   projectId: string,
   caseId: string,
 ): UseMutationResult<
-  CreateCallResponse,
+  CallRequestResponse,
   Error,
   PatchCallRequest & { callRequestId: string },
 > {
@@ -47,13 +47,13 @@ export function usePatchCallRequest(
   const fetchFn = useAuthApiClient();
 
   return useMutation<
-    CreateCallResponse,
+    CallRequestResponse,
     Error,
     PatchCallRequest & { callRequestId: string },
   >({
     mutationFn: async (
       payload: PatchCallRequest & { callRequestId: string },
-    ): Promise<CreateCallResponse> => {
+    ): Promise<CallRequestResponse> => {
       const { callRequestId, ...body } = payload;
       logger.debug("[usePatchCallRequest] Request payload:", body);
 
@@ -95,7 +95,7 @@ export function usePatchCallRequest(
           throw new Error(errorMessage);
         }
 
-        const data: CreateCallResponse = await response.json();
+        const data: CallRequestResponse = await response.json();
         logger.debug("[usePatchCallRequest] Call request updated:", data);
         return data;
       } catch (error) {

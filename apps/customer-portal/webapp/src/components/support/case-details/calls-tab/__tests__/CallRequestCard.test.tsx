@@ -47,7 +47,7 @@ describe("CallRequestCard", () => {
   });
 
   it("should display '--' for missing or nullish values", () => {
-    const incompleteCall = {
+    const incompleteCall: CallRequest = {
       id: "call-incomplete",
       case: { id: "c1", label: "CS1" },
       reason: "",
@@ -57,7 +57,7 @@ describe("CallRequestCard", () => {
       createdOn: "",
       updatedOn: "",
       state: { id: "1", label: "" },
-    } as CallRequest;
+    };
 
     render(<CallRequestCard call={incompleteCall} />);
 

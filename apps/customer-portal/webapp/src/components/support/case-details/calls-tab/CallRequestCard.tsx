@@ -16,7 +16,6 @@
 
 import {
   Box,
-  Button,
   Card,
   CardContent,
   Chip,
@@ -44,10 +43,10 @@ export interface CallRequestCardProps {
 /** Renders preferred times (UTC) converted to local. */
 function formatPreferredTimes(times: string[] | undefined): string {
   if (!times?.length) return "--";
-  return times
+  const formatted = times
     .map((t) => formatUtcToLocal(t, "short"))
-    .filter(Boolean)
-    .join(", ");
+    .filter((s) => s !== "--");
+  return formatted.length > 0 ? formatted.join(", ") : "--";
 }
 
 /**

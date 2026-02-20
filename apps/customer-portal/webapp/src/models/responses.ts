@@ -557,19 +557,25 @@ export interface CallRequest {
   case: { id: string; label: string };
   reason: string;
   preferredTimes: string[];
-  durationMin: number;
+  durationMin?: number | null;
   scheduleTime: string;
   createdOn: string;
   updatedOn: string;
   state: { id: string; label: string };
 }
 
-// Response for case call requests list.
+// Response for case call requests list (POST /cases/:caseId/call-requests/search).
 export interface CallRequestsResponse {
   callRequests: CallRequest[];
+  totalRecords?: number;
+  offset?: number;
+  limit?: number;
 }
 
-// Response for creating a call request.
+// Response for creating or updating a call request (POST/PATCH).
 export interface CreateCallResponse {
   id: string;
 }
+
+/** Alias for create/update call request response (shared shape). */
+export type CallRequestResponse = CreateCallResponse;

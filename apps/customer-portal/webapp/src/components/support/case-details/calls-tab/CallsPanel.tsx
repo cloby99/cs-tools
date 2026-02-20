@@ -56,6 +56,8 @@ export default function CallsPanel({
 
   const handleOpenModal = () => {
     setEditCall(null);
+    setSuccessMessage(null);
+    setErrorMessage(null);
     setIsModalOpen(true);
   };
   const handleCloseModal = () => {

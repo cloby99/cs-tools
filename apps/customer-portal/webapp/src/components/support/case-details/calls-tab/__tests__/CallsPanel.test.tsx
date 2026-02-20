@@ -36,9 +36,12 @@ vi.mock("@api/usePatchCallRequest", () => ({
   }),
 }));
 
-const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function createTestQueryClient() {
+  return new QueryClient({ defaultOptions: { queries: { retry: false } } });
+}
 
 function renderWithProviders(ui: ReactElement) {
+  const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
   );

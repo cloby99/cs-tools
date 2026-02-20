@@ -45,7 +45,7 @@ import { createElement, type ComponentType, type ReactNode } from "react";
  */
 function normalizeUtcDateString(dateStr: string): string {
   const trimmed = dateStr.trim();
-  if (/T|Z$/i.test(trimmed)) return trimmed;
+  if (/T\d{2}:\d{2}:\d{2}/.test(trimmed) || /Z$/i.test(trimmed)) return trimmed;
   if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(trimmed)) {
     return trimmed.replace(" ", "T") + "Z";
   }

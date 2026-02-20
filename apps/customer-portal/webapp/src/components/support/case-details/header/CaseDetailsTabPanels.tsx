@@ -45,8 +45,8 @@ export default function CaseDetailsTabPanels({
 }: CaseDetailsTabPanelsProps): JSX.Element | null {
   switch (activeTab) {
     case 0: {
-      const projectId = data?.project?.id ?? "";
-      if (!projectId) {
+      const resolvedProjectId = data?.project?.id ?? projectId;
+      if (!resolvedProjectId) {
         return (
           <Typography variant="body2" color="text.secondary">
             Activity timeline will appear here.
@@ -64,7 +64,7 @@ export default function CaseDetailsTabPanels({
           }}
         >
           <CaseDetailsActivityPanel
-            projectId={projectId}
+            projectId={resolvedProjectId}
             caseId={caseId}
             caseCreatedOn={data?.createdOn}
           />

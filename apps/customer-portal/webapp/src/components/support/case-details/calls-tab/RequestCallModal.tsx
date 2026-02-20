@@ -100,6 +100,8 @@ export default function RequestCallModal({
 }: RequestCallModalProps): JSX.Element {
   const postCallRequest = usePostCallRequest(projectId, caseId);
   const patchCallRequest = usePatchCallRequest(projectId, caseId);
+  const postMutate = postCallRequest.mutate;
+  const patchMutate = patchCallRequest.mutate;
   const isEdit = !!editCall;
 
   const [form, setForm] = useState(INITIAL_FORM);
@@ -111,7 +113,11 @@ export default function RequestCallModal({
   const stateKey = Number.isNaN(stateKeyFromCall) ? 2 : stateKeyFromCall;
 
   useEffect(() => {
-    if (open && editCall) {
+    if (!open) {
+      setForm(INITIAL_FORM);
+      return;
+    }
+    if (editCall) {
       const preferredUtc =
         editCall.preferredTimes?.[0] || editCall.scheduleTime || "";
       setForm({
@@ -119,7 +125,7 @@ export default function RequestCallModal({
         durationInMinutes: editCall.durationMin ?? 30,
         notes: stripCustomerPrefixFromReason(editCall.reason || ""),
       });
-    } else if (open && !editCall) {
+    } else {
       setForm(INITIAL_FORM);
     }
   }, [open, editCall]);
@@ -169,7 +175,7 @@ export default function RequestCallModal({
       const reasonUnchanged = form.notes.trim() === strippedDisplay;
       const reasonToSend = reasonUnchanged ? editCall.reason : form.notes.trim();
 
-      patchCallRequest.mutate(
+      patchMutate(
         {
           callRequestId: editCall.id,
           reason: reasonToSend || editCall.reason || "",
@@ -185,7 +191,7 @@ export default function RequestCallModal({
         },
       );
     } else {
-      postCallRequest.mutate(
+      postMutate(
         {
           durationInMinutes: form.durationInMinutes,
           reason: form.notes.trim() || "[CUSTOMER] Call request",
@@ -206,8 +212,8 @@ export default function RequestCallModal({
     stateKey,
     isEdit,
     editCall,
-    postCallRequest,
-    patchCallRequest,
+    postMutate,
+    patchMutate,
     handleClose,
     onSuccess,
     onError,
@@ -256,7 +262,7 @@ export default function RequestCallModal({
           onChange={handleTextChange("preferredDateTimeLocal")}
           fullWidth
           size="small"
-          InputLabelProps={{ shrink: true }}
+          slotProps={{ inputLabel: { shrink: true } }}
           sx={{ mt: 4, mb: 2 }}
           disabled={isPending}
         />

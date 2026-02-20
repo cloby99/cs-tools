@@ -493,6 +493,13 @@ describe("support utils", () => {
     it("should return -- for invalid date", () => {
       expect(formatUtcToLocal("not-a-date")).toBe("--");
     });
+
+    it("should format with short variant without four-digit year in output", () => {
+      const result = formatUtcToLocal("2024-10-29 14:00:00", "short");
+      expect(result).toContain("Oct");
+      expect(result).toContain("29");
+      expect(result).not.toMatch(/\b2024\b/);
+    });
   });
 
   describe("formatCommentDate", () => {

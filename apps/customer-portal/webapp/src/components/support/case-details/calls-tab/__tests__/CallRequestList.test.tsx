@@ -14,8 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { CallRequest } from "@models/responses";
 import CallRequestList from "@case-details-calls/CallRequestList";
 
@@ -53,5 +53,18 @@ describe("CallRequestList", () => {
     expect(screen.getByText(/Note 2/i)).toBeInTheDocument();
     expect(screen.getByText(/Pending on WSO2/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Scheduled/i).length).toBeGreaterThan(0);
+  });
+
+  it("should call onEditClick with the request when edit button is clicked", () => {
+    const onEditClick = vi.fn();
+    render(
+      <CallRequestList requests={mockRequests} onEditClick={onEditClick} />,
+    );
+    const editButtons = screen.getAllByRole("button", {
+      name: /Edit call request/i,
+    });
+    fireEvent.click(editButtons[0]);
+    expect(onEditClick).toHaveBeenCalledTimes(1);
+    expect(onEditClick).toHaveBeenCalledWith(mockRequests[0]);
   });
 });
