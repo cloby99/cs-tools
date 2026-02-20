@@ -32,6 +32,8 @@ export interface CaseSearchRequest {
     deploymentId?: string;
     severityId?: number;
     statusId?: number;
+    /** Multiple status IDs for filtering (e.g. outstanding engagements: 1,10,18,1003,1006). */
+    statusIds?: number[];
     searchQuery?: string;
     caseTypeIds?: string[];
   };

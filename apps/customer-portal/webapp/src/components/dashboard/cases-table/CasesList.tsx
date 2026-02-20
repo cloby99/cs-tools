@@ -24,12 +24,11 @@ import {
   TableRow,
   Typography,
   Chip,
-  IconButton,
   Paper,
   Avatar,
   TablePagination,
 } from "@wso2/oxygen-ui";
-import { ExternalLink, MoreVertical } from "@wso2/oxygen-ui-icons-react";
+import { ExternalLink } from "@wso2/oxygen-ui-icons-react";
 import { type JSX, type ChangeEvent } from "react";
 import type { CaseSearchResponse, CaseListItem } from "@models/responses";
 import {
@@ -37,6 +36,7 @@ import {
   getInitials,
   getSeverityColor,
   getStatusColor,
+  mapSeverityToDisplay,
 } from "@utils/support";
 import ErrorIndicator from "@components/common/error-indicator/ErrorIndicator";
 import CasesTableSkeleton from "@components/dashboard/cases-table/CasesTableSkeleton";
@@ -73,9 +73,8 @@ const CasesList = ({
               <TableCell>Engagement</TableCell>
               <TableCell>Type</TableCell>
               <TableCell>Assigned to</TableCell>
-              <TableCell>Priority</TableCell>
               <TableCell>Status</TableCell>
-              <TableCell align="right"></TableCell>
+              <TableCell>Severity</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -83,7 +82,7 @@ const CasesList = ({
               <CasesTableSkeleton rowsPerPage={rowsPerPage} />
             ) : isError ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={6} align="center">
                   <Box
                     sx={{
                       display: "flex",
@@ -101,7 +100,7 @@ const CasesList = ({
               </TableRow>
             ) : data?.cases.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={6} align="center">
                   No cases found.
                 </TableCell>
               </TableRow>
@@ -185,18 +184,6 @@ const CasesList = ({
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={row.severity?.label || "--"}
-                      size="small"
-                      variant="outlined"
-                      sx={{
-                        color: getSeverityColor(row.severity?.label),
-                        borderColor: getSeverityColor(row.severity?.label),
-                        fontWeight: 500,
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                       <Box
                         sx={{
@@ -213,10 +200,17 @@ const CasesList = ({
                       </Typography>
                     </Box>
                   </TableCell>
-                  <TableCell align="right">
-                    <IconButton size="small">
-                      <MoreVertical size={16} />
-                    </IconButton>
+                  <TableCell>
+                    <Chip
+                      label={mapSeverityToDisplay(row.severity?.label)}
+                      size="small"
+                      variant="outlined"
+                      sx={{
+                        color: getSeverityColor(row.severity?.label),
+                        borderColor: getSeverityColor(row.severity?.label),
+                        fontWeight: 500,
+                      }}
+                    />
                   </TableCell>
                 </TableRow>
               ))

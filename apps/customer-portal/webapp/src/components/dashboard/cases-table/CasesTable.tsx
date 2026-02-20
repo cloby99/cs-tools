@@ -53,10 +53,9 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
       label: "Status",
       type: "select",
       options:
-        filtersMetadata?.statuses?.map((s) => ({
-          label: s.label,
-          value: s.id,
-        })) || [],
+        (filtersMetadata?.caseStates ?? filtersMetadata?.statuses ?? []).map(
+          (s) => ({ label: s.label, value: s.id }),
+        ),
     },
     {
       id: "severityId",
@@ -96,10 +95,14 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
     },
   ];
 
+  /** Outstanding engagements: Open (1), Work In Progress (10), Awaiting Info (18), Waiting On WSO2 (1003), Reopened (1006). */
+  const OUTSTANDING_STATUS_IDS = [1, 10, 18, 1003, 1006] as const;
+
   const caseSearchRequest = useMemo(
     () => ({
       filters: {
         statusId: filters.statusId ? Number(filters.statusId) : undefined,
+        statusIds: filters.statusId ? undefined : [...OUTSTANDING_STATUS_IDS],
         severityId: filters.severityId ? Number(filters.severityId) : undefined,
         issueId: filters.issueTypes ? Number(filters.issueTypes) : undefined,
         deploymentId: filters.deploymentId || undefined,

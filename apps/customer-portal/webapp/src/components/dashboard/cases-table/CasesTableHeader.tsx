@@ -64,9 +64,9 @@ const CasesTableHeader = ({
           }}
         >
           <Box>
-            <Typography variant="h6">Outstanding cases</Typography>
+            <Typography variant="h6">Outstanding Engagements</Typography>
             <Typography variant="body2" color="text.secondary">
-              Manage and track all your open support cases
+              Manage and track all your open engagements
             </Typography>
           </Box>
         </Box>

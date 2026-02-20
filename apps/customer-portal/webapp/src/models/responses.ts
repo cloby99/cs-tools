@@ -328,6 +328,7 @@ export interface ProjectStatsResponse {
     totalTimeLogged: number;
     billableHours: number;
     lastDeploymentOn: string;
+    systemHealth?: string;
   };
 }
 
@@ -340,6 +341,7 @@ export interface MetadataItem {
 // Response for case metadata (fetching possible statuses, severities, types)
 export interface CaseMetadataResponse {
   statuses?: MetadataItem[];
+  caseStates?: MetadataItem[];
   severities?: MetadataItem[];
   issueTypes?: MetadataItem[];
   deploymentTypes?: MetadataItem[];

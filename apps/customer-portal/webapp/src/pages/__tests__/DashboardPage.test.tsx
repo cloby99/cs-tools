@@ -87,16 +87,43 @@ const mockMockStats = {
   isError: false,
 };
 
-const mockCasesStats = {
+const mockFilters = {
   data: {
-    totalCases: 150,
-    openCases: 25,
-    averageResponseTime: 4.5,
-    resolvedCases: { total: 125 },
+    caseTypes: [
+      { id: "8d4b87bd1b18f010cb6898aebd4bcb59", label: "Incident" },
+      { id: "0d5b8fbd1b18f010cb6898aebd4bcba5", label: "Query" },
+      { id: "5aeff1201b74c210264c997a234bcb54", label: "Service Request" },
+      { id: "ab36479047ccf510a0a29cd3846d43ee", label: "Security Report Analysis" },
+    ],
   },
   isLoading: false,
   isError: false,
 };
+
+const mockCasesStats = {
+  data: {
+    totalCases: 150,
+    averageResponseTime: 4.5,
+    resolvedCases: { total: 125, currentMonth: 6 },
+    stateCount: [
+      { id: "1", label: "Open", count: 100 },
+      { id: "3", label: "Closed", count: 25 },
+      { id: "10", label: "Work In Progress", count: 15 },
+      { id: "18", label: "Awaiting Info", count: 5 },
+      { id: "1003", label: "Waiting On WSO2", count: 5 },
+    ],
+    severityCount: [],
+    outstandingSeverityCount: [],
+    caseTypeCount: [],
+    casesTrend: [],
+  },
+  isLoading: false,
+  isError: false,
+};
+
+vi.mock("@api/useGetCasesFilters", () => ({
+  default: vi.fn(() => mockFilters),
+}));
 
 vi.mock("@api/useGetDashboardMockStats", () => ({
   useGetDashboardMockStats: vi.fn(() => mockMockStats),
@@ -167,12 +194,13 @@ vi.mock("@wso2/oxygen-ui", () => ({
   ),
   colors: {
     common: { white: "#FFFFFF" },
-    blue: { 500: "#3B82F6", 700: "#1D4ED8" },
+    blue: { 500: "#3B82F6", 600: "#2563EB", 700: "#1D4ED8" },
     green: { 500: "#22C55E" },
+    grey: { 300: "#D1D5DB", 500: "#9CA3AF" },
     orange: { 500: "#F97316" },
-    red: { 500: "#EF4444" },
+    purple: { 400: "#A78BFA", 500: "#A855F7" },
+    red: { 500: "#EF4444", 600: "#DC2626" },
     yellow: { 600: "#EAB308" },
-    purple: { 400: "#A78BFA" },
   },
 }));
 
