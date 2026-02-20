@@ -1145,7 +1145,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     # + payload - Deployed product creation payload
     # + return - Created deployed product or error response
     resource function post deployments/[string id]/products(http:RequestContext ctx,
-            entity:DeployedProductCreatePayload payload) returns
+            types:DeployedProductCreatePayload payload) returns
         entity:CreatedDeployedProduct|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
@@ -1157,7 +1157,15 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
 
-        entity:DeployedProductCreateResponse|error response = entity:createDeployedProduct(userInfo.idToken, payload);
+        entity:DeployedProductCreateResponse|error response = entity:createDeployedProduct(userInfo.idToken,
+                {
+                    deploymentId: id,
+                    productId: payload.productId,
+                    projectId: payload.projectId,
+                    versionId: payload.versionId,
+                    cores: payload?.cores,
+                    tps: payload?.tps
+                });
         if response is error {
             if getStatusCode(response) == http:STATUS_FORBIDDEN {
                 log:printWarn(string `User: ${userInfo.userId} is forbidden to add product to deployment with ID: ${

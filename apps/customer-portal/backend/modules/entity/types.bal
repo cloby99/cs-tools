@@ -523,7 +523,7 @@ public type DeployedProduct record {|
     # Cores allocated for the product
     int? cores;
     # TPS allocated for the product
-    int? tps;
+    decimal? tps;
     # Release date of the product
     string? releasedOn;
     # End of life date of the product
