@@ -65,24 +65,22 @@ export default function DashboardPage(): JSX.Element {
 
   const {
     data: mockStats,
-    isFetching: isMockFetching,
     isError: isErrorMock,
   } = useGetDashboardMockStats(projectId || "");
   const {
     data: casesStats,
-    isFetching: isCasesFetching,
+    isLoading: isCasesLoading,
     isError: isErrorCases,
   } = useGetProjectCasesStats(projectId || "", caseTypeIds, {
     enabled: !!projectId && !isFiltersLoading,
   });
 
+  // Don't block on mockStats - it always throws; dashboard needs filters + casesStats only
   const isDashboardLoading =
     isAuthLoading ||
     isFiltersLoading ||
-    isMockFetching ||
-    isCasesFetching ||
+    isCasesLoading ||
     (!filters && !isErrorFilters) ||
-    (!mockStats && !isErrorMock) ||
     (!casesStats && !isErrorCases);
 
   useEffect(() => {
@@ -90,13 +88,14 @@ export default function DashboardPage(): JSX.Element {
       showLoader();
       return () => hideLoader();
     }
+    hideLoader();
   }, [isDashboardLoading, showLoader, hideLoader]);
 
   useEffect(() => {
-    if (filters && mockStats && casesStats) {
+    if (filters && casesStats) {
       logger.debug(`Dashboard data loaded for project ID: ${projectId}`);
     }
-  }, [filters, mockStats, casesStats, logger, projectId]);
+  }, [filters, casesStats, logger, projectId]);
 
   const { showError } = useErrorBanner();
   const hasShownErrorRef = useRef(false);
@@ -204,7 +203,7 @@ export default function DashboardPage(): JSX.Element {
   }, [casesStats]);
 
   const casesTrend = useMemo(() => {
-    return (casesStats?.casesTrend ?? []).map(({ period, severities }) => ({
+    const mapped = (casesStats?.casesTrend ?? []).map(({ period, severities }) => ({
       period,
       catastrophic: severities.find((s) => s.label === SEVERITY_API_LABELS[0])?.count ?? 0,
       critical: severities.find((s) => s.label === SEVERITY_API_LABELS[1])?.count ?? 0,
@@ -212,6 +211,13 @@ export default function DashboardPage(): JSX.Element {
       medium: severities.find((s) => s.label === SEVERITY_API_LABELS[3])?.count ?? 0,
       low: severities.find((s) => s.label === SEVERITY_API_LABELS[4])?.count ?? 0,
     }));
+    return mapped.sort((a, b) => {
+      const parse = (p: string) => {
+        const m = p.match(/(\d{4})\D*[Qq](\d)/);
+        return m ? Number(m[1]) * 4 + Number(m[2]) : 0;
+      };
+      return parse(a.period) - parse(b.period);
+    });
   }, [casesStats]);
 
   return (
@@ -291,9 +297,7 @@ export default function DashboardPage(): JSX.Element {
         activeCases={activeCases}
         casesTrend={casesTrend || []}
         isLoading={
-          (isDashboardLoading || !casesStats || !mockStats) &&
-          !isErrorCases &&
-          !isErrorMock
+          (isDashboardLoading || !casesStats) && !isErrorCases
         }
         isErrorOutstanding={isErrorCases}
         isErrorActiveCases={isErrorCases}

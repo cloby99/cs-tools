@@ -68,5 +68,7 @@ export default function useGetCasesFilters(
     staleTime: 10 * 60 * 1000, // Filters don't change often, keep for 10 mins
     gcTime: 10 * 60 * 1000,
     refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }
