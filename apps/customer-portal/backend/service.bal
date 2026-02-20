@@ -1861,13 +1861,13 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     }
 
     # Search product versions based on provided filters.
-    # 
+    #
     # + id - ID of the product
     # + payload - Product version search payload containing filters and pagination info
     # + return - List of product versions matching the criteria or an error
     resource function post products/[string id]/versions/search(http:RequestContext ctx,
             entity:ProductVersionSearchPayload payload)
-        returns types:ProductVersionsResponse|http:BadRequest|http:Forbidden|http:InternalServerError {
+        returns http:Ok|http:BadRequest|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -1905,6 +1905,8 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
                 }
             };
         }
-        return mapProductVersionsResponse(response);
+        return <http:Ok>{
+            body: mapProductVersionsResponse(response)
+        };
     }
 }
