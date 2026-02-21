@@ -135,7 +135,7 @@ public type UIAction record {|
 
 # Chat response from the agent.
 public type ChatResponse record {|
-    # Novera response
+    # Message
     string message;
     # Session identifier
     string sessionId;
