@@ -161,6 +161,7 @@ public type RecommendationResponse record {|
     string query;
     # Top matching articles
     RecommendationItem[] recommendations = [];
+    json...;
 |};
 
 # Chat response from the agent.
