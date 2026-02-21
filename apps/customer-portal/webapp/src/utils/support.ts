@@ -31,10 +31,117 @@ import {
   CaseSeverity,
   CaseSeverityLevel,
 } from "@constants/supportConstants";
+import { SEVERITY_LABEL_TO_DISPLAY } from "@constants/dashboardConstants";
 import type { CaseComment } from "@models/responses";
 import type { Theme } from "@wso2/oxygen-ui";
 import DOMPurify from "dompurify";
 import { createElement, type ComponentType, type ReactNode } from "react";
+
+/**
+ * Normalizes UTC date string from API (YYYY-MM-DD HH:mm:ss or MM/DD/YYYY HH:mm:ss) to ISO for parsing.
+ * Treats input as UTC; output is suitable for display in browser local time.
+ *
+ * @param {string} dateStr - Raw UTC date string.
+ * @returns {string} Normalized ISO string for Date constructor.
+ */
+function normalizeUtcDateString(dateStr: string): string {
+  const trimmed = dateStr.trim();
+  if (/T\d{2}:\d{2}:\d{2}/.test(trimmed) || /Z$/i.test(trimmed)) return trimmed;
+  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(trimmed)) {
+    return trimmed.replace(" ", "T") + "Z";
+  }
+  const mmddyyyy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/.exec(
+    trimmed,
+  );
+  if (mmddyyyy) {
+    const [, mm, dd, yyyy, hh, mi, ss] = mmddyyyy;
+    return `${yyyy}-${mm!.padStart(2, "0")}-${dd!.padStart(2, "0")}T${hh}:${mi}:${ss}Z`;
+  }
+  return trimmed;
+}
+
+/**
+ * Converts a UTC date string to datetime-local input value (YYYY-MM-DDTHH:mm).
+ *
+ * @param {string} utcStr - UTC date string (ISO or YYYY-MM-DD HH:mm:ss).
+ * @returns {string} Local datetime-local value for input.
+ */
+export function utcToDatetimeLocal(utcStr: string | null | undefined): string {
+  if (!utcStr) return "";
+  const normalized = normalizeUtcDateString(utcStr.trim());
+  const d = new Date(normalized);
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const h = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${y}-${m}-${day}T${h}:${min}`;
+}
+
+/**
+ * Strips "[Customer]" or "[CUSTOMER]" prefix from call request reason for display in edit form.
+ *
+ * @param {string} reason - Raw reason from API.
+ * @returns {string} Reason without the prefix.
+ */
+export function stripCustomerPrefixFromReason(reason: string): string {
+  return reason.replace(/^\[Customer\]\s*/i, "").trim();
+}
+
+/**
+ * Returns whether the "Open Related Case" button should be shown (within 2 months of closedOn).
+ *
+ * @param {string | null | undefined} closedOn - Closed date from API (UTC string).
+ * @returns {boolean} True if closedOn is missing/invalid (show for backward compat) or within 2 months.
+ */
+export function isWithinOpenRelatedCaseWindow(
+  closedOn: string | null | undefined,
+): boolean {
+  if (!closedOn) return true;
+  const normalized = normalizeUtcDateString(closedOn.trim());
+  const closed = new Date(normalized);
+  if (Number.isNaN(closed.getTime())) return true;
+  const twoMonthsLater = new Date(closed);
+  twoMonthsLater.setMonth(twoMonthsLater.getMonth() + 2);
+  return new Date() <= twoMonthsLater;
+}
+
+/**
+ * Formats a UTC date string for display in the user's local timezone.
+ *
+ * @param {string} dateStr - UTC date string (YYYY-MM-DD HH:mm:ss or MM/DD/YYYY HH:mm:ss).
+ * @param {"short" | "long"} [formatStr="long"] - The format style.
+ * @returns {string} Formatted date/time in local time.
+ */
+export function formatUtcToLocal(
+  dateStr: string | null | undefined,
+  formatStr: "short" | "long" = "long",
+): string {
+  if (!dateStr) return "--";
+  const normalized = normalizeUtcDateString(dateStr);
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return "--";
+  if (formatStr === "short") {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      hour12: true,
+      timeZoneName: "short",
+    }).format(date);
+  }
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true,
+    timeZoneName: "short",
+  }).format(date);
+}
 
 /**
  * Formats a date string into a user-friendly date and time format.
@@ -93,7 +200,7 @@ export type AssignedEngineerValue =
 function getAssignedEngineerDisplayValue(obj: {
   id: string;
   label?: string;
-  name?: string;
+  name?: string | null;
 }): string {
   return obj.label ?? obj.name ?? "";
 }
@@ -121,7 +228,7 @@ export function formatValue(
   value:
     | string
     | number
-    | { id: string; label?: string; name?: string }
+    | { id: string; label?: string; name?: string | null }
     | null
     | undefined,
 ): string {
@@ -380,7 +487,7 @@ export function getAttachmentFileCategory(
 /**
  * Returns the icon component for a given case status label.
  *
- * @param statusLabel - The case status label (e.g., "Open", "Working in Progress").
+ * @param statusLabel - The case status label.
  * @returns {ComponentType<{ size?: number }>} The icon component.
  */
 export function getStatusIcon(
@@ -433,9 +540,20 @@ export function getCallRequestStatusColor(status?: string): string {
 }
 
 /**
+ * Maps severity API label (e.g. "Critical (P1)") to display name (S0-S4).
+ *
+ * @param {string} label - The severity label from API.
+ * @returns {string} Mapped display name (S0, S1, S2, S3, S4) or original if no match.
+ */
+export function mapSeverityToDisplay(label?: string): string {
+  if (!label) return "--";
+  return SEVERITY_LABEL_TO_DISPLAY[label] ?? label;
+}
+
+/**
  * Returns the Oxygen UI color path for a given severity label.
  *
- * @param {string} label - The severity label (e.g., "Critical (P1)", "S1").
+ * @param {string} label - The severity label.
  * @returns {string} The Oxygen UI color path.
  */
 export function getSeverityColor(label?: string): string {
@@ -673,3 +791,30 @@ export function getAvailableCaseActions(
       return ["Closed"];
   }
 }
+
+/**
+ * Normalizes case type options for display in a selector/filter.
+ *
+ * - Merges "Query" and "Incident" types into a single "Case" option
+ *   (with their IDs joined by comma as the value)
+ * - Removes "Announcement" types entirely
+ * - Keeps all other case types as-is
+ */
+export const normalizeCaseTypeOptions = (
+  caseTypes: { id: string; label: string }[]
+) => {
+  // Collect IDs of "Query" and "Incident" types to merge them into one "Case" option
+  const caseIds = caseTypes
+    .filter((c) => ["query", "incident"].includes(c.label.toLowerCase()))
+    .map((c) => c.id);
+
+  // Keep all types except Query, Incident, and Announcement
+  const others = caseTypes.filter(
+    (c) => !["query", "incident", "announcement"].includes(c.label.toLowerCase())
+  );
+
+  return [
+    ...others.map((c) => ({ label: c.label, value: c.id })),
+    ...(caseIds.length ? [{ label: "Case", value: caseIds.join(",") }] : []),
+  ];
+};

@@ -30,11 +30,12 @@ import { ChartLegend } from "@components/dashboard/charts/ChartLegend";
 
 interface CasesTrendChartProps {
   data: Array<{
-    name: string;
-    TypeA: number;
-    TypeB: number;
-    TypeC: number;
-    TypeD: number;
+    period: string;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    catastrophic: number;
   }>;
   isLoading?: boolean;
   isError?: boolean;
@@ -56,7 +57,7 @@ export const CasesTrendChart = ({
     <Card sx={{ p: 2, height: "100%" }}>
       {/* Title */}
       <Typography variant="h6" component="h3" sx={{ mb: 2 }}>
-        Cases trend
+        Cases Trend
       </Typography>
       {isLoading ? (
         <Box sx={{ height: 240 }}>
@@ -90,9 +91,9 @@ export const CasesTrendChart = ({
             }}
           >
             <ResponsiveContainer width="100%" height="100%">
-              {/* Bar chart */}
               <BarChart
                 data={chartData}
+                xAxisDataKey="period"
                 grid={{ show: true }}
                 xAxis={{ show: true }}
                 yAxis={{ show: true }}
@@ -124,7 +125,7 @@ export const CasesTrendChart = ({
             mt: 2,
           }}
         >
-          {[1, 2, 3, 4].map((i) => (
+          {CASES_TREND_CHART_DATA.map((_, i) => (
             <Skeleton key={i} variant="rounded" width={60} height={20} />
           ))}
         </Box>

@@ -49,8 +49,9 @@ export default function AllCasesFilters({
   onFilterChange,
 }: AllCasesFiltersProps): JSX.Element {
   const handleSelectChange =
-    (field: string) => (event: SelectChangeEvent<string>) => {
-      onFilterChange(field, event.target.value);
+    (field: string) => (event: SelectChangeEvent<string | string[]>) => {
+      const val = event.target.value;
+      onFilterChange(field, Array.isArray(val) ? (val[0] ?? "") : val);
     };
 
   return (

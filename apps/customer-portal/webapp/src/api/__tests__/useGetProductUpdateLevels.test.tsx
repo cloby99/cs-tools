@@ -30,12 +30,12 @@ vi.mock("@hooks/useLogger", () => ({
 
 const mockProductUpdateLevelsResponse = [
   {
-    "product-name": "wso2das",
-    "product-update-levels": [
+    productName: "wso2das",
+    productUpdateLevels: [
       {
-        "product-base-version": "3.2.0",
+        productBaseVersion: "3.2.0",
         channel: "full",
-        "update-levels": [1, 2, 3],
+        updateLevels: [1, 2, 3],
       },
     ],
   },
@@ -66,14 +66,16 @@ describe("useGetProductUpdateLevels", () => {
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
-    mockLogger.debug.mockClear();
-    mockLogger.error.mockClear();
     mockAuthFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockProductUpdateLevelsResponse),
       status: 200,
     } as Response);
-    (window as unknown as { config?: { CUSTOMER_PORTAL_BACKEND_BASE_URL?: string } }).config = {
+    (
+      window as unknown as {
+        config?: { CUSTOMER_PORTAL_BACKEND_BASE_URL?: string };
+      }
+    ).config = {
       CUSTOMER_PORTAL_BACKEND_BASE_URL: "https://api.test",
     };
     vi.clearAllMocks();
@@ -105,8 +107,8 @@ describe("useGetProductUpdateLevels", () => {
     expect(result.current.data).toBeDefined();
     expect(Array.isArray(result.current.data)).toBe(true);
     expect(result.current.data?.length).toBeGreaterThan(0);
-    expect(result.current.data?.[0]["product-name"]).toBe("wso2das");
-    expect(result.current.data?.[0]["product-update-levels"]).toBeDefined();
+    expect(result.current.data?.[0].productName).toBe("wso2das");
+    expect(result.current.data?.[0].productUpdateLevels).toBeDefined();
   });
 
   it("should have correct query options", () => {

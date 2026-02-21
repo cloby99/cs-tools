@@ -22,23 +22,31 @@ import { OutstandingIncidentsChart } from "@components/dashboard/charts/Outstand
 
 interface ChartLayoutProps {
   outstandingCases: {
+    low: number;
     medium: number;
     high: number;
     critical: number;
+    catastrophic: number;
+    serviceRequest: number;
+    securityReportAnalysis: number;
     total: number;
   };
   activeCases: {
+    open: number;
     workInProgress: number;
-    waitingOnClient: number;
+    awaitingInfo: number;
     waitingOnWso2: number;
+    solutionProposed: number;
+    reopened: number;
     total: number;
   };
   casesTrend: Array<{
-    name: string;
-    TypeA: number;
-    TypeB: number;
-    TypeC: number;
-    TypeD: number;
+    period: string;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    catastrophic: number;
   }>;
   isLoading?: boolean;
   isErrorOutstanding?: boolean;
@@ -48,12 +56,12 @@ interface ChartLayoutProps {
 
 /**
  * ChartLayout component displays multiple chart sections including
- * outstanding incidents, active cases, and cases trend.
+ * outstanding engagements (severities + case types), active cases, and cases trend.
  *
- * @param {Object} props - Component props
- * @param {number} props.outstandingIncidents - Number of outstanding incidents.
- * @param {number} props.activeCases - Number of active cases.
- * @param {CasesTrendData[]} props.casesTrend - Array of trend data for cases.
+ * @param {ChartLayoutProps} props - Component props
+ * @param {Object} props.outstandingCases - Severity and case type counts for Outstanding Engagements chart.
+ * @param {Object} props.activeCases - State counts for Active Engagements chart.
+ * @param {Array} props.casesTrend - Array of trend data for Cases Trend chart.
  * @param {boolean} props.isLoading - Flag indicating if the data is loading.
  * @returns {JSX.Element} The chart layout element.
  */

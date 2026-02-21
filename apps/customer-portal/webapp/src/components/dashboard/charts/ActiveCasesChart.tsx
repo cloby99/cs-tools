@@ -28,9 +28,12 @@ import { ACTIVE_CASES_CHART_DATA } from "@constants/dashboardConstants";
 
 interface ActiveCasesChartProps {
   data: {
+    open: number;
     workInProgress: number;
-    waitingOnClient: number;
+    awaitingInfo: number;
     waitingOnWso2: number;
+    solutionProposed: number;
+    reopened: number;
     total: number;
   };
   isLoading?: boolean;
@@ -50,9 +53,12 @@ export const ActiveCasesChart = ({
   isError,
 }: ActiveCasesChartProps): JSX.Element => {
   const safeData = data ?? {
+    open: 0,
     workInProgress: 0,
-    waitingOnClient: 0,
+    awaitingInfo: 0,
     waitingOnWso2: 0,
+    solutionProposed: 0,
+    reopened: 0,
     total: 0,
   };
 
@@ -60,13 +66,13 @@ export const ActiveCasesChart = ({
     ? ACTIVE_CASES_CHART_DATA.map((item) => ({
         name: item.name,
         value: 1,
-        color: colors.grey[300],
+        color: colors.grey?.[300] ?? "#D1D5DB",
       }))
     : isLoading
       ? []
       : ACTIVE_CASES_CHART_DATA.map((item) => ({
           name: item.name,
-          value: safeData[item.key] || 0,
+          value: safeData[item.key as keyof typeof safeData] ?? 0,
           color: item.color,
         }));
 
@@ -74,7 +80,7 @@ export const ActiveCasesChart = ({
     <Card sx={{ height: "100%", p: 2 }}>
       {/* Title */}
       <Typography variant="h6" component="h3" sx={{ mb: 2 }}>
-        Active cases
+        Active Engagements
       </Typography>
       {/* Chart state */}
       {isLoading ? (
@@ -167,7 +173,7 @@ export const ActiveCasesChart = ({
             mt: 2,
           }}
         >
-          {[1, 2, 3].map((i) => (
+          {ACTIVE_CASES_CHART_DATA.map((_, i) => (
             <Skeleton key={i} variant="rounded" width={80} height={20} />
           ))}
         </Box>
@@ -175,10 +181,11 @@ export const ActiveCasesChart = ({
         <ChartLegend
           data={ACTIVE_CASES_CHART_DATA.map((item) => ({
             name: item.name,
-            value: 0,
+            value: safeData[item.key as keyof typeof safeData] ?? 0,
             color: item.color,
           }))}
           isError={isError}
+          showValues
         />
       )}
     </Card>

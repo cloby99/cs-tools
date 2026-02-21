@@ -27,9 +27,9 @@ import type { CreateCallRequest } from "@models/requests";
 import type { CreateCallResponse } from "@models/responses";
 
 /**
- * Hook to create a new call request for a case.
+ * Hook to create a new call request for a case (POST /cases/:caseId/call-requests).
  *
- * @param {string} projectId - The ID of the project.
+ * @param {string} projectId - The ID of the project (used for cache invalidation).
  * @param {string} caseId - The ID of the case.
  * @returns {UseMutationResult<CreateCallResponse, Error, CreateCallRequest>} Mutation result.
  */
@@ -58,10 +58,11 @@ export function usePostCallRequest(
           throw new Error("CUSTOMER_PORTAL_BACKEND_BASE_URL is not configured");
         }
 
-        const requestUrl = `${baseUrl}/projects/${projectId}/cases/${caseId}/call-requests`;
+        const requestUrl = `${baseUrl}/cases/${caseId}/call-requests`;
 
         const response = await fetchFn(requestUrl, {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
 
@@ -71,9 +72,18 @@ export function usePostCallRequest(
 
         if (!response.ok) {
           const text = await response.text();
-          throw new Error(
-            `Error creating call request: ${response.status} ${response.statusText}${text ? ` - ${text}` : ""}`,
-          );
+          let errorMessage = `Error creating call request: ${response.status} ${response.statusText}`;
+          try {
+            const json = JSON.parse(text) as { message?: string };
+            if (typeof json.message === "string") {
+              errorMessage = json.message;
+            } else if (text) {
+              errorMessage += ` - ${text}`;
+            }
+          } catch {
+            if (text) errorMessage += ` - ${text}`;
+          }
+          throw new Error(errorMessage);
         }
 
         const data: CreateCallResponse = await response.json();
