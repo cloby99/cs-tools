@@ -608,7 +608,7 @@ public type DeploymentCreatePayload record {|
 |};
 
 # The request payload to be validated.
-public type OnBoardContactPayload record {|
+public type ContactOnboardPayload record {|
     # Email address of the Contact
     @constraint:String {pattern: re `^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$`}
     string contactEmail;
@@ -619,7 +619,7 @@ public type OnBoardContactPayload record {|
     # Whether the contact is System User or not
     boolean isCsIntegrationUser;
     # Whether the contact is Security Contact or not
-    boolean isSecurityContact;
+    boolean isSecurityContact = false;
 |};
 
 # Payload for updating membership security flag.

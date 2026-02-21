@@ -1599,7 +1599,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     # + id - ID of the project
     # + return - List of project contacts or error
     resource function get projects/[string id]/contacts(http:RequestContext ctx)
-        returns user_management:Contact[]|http:Forbidden|http:InternalServerError {
+        returns user_management:Contact[]|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -1610,9 +1610,36 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
 
-        //TODO: Do the project validation
+        entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
+        if projectResponse is error {
+            if getStatusCode(projectResponse) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
 
-        user_management:Contact[]|error response = user_management:getProjectContacts(id);
+            if getStatusCode(projectResponse) == http:STATUS_FORBIDDEN {
+                logForbiddenProjectAccess(id, userInfo.userId);
+                return <http:Forbidden>{
+                    body: {
+                        message: ERR_MSG_PROJECT_ACCESS_FORBIDDEN
+                    }
+                };
+            }
+
+            string customError = "Failed to retrieve project details.";
+            log:printError(customError, projectResponse);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+
+        user_management:Contact[]|error response = user_management:getProjectContacts(projectResponse.sfId);
         if response is error {
             if getStatusCode(response) == http:STATUS_FORBIDDEN {
                 log:printWarn(string `Access to project contacts are forbidden for user: ${
@@ -1641,8 +1668,8 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     # + payload - Contact information to be added
     # + return - Membership information or error response
     resource function post projects/[string id]/contacts(http:RequestContext ctx,
-            types:OnBoardContactPayload payload)
-        returns user_management:Membership|http:Forbidden|http:InternalServerError {
+            types:ContactOnboardPayload payload)
+        returns user_management:Membership|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -1653,9 +1680,36 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
 
-        //TODO: Do the project validation
+        entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
+        if projectResponse is error {
+            if getStatusCode(projectResponse) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
 
-        user_management:Membership|error response = user_management:createProjectContact(id,
+            if getStatusCode(projectResponse) == http:STATUS_FORBIDDEN {
+                logForbiddenProjectAccess(id, userInfo.userId);
+                return <http:Forbidden>{
+                    body: {
+                        message: ERR_MSG_PROJECT_ACCESS_FORBIDDEN
+                    }
+                };
+            }
+
+            string customError = "Failed to retrieve project details.";
+            log:printError(customError, projectResponse);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+
+        user_management:Membership|error response = user_management:createProjectContact(projectResponse.sfId,
                 {
                     contactEmail: payload.contactEmail,
                     adminEmail: userInfo.email,
@@ -1693,7 +1747,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     # + email - Email of the contact to be removed
     # + return - Membership information or error response
     resource function delete projects/[string id]/contacts/[string email](http:RequestContext ctx)
-        returns http:Ok|http:Forbidden|http:InternalServerError {
+        returns http:Ok|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -1704,9 +1758,36 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
 
-        //TODO: Do the project validation
+        entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
+        if projectResponse is error {
+            if getStatusCode(projectResponse) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
 
-        user_management:Membership|error response = user_management:removeProjectContact(id, email, userInfo.email);
+            if getStatusCode(projectResponse) == http:STATUS_FORBIDDEN {
+                logForbiddenProjectAccess(id, userInfo.userId);
+                return <http:Forbidden>{
+                    body: {
+                        message: ERR_MSG_PROJECT_ACCESS_FORBIDDEN
+                    }
+                };
+            }
+
+            string customError = "Failed to retrieve project details.";
+            log:printError(customError, projectResponse);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+
+        user_management:Membership|error response = user_management:removeProjectContact(projectResponse.sfId, email, userInfo.email);
         if response is error {
             if getStatusCode(response) == http:STATUS_FORBIDDEN {
                 log:printWarn(string `Access to remove project contact is forbidden for user: ${
@@ -1741,7 +1822,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     # + return - Membership information or error response
     resource function patch projects/[string id]/contacts/[string email](http:RequestContext ctx,
             types:MembershipSecurityPayload payload)
-        returns user_management:Membership|http:Forbidden|http:InternalServerError {
+        returns user_management:Membership|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -1752,9 +1833,36 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
 
-        //TODO: Do the project validation
+        entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
+        if projectResponse is error {
+            if getStatusCode(projectResponse) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
 
-        user_management:Membership|error response = user_management:updateMembershipFlag(id, email,
+            if getStatusCode(projectResponse) == http:STATUS_FORBIDDEN {
+                logForbiddenProjectAccess(id, userInfo.userId);
+                return <http:Forbidden>{
+                    body: {
+                        message: ERR_MSG_PROJECT_ACCESS_FORBIDDEN
+                    }
+                };
+            }
+
+            string customError = "Failed to retrieve project details.";
+            log:printError(customError, projectResponse);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+
+        user_management:Membership|error response = user_management:updateMembershipFlag(projectResponse.sfId, email,
                 {
                     adminEmail: userInfo.email,
                     isSecurityContact: payload.isSecurityContact
@@ -1788,7 +1896,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     # + return - Contact information if valid or error response
     resource function post projects/[string id]/contacts/validate(http:RequestContext ctx,
             types:ValidationPayload payload)
-        returns user_management:Contact|http:BadRequest|http:Forbidden|http:InternalServerError {
+        returns http:Ok|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -1799,13 +1907,40 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
 
-        //TODO: Do the project validation
+        entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, id);
+        if projectResponse is error {
+            if getStatusCode(projectResponse) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
+            if getStatusCode(projectResponse) == http:STATUS_FORBIDDEN {
+                logForbiddenProjectAccess(id, userInfo.userId);
+                return <http:Forbidden>{
+                    body: {
+                        message: ERR_MSG_PROJECT_ACCESS_FORBIDDEN
+                    }
+                };
+            }
+
+            string customError = "Failed to retrieve project details.";
+            log:printError(customError, projectResponse);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
 
         user_management:Contact|error? response = user_management:validateProjectContact(
                 {
                     contactEmail: payload.contactEmail,
                     adminEmail: userInfo.email,
-                    projectId: id
+                    projectId: projectResponse.sfId
                 });
         if response is error {
             if getStatusCode(response) == http:STATUS_FORBIDDEN {
@@ -1826,17 +1961,11 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
                 }
             };
         }
-
-        if response is () {
-            string customError = "The provided information is not valid.";
-            log:printWarn(customError);
-            return <http:BadRequest>{
-                body: {
-                    message: customError
-                }
-            };
-        }
-        return response;
+        return <http:Ok>{
+            body: {
+                message: "Project contact is valid and can be added to the project!"
+            }
+        };
     }
 
     # Search call requests for a specific case with filters and pagination.
