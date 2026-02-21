@@ -32,3 +32,11 @@ aiChatAgentBaseUrl = "<base_url>"
     clientId = "<client_id>"
     clientSecret = "<client_secret>"
     scopes = ["<scopes>"]
+
+[customer_portal.user_management]
+userManagementServiceUrl = "<base_url>"
+[customer_portal.user_management.clientCredentialsOauth2Config]
+    tokenUrl = "<token_url>"
+    clientId = "<client_id>"
+    clientSecret = "<client_secret>"
+    scopes = ["<scopes>"]
