@@ -123,7 +123,7 @@ public type SlotState record {|
 
 # Action button rendered by the UI.
 public type UIAction record {|
-    # Action type, e.g. 'createCase'
+    # Action type, e.g. 'Create case'
     string 'type;
     # Button label
     string label;
