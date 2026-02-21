@@ -105,6 +105,7 @@ public type DetectedIntent record {|
     string severity = "";
     # Case creation logic to invoke
     string caseType = "";
+    json...;
 |};
 
 # Available options for a slot — rendered as dropdown/selector by UI.
