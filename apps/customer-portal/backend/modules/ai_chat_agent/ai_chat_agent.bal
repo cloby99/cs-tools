@@ -26,36 +26,44 @@ public isolated function createCaseClassification(CaseClassificationPayload payl
 
 # Create a chat for the given payload.
 # 
-# + payload - Chat payload
+# + projectId - Project ID
+# + conversationId - Conversation ID
+# + payload - Conversation payload
 # + return - Chat response or error
-public isolated function createChat(ChatPayload payload) returns ChatResponse|error {
-    return aiChatAgentClient->/chat.post(payload);
+public isolated function createChat(string projectId, string conversationId, ConversationPayload payload) returns ChatResponse|error {
+    ChatPayload chatPayload = {
+        message: payload.message,
+        accountId: projectId,
+        conversationId: conversationId,
+        envProducts: payload.envProducts
+    };
+    return aiChatAgentClient->/chat.post(chatPayload);
 }
 
-# List conversations for the given account ID.
+# List conversations for the given project ID.
 # 
-# + accountId - Account ID
+# + projectId - Project ID
 # + return - List of conversations or error
-public isolated function listConversations(string accountId) returns ConversationListResponse|error {
-    return aiChatAgentClient->/chat/conversations/[accountId];
+public isolated function listConversations(string projectId) returns ConversationListResponse|error {
+    return aiChatAgentClient->/chat/conversations/[projectId];
 }
 
 # Get chat history.
 # 
-# + accountId - Account ID
+# + projectId - Project ID
 # + conversationId - Conversation ID
 # + return - Chat history response or error
-public isolated function getChatHistory(string accountId, string conversationId) returns ChatHistoryResponse|error {
-    return aiChatAgentClient->/chat/history/[accountId]/[conversationId];
+public isolated function getChatHistory(string projectId, string conversationId) returns ChatHistoryResponse|error {
+    return aiChatAgentClient->/chat/history/[projectId]/[conversationId];
 }
 
 # Delete chat conversation.
 # 
-# + accountId - Account ID
+# + projectId - Project ID
 # + conversationId - Conversation ID
 # + return - Success message or error
-public isolated function deleteChatConversation(string accountId, string conversationId) returns DeleteConversationResponse|error {
-    return aiChatAgentClient->/chat/history/[accountId]/[conversationId].delete();
+public isolated function deleteChatConversation(string projectId, string conversationId) returns DeleteConversationResponse|error {
+    return aiChatAgentClient->/chat/history/[projectId]/[conversationId].delete();
 }
 
 # Get recommendation for user query.

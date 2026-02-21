@@ -81,6 +81,18 @@ public type ChatPayload record {|
     json...;
 |};
 
+public type ConversationPayload record {|
+    # User message
+    string message;
+    # Deployments with related products
+    map<string[]> envProducts?;
+    # Region (optional context for recommendations)
+    string region = "";
+    # Support tier (optional context for recommendations)
+    string tier = "";
+    json...;
+|};
+
 # Intent classification result for UI rendering.
 public type DetectedIntent record {|
     # Global intent identifier
@@ -133,6 +145,24 @@ public type UIAction record {|
     map<json> payload = {};
 |};
 
+# Recommendation item.
+public type RecommendationItem record {| 
+    # Article title
+    string title;
+    # Article ID
+    string articleId;
+    # Similarity score
+    float score;
+|};
+
+# Recommendation response.
+public type RecommendationResponse record {| 
+    # Original query (shortDescription from classification)
+    string query;
+    # Top matching articles
+    RecommendationItem[] recommendations = [];
+|};
+
 # Chat response from the agent.
 public type ChatResponse record {|
     # Message
@@ -147,6 +177,8 @@ public type ChatResponse record {|
     SlotState? slotState = ();
     # UI action buttons, if any
     UIAction[]? actions = ();
+    # Recommendations (only included on the first chat invocation)
+    RecommendationResponse? recommendations = ();
     # True when user indicates their issue is resolved
     boolean? resolved = ();
 |};
@@ -175,10 +207,18 @@ public type ConversationListResponse record {|
     int totalCount = 0;
 |};
 
+<<<<<<< Updated upstream
 # Single chat message.
 public type ChatMessage record {|
+=======
+# Supported chat message roles.
+public type Role "user"|"assistant";
+
+# Single chat message for UI rendering.
+public type Message record {|
+>>>>>>> Stashed changes
     # Message role: 'user' or 'assistant'
-    string role;
+    Role role;
     # Message content
     string content;
     # ISO timestamp
@@ -202,7 +242,7 @@ public type ChatHistoryResponse record {|
     # Conversation thread ID
     string conversationId;
     # Chat messages
-    ChatMessage[] messages = [];
+    Message[] messages = [];
     # Total number of messages
     int messageCount = 0;
 |};
@@ -222,25 +262,7 @@ public type ConversationData record {|
 # Recommendation request.
 public type RecommendationRequest record {| 
     # Chat history
-    ChatMessage[] chatHistory;
+    Message[] chatHistory;
     # Customer question or issue description
     ConversationData conversationData;
-|};
-
-# Recommendation item.
-public type RecommendationItem record {| 
-    # Article title
-    string title;
-    # Article ID
-    string articleId;
-    # Similarity score
-    float score;
-|};
-
-# Recommendation response.
-public type RecommendationResponse record {| 
-    # Original query (shortDescription from classification)
-    string query;
-    # Top matching articles
-    RecommendationItem[] recommendations = [];
 |};
