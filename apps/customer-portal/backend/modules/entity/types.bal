@@ -937,7 +937,7 @@ public type CallRequestCreatePayload record {|
     # Case ID
     IdString caseId;
     # Reason for the call request
-    string reason;
+    string reason?;
     # Preferred UTC times for the call
     @constraint:Array {minLength: 1}
     Date[] utcTimes;
