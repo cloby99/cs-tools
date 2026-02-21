@@ -27,8 +27,9 @@ interface CasesTableHeaderProps {
   filterFields: ActiveFilterConfig[];
   onRemoveFilter: (field: string) => void;
   onClearAll: () => void;
-  onUpdateFilter: (field: string, value: any) => void;
+  onUpdateFilter: (field: string, value: unknown) => void;
   onFilterClick: () => void;
+  onAllCases: () => void;
   onCreateCase: () => void;
 }
 
@@ -40,6 +41,7 @@ const CasesTableHeader = ({
   onClearAll,
   onUpdateFilter,
   onFilterClick,
+  onAllCases,
   onCreateCase,
 }: CasesTableHeaderProps): JSX.Element => {
   return (
@@ -64,9 +66,9 @@ const CasesTableHeader = ({
           }}
         >
           <Box>
-            <Typography variant="h6">Outstanding cases</Typography>
+            <Typography variant="h6">Outstanding Engagements</Typography>
             <Typography variant="body2" color="text.secondary">
-              Manage and track all your open support cases
+              Manage and track all your open engagements
             </Typography>
           </Box>
         </Box>
@@ -91,8 +93,13 @@ const CasesTableHeader = ({
         >
           Filters
         </Button>
-        <Button variant="outlined" size="small" color="warning">
-          All cases
+        <Button
+          variant="outlined"
+          size="small"
+          color="warning"
+          onClick={onAllCases}
+        >
+          All
         </Button>
         <Button
           variant="contained"
@@ -101,7 +108,7 @@ const CasesTableHeader = ({
           size="small"
           onClick={onCreateCase}
         >
-          Create case
+          Create
         </Button>
       </Box>
     </Box>

@@ -25,7 +25,7 @@ import {
   type FormEvent,
   type JSX,
 } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import useGetCasesFilters from "@api/useGetCasesFilters";
 import useGetProjectDetails from "@api/useGetProjectDetails";
 import { useGetProjectDeployments } from "@api/useGetProjectDeployments";
@@ -40,27 +40,49 @@ import { BasicInformationSection } from "@components/support/case-creation-layou
 import { CaseCreationHeader } from "@components/support/case-creation-layout/header/CaseCreationHeader";
 import { CaseDetailsSection } from "@components/support/case-creation-layout/form-sections/case-details-section/CaseDetailsSection";
 import { ConversationSummary } from "@components/support/case-creation-layout/form-sections/conversation-summary-section/ConversationSummary";
+import { RelatedCaseSummary } from "@components/support/case-creation-layout/form-sections/conversation-summary-section/RelatedCaseSummary";
 import {
+  buildClassificationProductLabel,
   getBaseDeploymentOptions,
   getBaseProductOptions,
   resolveDeploymentMatch,
   resolveIssueTypeKey,
   resolveProductId,
+  shouldAddClassificationProductToOptions,
 } from "@utils/caseCreation";
-import { htmlToPlainText } from "@utils/richTextEditor";
+import { CaseSeverity, CaseSeverityLevel } from "@constants/supportConstants";
+import { escapeHtml, htmlToPlainText } from "@utils/richTextEditor";
 import UploadAttachmentModal from "@components/support/case-details/attachments-tab/UploadAttachmentModal";
 
 const DEFAULT_CASE_TITLE = "Support case";
 const DEFAULT_CASE_DESCRIPTION = "Please describe your issue here.";
+
+interface ChatMessageForClassification {
+  text: string;
+  sender: string;
+}
 
 /**
  * CreateCasePage component to review and edit AI-generated case details.
  *
  * @returns {JSX.Element} The rendered CreateCasePage.
  */
+export interface RelatedCaseState {
+  number: string;
+  title: string;
+  description: string;
+}
+
 export default function CreateCasePage(): JSX.Element {
   const navigate = useNavigate();
+  const location = useLocation();
   const { projectId } = useParams<{ projectId: string }>();
+  const locationStateRaw = location.state as {
+    relatedCase?: RelatedCaseState;
+    skipChat?: boolean;
+  } | null;
+  const relatedCase = locationStateRaw?.relatedCase;
+  const skipChat = !!locationStateRaw?.skipChat;
   const { showLoader, hideLoader } = useLoader();
   const { data: projectDetails, isLoading: isProjectLoading } =
     useGetProjectDetails(projectId || "");
@@ -73,6 +95,8 @@ export default function CreateCasePage(): JSX.Element {
   const [product, setProduct] = useState("");
   const [deployment, setDeployment] = useState("");
   const [severity, setSeverity] = useState("");
+  const [classificationProductLabel, setClassificationProductLabel] =
+    useState("");
   type AttachmentItem = { id: string; file: File };
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const attachmentNamesRef = useRef<Map<string, string>>(new Map());
@@ -114,6 +138,71 @@ export default function CreateCasePage(): JSX.Element {
   }, [deploymentProductsError, showError]);
 
   const hasInitializedRef = useRef(false);
+  const hasClassificationAppliedRef = useRef(false);
+
+  const skipChatMode = skipChat;
+  const noAiMode = !!relatedCase || skipChatMode;
+
+  const locationState = location.state as {
+    messages?: ChatMessageForClassification[];
+    classificationResponse?: {
+      issueType?: string;
+      severityLevel?: string;
+      caseInfo?: {
+        description?: string;
+        shortDescription?: string;
+        productName?: string;
+        productVersion?: string;
+        environment?: string;
+      };
+    };
+  } | null;
+
+  const STORAGE_KEY = `case_classification_data_${projectId}`;
+
+  const [classificationResponse, setClassificationResponse] = useState<
+    | {
+        issueType?: string;
+        severityLevel?: string;
+        caseInfo?: {
+          description?: string;
+          shortDescription?: string;
+          productName?: string;
+          productVersion?: string;
+          environment?: string;
+        };
+      }
+    | undefined
+  >(() => {
+    if (skipChat) return undefined;
+    if (locationState?.classificationResponse) {
+      return locationState.classificationResponse;
+    }
+    try {
+      const stored = sessionStorage.getItem(STORAGE_KEY);
+      return stored ? JSON.parse(stored) : undefined;
+    } catch (e) {
+      console.error("Failed to parse stored classification data", e);
+      return undefined;
+    }
+  });
+
+  useEffect(() => {
+    if (locationState?.classificationResponse) {
+      try {
+        sessionStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify(locationState.classificationResponse),
+        );
+      } catch (e) {
+        console.error(
+          "Failed to store classification data in sessionStorage",
+          e,
+        );
+      }
+      setClassificationResponse(locationState.classificationResponse);
+    }
+  }, [locationState?.classificationResponse, STORAGE_KEY]);
   const projectDisplay = projectDetails?.name ?? "";
 
   const issueTypesList = (filters?.issueTypes || []) as {
@@ -144,23 +233,109 @@ export default function CreateCasePage(): JSX.Element {
     if (isFiltersLoading || isDeploymentsLoading) return;
 
     const initialDeployment = baseDeploymentOptions[0] ?? "";
-    const initialIssueType = issueTypesList[0]?.label ?? "";
-    const initialSeverity = severityLevelsList[0]?.id ?? "";
+    const initialIssueType = noAiMode
+      ? ""
+      : (issueTypesList[0]?.label ?? "");
+    const initialSeverity = noAiMode ? "" : (severityLevelsList[0]?.id ?? "");
 
     queueMicrotask(() => {
-      setDeployment(initialDeployment);
-      setProduct("");
-      setIssueType(initialIssueType);
-      setSeverity(initialSeverity);
-      setTitle(DEFAULT_CASE_TITLE);
-      setDescription(DEFAULT_CASE_DESCRIPTION);
+      if (noAiMode) {
+        setDeployment("");
+        setProduct("");
+        setIssueType("");
+        setSeverity("");
+        setTitle("");
+        setDescription("");
+      } else if (!classificationResponse) {
+        setDeployment(initialDeployment);
+        setProduct("");
+        setIssueType(initialIssueType);
+        setSeverity(initialSeverity);
+        setTitle(DEFAULT_CASE_TITLE);
+        setDescription(DEFAULT_CASE_DESCRIPTION);
+      }
     });
     hasInitializedRef.current = true;
   }, [
     baseDeploymentOptions,
+    classificationResponse,
     isDeploymentsLoading,
     issueTypesList,
     isFiltersLoading,
+    noAiMode,
+    severityLevelsList,
+  ]);
+
+  useEffect(() => {
+    if (noAiMode) return;
+    if (!classificationResponse?.caseInfo) return;
+    const info = classificationResponse.caseInfo;
+    if (info.shortDescription?.trim()) setTitle(info.shortDescription);
+    if (info.description?.trim()) {
+      const text = info.description.trim();
+      const isLikelyHtml = /<[a-zA-Z][^>]*>[\s\S]*<\/[a-zA-Z][^>]*>|<[a-zA-Z][^>]*\/>/.test(
+        text,
+      );
+      const html = isLikelyHtml ? text : `<p>${escapeHtml(text)}</p>`;
+      setDescription(html);
+    }
+  }, [classificationResponse, noAiMode]);
+
+  useEffect(() => {
+    if (noAiMode) return;
+    if (hasClassificationAppliedRef.current || !classificationResponse) return;
+    if (isFiltersLoading || isDeploymentsLoading) return;
+
+    if (!baseDeploymentOptions.length || !severityLevelsList.length) return;
+
+    const info = classificationResponse.caseInfo;
+    const deploymentLabel = info?.environment?.trim();
+    const productLabel = buildClassificationProductLabel(info);
+    const issueTypeLabel = classificationResponse.issueType?.trim();
+    const severityLabel = classificationResponse.severityLevel?.trim();
+
+    hasClassificationAppliedRef.current = true;
+
+    setDeployment((prev) =>
+      deploymentLabel && baseDeploymentOptions.includes(deploymentLabel)
+        ? deploymentLabel
+        : prev,
+    );
+    setProduct((prev) => (productLabel ? productLabel : prev));
+    setIssueType((prev) =>
+      issueTypeLabel &&
+      issueTypesList.some(
+        (t) => t.label === issueTypeLabel || t.id === issueTypeLabel,
+      )
+        ? issueTypeLabel
+        : prev,
+    );
+
+    const severityMapping: Record<string, string> = {
+      [CaseSeverityLevel.S0]: CaseSeverity.CATASTROPHIC,
+      [CaseSeverityLevel.S1]: CaseSeverity.CRITICAL,
+      [CaseSeverityLevel.S2]: CaseSeverity.HIGH,
+      [CaseSeverityLevel.S3]: CaseSeverity.MEDIUM,
+      [CaseSeverityLevel.S4]: CaseSeverity.LOW,
+    };
+
+    const mappedLabel = severityMapping[severityLabel ?? ""] ?? severityLabel;
+
+    const matchedSeverity = severityLevelsList.find(
+      (s) =>
+        s.id === severityLabel ||
+        s.label === severityLabel ||
+        s.label === mappedLabel,
+    );
+    setSeverity((prev) => (matchedSeverity ? matchedSeverity.id : prev));
+    if (productLabel) setClassificationProductLabel(productLabel);
+  }, [
+    classificationResponse,
+    isFiltersLoading,
+    noAiMode,
+    isDeploymentsLoading,
+    baseDeploymentOptions,
+    issueTypesList,
     severityLevelsList,
   ]);
 
@@ -173,7 +348,11 @@ export default function CreateCasePage(): JSX.Element {
 
   const handleBack = () => {
     if (projectId) {
-      navigate(`/${projectId}/support/chat`);
+      navigate(
+        skipChatMode
+          ? `/${projectId}/dashboard`
+          : `/${projectId}/support/chat`,
+      );
     } else {
       navigate(-1);
     }
@@ -183,8 +362,7 @@ export default function CreateCasePage(): JSX.Element {
     setIsAttachmentModalOpen(true);
   };
 
-  const fileSignature = (f: File) =>
-    `${f.name}-${f.size}-${f.lastModified}`;
+  const fileSignature = (f: File) => `${f.name}-${f.size}-${f.lastModified}`;
 
   const handleSelectAttachment = (file: File, attachmentName?: string) => {
     setAttachments((prev) => {
@@ -268,8 +446,7 @@ export default function CreateCasePage(): JSX.Element {
                       body: {
                         referenceType: "case",
                         name: displayName,
-                        type:
-                          item.file.type || "application/octet-stream",
+                        type: item.file.type || "application/octet-stream",
                         content,
                       },
                     });
@@ -279,21 +456,21 @@ export default function CreateCasePage(): JSX.Element {
                   }
                 };
                 reader.onerror = () =>
-                  reject(
-                    new Error(`Failed to read file: ${item.file.name}`),
-                  );
+                  reject(new Error(`Failed to read file: ${item.file.name}`));
                 reader.readAsDataURL(item.file);
               });
             });
 
             const results = await Promise.allSettled(uploadPromises);
-            const fulfilled = results.filter((r) => r.status === "fulfilled").length;
-            const rejected = results.filter((r) => r.status === "rejected").length;
+            const fulfilled = results.filter(
+              (r) => r.status === "fulfilled",
+            ).length;
+            const rejected = results.filter(
+              (r) => r.status === "rejected",
+            ).length;
 
             if (rejected === 0) {
-              showSuccess(
-                "Case created and attachments uploaded successfully",
-              );
+              showSuccess("Case created and attachments uploaded successfully");
             } else if (fulfilled === 0) {
               showError(
                 "Case created, but all attachment uploads failed. Please try again.",
@@ -306,9 +483,11 @@ export default function CreateCasePage(): JSX.Element {
           } finally {
             setIsUploadingAttachments(false);
           }
+          sessionStorage.removeItem(STORAGE_KEY);
           navigate(`/${projectId}/support/cases/${caseId}`);
         } else {
           showSuccess("Case created successfully");
+          sessionStorage.removeItem(STORAGE_KEY);
           navigate(`/${projectId}/support/cases/${caseId}`);
         }
       },
@@ -317,6 +496,19 @@ export default function CreateCasePage(): JSX.Element {
       },
     });
   };
+
+  const extraProductOptions = useMemo(() => {
+    if (!classificationProductLabel) return [];
+    if (
+      !shouldAddClassificationProductToOptions(
+        classificationProductLabel,
+        baseProductOptions,
+      )
+    ) {
+      return [];
+    }
+    return [classificationProductLabel];
+  }, [classificationProductLabel, baseProductOptions]);
 
   const sectionMetadata = {
     deploymentTypes: baseDeploymentOptions,
@@ -327,8 +519,8 @@ export default function CreateCasePage(): JSX.Element {
 
   const renderContent = () => (
     <Grid container spacing={3}>
-      {/* left column - form content */}
-      <Grid size={{ xs: 12, md: 8 }}>
+      {/* left column - form content (full width when skipChat) */}
+      <Grid size={{ xs: 12, md: skipChatMode ? 12 : 8 }}>
         {/* case creation form */}
         <Box
           component="form"
@@ -347,6 +539,8 @@ export default function CreateCasePage(): JSX.Element {
             isProductLoading={
               !!selectedDeploymentId && deploymentProductsLoading
             }
+            isRelatedCaseMode={noAiMode}
+            extraProductOptions={extraProductOptions}
           />
 
           <CaseDetailsSection
@@ -367,6 +561,7 @@ export default function CreateCasePage(): JSX.Element {
             storageKey={
               projectId ? `create-case-draft-${projectId}` : undefined
             }
+            isRelatedCaseMode={noAiMode}
           />
 
           {/* form actions container */}
@@ -392,23 +587,44 @@ export default function CreateCasePage(): JSX.Element {
                 ? isUploadingAttachments
                   ? "Uploading Attachments..."
                   : "Creating..."
-                : "Create Support Case"}
+                : relatedCase
+                  ? "Create Related Case"
+                  : "Create Support Case"}
             </Button>
           </Box>
         </Box>
       </Grid>
 
-      {/* right column - sidebar */}
-      <Grid size={{ xs: 12, md: 4 }}>
-        <ConversationSummary metadata={undefined} isLoading={false} />
-      </Grid>
+      {/* right column - sidebar (hidden when skipChat) */}
+      {!skipChatMode && (
+        <Grid size={{ xs: 12, md: 4 }}>
+          {relatedCase ? (
+            <RelatedCaseSummary
+              number={relatedCase.number}
+              title={relatedCase.title}
+              description={relatedCase.description}
+            />
+          ) : (
+            <ConversationSummary metadata={undefined} isLoading={false} />
+          )}
+        </Grid>
+      )}
     </Grid>
   );
 
   return (
     <Box sx={{ width: "100%", pt: 0, position: "relative" }}>
       {/* header section */}
-      <CaseCreationHeader onBack={handleBack} />
+      <CaseCreationHeader
+        onBack={handleBack}
+        hideAiChip={noAiMode}
+        backLabel={skipChatMode ? "Back to Dashboard" : "Back to Chat"}
+        subtitle={
+          skipChatMode
+            ? "Fill in the case details below and submit"
+            : "Please review and edit the auto-populated information before submitting"
+        }
+      />
 
       {/* main content grid container */}
       {renderContent()}

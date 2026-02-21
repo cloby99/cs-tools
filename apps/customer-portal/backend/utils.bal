@@ -370,3 +370,49 @@ public isolated function getOpenCasesCountFromProjectCasesStats(entity:ProjectCa
     types:ReferenceItem[] openCases = stats.stateCount.filter(stat => stat.id == stateIdOpen.toString());
     return openCases.length() > 0 ? openCases[0].count : ();
 }
+
+# Map call requests response to the desired structure.
+#
+# + response - Call requests response from the entity service
+# + return - Mapped call requests response
+public isolated function mapSearchCallRequestResponse(entity:CallRequestsResponse response)
+    returns types:CallRequestsResponse {
+
+    types:CallRequest[] callRequests = from entity:CallRequest callRequest in response.callRequests
+        let entity:ReferenceTableItem case = callRequest.case
+        let entity:ChoiceListItem state = callRequest.state
+        select {
+            id: callRequest.id,
+            reason: callRequest.reason,
+            preferredTimes: callRequest.preferredTimes,
+            durationMin: callRequest.durationMin,
+            scheduleTime: callRequest.scheduleTime,
+            createdOn: callRequest.createdOn,
+            updatedOn: callRequest.updatedOn,
+            case: {id: case.id, label: case.name},
+            state: {id: state.id.toString(), label: state.label}
+        };
+
+    return {callRequests};
+}
+
+# Map product versions response to the desired structure.
+#
+# + response - Product versions response from the entity service
+# + return - Mapped product versions response
+public isolated function mapProductVersionsResponse(entity:ProductVersionsResponse response)
+    returns types:ProductVersionsResponse {
+
+    types:ProductVersion[] versions = from entity:ProductVersion version in response.versions
+        let entity:ReferenceTableItem? product = version.product
+        select {
+            id: version.id,
+            version: version.version,
+            currentSupportStatus: version.currentSupportStatus,
+            releaseDate: version.releaseDate,
+            supportEolDate: version.supportEolDate,
+            earliestPossibleSupportEolDate: version.earliestPossibleSupportEolDate,
+            product: product != () ? {id: product.id, label: product.name} : ()
+        };
+    return {versions};
+}

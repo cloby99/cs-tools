@@ -172,6 +172,35 @@ public type CreatedCase record {|
     json...;
 |};
 
+# Request payload for updating a case.
+public type CaseUpdatePayload record {|
+    # State key to update
+    int stateKey;
+|};
+
+# Response from updating a case.
+public type CaseUpdateResponse record {|
+    # Success message
+    string message;
+    # Updated case details
+    UpdatedCase case;
+|};
+
+# Updated case details.
+public type UpdatedCase record {|
+    # System ID of the updated case
+    string id;
+    # Updated date and time
+    string updatedOn;
+    # User who updated the case
+    string updatedBy;
+    # Updated state information
+    ChoiceListItem state;
+    # Case type information
+    ReferenceTableItem 'type;
+    json...;
+|};
+
 # Base case.
 public type Case record {|
     # Case ID
@@ -290,6 +319,14 @@ public type CaseResponse record {|
         # Email address
         string? email;
     }? csManager;
+    # Case closed date and time
+    string? closedOn?;
+    # User who closed the case
+    ReferenceTableItem? closedBy?;
+    # Close notes for the case closure
+    string? closeNotes?;
+    # Indicates if the case is auto closed
+    boolean? hasAutoClosed?;
     json...;
 |};
 
@@ -325,7 +362,7 @@ public type ProjectMetadataResponse record {|
     json...;
 |};
 
-# Project statistics response from ServiceNow.
+# Project statistics response.
 public type ProjectStatsResponse record {|
     # Total time logged
     decimal totalTimeLogged?;
@@ -517,7 +554,7 @@ public type DeployedProduct record {|
     # Cores allocated for the product
     int? cores;
     # TPS allocated for the product
-    int? tps;
+    decimal? tps;
     # Release date of the product
     string? releasedOn;
     # End of life date of the product
@@ -531,6 +568,70 @@ public type DeployedProduct record {|
 public type DeployedProductsResponse record {|
     # List of deployed products
     DeployedProduct[] deployedProducts;
+|};
+
+# Request payload for creating a deployed product.
+public type DeployedProductCreatePayload record {|
+    # Project ID
+    IdString projectId;
+    # Deployment ID
+    IdString deploymentId;
+    # Product ID
+    IdString productId;
+    # Product version ID
+    IdString versionId;
+    # Cores allocated for the product
+    int? cores?;
+    # TPS allocated for the product
+    decimal? tps?;
+|};
+
+# Response from creating a deployed product.
+public type DeployedProductCreateResponse record {|
+    # Success message
+    string message;
+    # Created deployed product details
+    CreatedDeployedProduct deployedProduct;
+    json...;
+|};
+
+# Created deployed product details.
+public type CreatedDeployedProduct record {|
+    # ID
+    string id;
+    # Created date and time
+    string createdOn;
+    # User who created the deployed product
+    string createdBy;
+    json...;
+|};
+
+# Payload for updating a deployed product.
+public type DeployedProductUpdatePayload record {|
+    # Cores allocated for the product
+    int? cores?;
+    # TPS allocated for the product
+    decimal? tps?;
+|};
+
+# Response from updating a deployed product.
+public type DeployedProductUpdateResponse record {|
+    # Success message
+    string message;
+    # Updated deployed product details
+    UpdatedDeployedProduct deployedProduct;
+    json...;
+|};
+
+# Updated deployed product details.
+public type UpdatedDeployedProduct record {|
+    # ID of the updated deployed product
+    string id;
+    # Updated date and time
+    string updatedOn;
+    # User who updated the deployed product
+    string updatedBy;
+    json...;
 |};
 
 # Deployment data.
@@ -774,4 +875,207 @@ public type VulnerabilityMetaResponse record {|
     # List of vulnerability severities
     ChoiceListItem[] severities;
     json...;
+|};
+
+# Request payload for searching call requests.
+public type CallRequestSearchPayload record {|
+    # Case ID
+    IdString caseId;
+    # Filter criteria
+    record {
+        # List of state keys to filter
+        int[] stateKeys?;
+    } filters?;
+    # Pagination details
+    Pagination pagination?;
+|};
+
+# Call request data.
+public type CallRequest record {|
+    # ID
+    string id;
+    # Associated case information
+    ReferenceTableItem case;
+    # Reason for the call request
+    string? reason;
+    # Preferred times for the call
+    string[] preferredTimes;
+    # Duration in minutes
+    int durationMin;
+    # Scheduled time for the call
+    string? scheduleTime;
+    # Created date and time
+    string createdOn;
+    # Updated date and time
+    string updatedOn;
+    # State information
+    ChoiceListItem state;
+    json...;
+|};
+
+# Call requests response.
+public type CallRequestsResponse record {|
+    # List of call requests
+    CallRequest[] callRequests;
+    json...;
+|};
+
+# Date Constraint.
+@constraint:String {
+    pattern: {
+        value: re `^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])T([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d{1,9})?)?(Z|[+-]([01]\d|2[0-3]):?[0-5]\d)$`,
+        message: "Invalid date provided. Please provide a valid date value."
+    }
+}
+public type Date string;
+
+# Request payload for creating a call request.
+public type CallRequestCreatePayload record {|
+    # Case ID
+    IdString caseId;
+    # Reason for the call request
+    string reason;
+    # Preferred UTC times for the call
+    @constraint:Array {minLength: 1}
+    Date[] utcTimes;
+    # Duration in minutes
+    @constraint:Int {minValue: 1}
+    int durationInMinutes;
+|};
+
+# Created call request details.
+public type CreatedCallRequest record {|
+    # ID
+    string id;
+    # Created date and time
+    string createdOn;
+    # User who created the call request
+    string createdBy;
+    # State information
+    ChoiceListItem state;
+    json...;
+|};
+
+# Response from creating a call request.
+public type CallRequestCreateResponse record {|
+    # Success message
+    string message;
+    # Created call request details
+    CreatedCallRequest callRequest;
+    json...;
+|};
+
+# Request payload for updating a call request.
+public type CallRequestUpdatePayload record {|
+    # State key
+    int stateKey;
+    # Reason for the update
+    string? reason;
+    # New preferred UTC times for the call (mandatory when stateKey is 2)
+    Date[] utcTimes?;
+|};
+
+# Updated call request details.
+public type UpdatedCallRequest record {|
+    # ID
+    string id;
+    # Updated date and time
+    string updatedOn;
+    # User who updated the call request
+    string updatedBy;
+    json...;
+|};
+
+# Response from updating a call request.
+public type CallRequestUpdateResponse record {|
+    # Success message
+    string message;
+    # Updated call request details
+    UpdatedCallRequest callRequest;
+    json...;
+|};
+
+# Request payload for updating a deployment.
+public type DeploymentUpdatePayload record {|
+    # Name
+    string name?;
+    # Type key
+    int typeKey?;
+    # Description of the deployment
+    string? description?;
+    # Active status (can only be set to false to deactivate deployment)
+    boolean active?;
+|};
+
+# Response from updating a deployment.
+public type DeploymentUpdateResponse record {|
+    # Success message
+    string message;
+    # Updated deployment details
+    UpdatedDeployment deployment;
+|};
+
+# Updated deployment details.
+public type UpdatedDeployment record {|
+    # ID of the updated deployment
+    string id;
+    # Updated date and time
+    string updatedOn;
+    # User who updated the deployment
+    string updatedBy;
+    json...;
+|};
+
+# Request payload for searching products.
+public type ProductSearchPayload record {|
+    # Pagination details
+    Pagination pagination = {};
+|};
+
+# Product data.
+public type Product record {|
+    # ID
+    string id;
+    # Name
+    string name;
+    json...;
+|};
+
+# Products response.
+public type ProductsResponse record {|
+    # List of products
+    Product[] products;
+    json...; // TODO: Remove after adding pagination
+|};
+
+# Request payload for searching product versions.
+public type ProductVersionSearchPayload record {|
+    # Pagination details
+    Pagination pagination = {};
+|};
+
+# Product version data.
+public type ProductVersion record {|
+    # ID
+    string id;
+    # Version number
+    string version;
+    # Current support status
+    string? currentSupportStatus;
+    # Release date
+    string? releaseDate;
+    # Support end of life date
+    string? supportEolDate;
+    # Earliest possible support end of life date
+    string? earliestPossibleSupportEolDate;
+    # Associated product information
+    ReferenceTableItem? product;
+    json...;
+|};
+
+# Product versions response.
+public type ProductVersionsResponse record {|
+    # List of product versions
+    ProductVersion[] versions;
+    json...; // TODO: Add pagination
 |};

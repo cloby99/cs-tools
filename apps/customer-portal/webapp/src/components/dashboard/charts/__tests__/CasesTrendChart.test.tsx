@@ -66,13 +66,27 @@ vi.mock("../ChartLegend", () => ({
 
 describe("CasesTrendChart", () => {
   const mockData = [
-    { name: "Jan", TypeA: 10, TypeB: 20, TypeC: 30, TypeD: 40 },
-    { name: "Feb", TypeA: 15, TypeB: 25, TypeC: 35, TypeD: 45 },
+    {
+      period: "Jan",
+      critical: 10,
+      high: 20,
+      medium: 30,
+      low: 40,
+      catastrophic: 5,
+    },
+    {
+      period: "Feb",
+      critical: 15,
+      high: 25,
+      medium: 35,
+      low: 45,
+      catastrophic: 0,
+    },
   ];
 
   it("should render title correctly", () => {
     render(<CasesTrendChart data={mockData} isLoading={false} />);
-    expect(screen.getByText("Cases trend")).toBeInTheDocument();
+    expect(screen.getByText(/Cases Trend/i)).toBeInTheDocument();
   });
 
   it("should render skeleton when loading", () => {

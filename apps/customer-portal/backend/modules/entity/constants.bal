@@ -17,3 +17,12 @@
 # Default pagination values.
 const DEFAULT_OFFSET = 0;
 const DEFAULT_LIMIT = 20;
+
+# Valid call request update state values.
+public const PENDING_ON_WSO2 = 2;
+public const CANCELED = 6;
+
+# Valid case state values
+const WAITING_ON_WSO2 = 1003;
+const CLOSED = 3;
+const REOPENED = 1006;

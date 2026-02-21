@@ -400,6 +400,68 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         return deploymentResponse.deployment;
     }
 
+    # Update an existing deployment for a project.
+    #
+    # + projectId - ID of the project
+    # + deploymentId - ID of the deployment to be updated
+    # + payload - Deployment update payload
+    # + return - Updated deployment or error response
+    resource function patch projects/[string projectId]/deployments/[string deploymentId](http:RequestContext ctx,
+            entity:DeploymentUpdatePayload payload)
+            returns entity:UpdatedDeployment|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        string? validateDeploymentUpdatePayload = entity:validateDeploymentUpdatePayload(payload);
+        if validateDeploymentUpdatePayload is string {
+            log:printWarn(validateDeploymentUpdatePayload);
+            return <http:BadRequest>{
+                body: {
+                    message: validateDeploymentUpdatePayload
+                }
+            };
+        }
+
+        entity:DeploymentUpdateResponse|error response = entity:updateDeployment(userInfo.idToken,
+                deploymentId, payload);
+        if response is error {
+            if getStatusCode(response) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `User: ${userInfo.userId} is forbidden to update deployment: ${
+                        deploymentId} for project: ${projectId}`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "You're not authorized to update the deployment for the selected project."
+                    }
+                };
+            }
+
+            if getStatusCode(response) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
+            string customError = "Failed to update the deployment.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return response.deployment;
+    }
+
     # Get overall project statistics by ID.
     #
     # + id - ID of the project
@@ -719,6 +781,82 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         };
     }
 
+    # Update an existing case.
+    #
+    # + id - ID of the case to be updated
+    # + payload - Case update payload
+    # + return - Updated case details or error response
+    resource function patch cases/[string id](http:RequestContext ctx, entity:CaseUpdatePayload payload)
+        returns entity:UpdatedCase|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        string? validateCaseUpdatePayload = entity:validateCaseUpdatePayload(payload);
+        if validateCaseUpdatePayload is string {
+            log:printWarn(validateCaseUpdatePayload);
+            return <http:BadRequest>{
+                body: {
+                    message: validateCaseUpdatePayload
+                }
+            };
+        }
+
+        entity:CaseUpdateResponse|error response = entity:updateCase(userInfo.idToken, id, payload);
+        if response is error {
+            if getStatusCode(response) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `User: ${userInfo.userId} is forbidden to update case: ${
+                        id}`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "You're not authorized to update the selected case. " +
+                        "Please check your access permissions or contact support."
+                    }
+                };
+            }
+
+            if getStatusCode(response) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
+            if getStatusCode(response) == http:STATUS_BAD_REQUEST {
+                return <http:BadRequest>{
+                    body: {
+                        message: "Invalid request parameters for updating the case."
+                    }
+                };
+            }
+
+            if getStatusCode(response) == http:STATUS_NOT_FOUND {
+                return <http:BadRequest>{
+                    body: {
+                        message: "The case you're trying to update does not exist. Please check and try again."
+                    }
+                };
+            }
+
+            string customError = "Failed to update the case.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return response.case;
+    }
+
     # Search cases for a specific project with filters and pagination.
     #
     # + id - ID of the project
@@ -867,36 +1005,6 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
 
-        // Verify case validation for the user
-        entity:CaseResponse|error caseDetails = entity:getCase(userInfo.idToken, id);
-        if caseDetails is error {
-            if getStatusCode(caseDetails) == http:STATUS_UNAUTHORIZED {
-                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
-                return <http:Unauthorized>{
-                    body: {
-                        message: ERR_MSG_UNAUTHORIZED_ACCESS
-                    }
-                };
-            }
-
-            if getStatusCode(caseDetails) == http:STATUS_FORBIDDEN {
-                logForbiddenCaseAccess(id, userInfo.userId);
-                return <http:Forbidden>{
-                    body: {
-                        message: ERR_MSG_CASE_ACCESS_FORBIDDEN
-                    }
-                };
-            }
-
-            string customError = "Failed to retrieve case details.";
-            log:printError(customError, caseDetails);
-            return <http:InternalServerError>{
-                body: {
-                    message: customError
-                }
-            };
-        }
-
         entity:CommentsResponse|error commentsResponse = entity:getComments(userInfo.idToken, id, 'limit, offset);
         if commentsResponse is error {
             string customError = "Failed to retrieve comments.";
@@ -932,27 +1040,6 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             return <http:BadRequest>{
                 body: {
                     message: ERR_LIMIT_OFFSET_INVALID
-                }
-            };
-        }
-
-        // Verify case validation for the user
-        entity:CaseResponse|error caseDetails = entity:getCase(userInfo.idToken, id);
-        if caseDetails is error {
-            if getStatusCode(caseDetails) == http:STATUS_FORBIDDEN {
-                logForbiddenCaseAccess(id, userInfo.userId);
-                return <http:Forbidden>{
-                    body: {
-                        message: ERR_MSG_CASE_ACCESS_FORBIDDEN
-                    }
-                };
-            }
-
-            string customError = "Failed to retrieve case details.";
-            log:printError(customError, caseDetails);
-            return <http:InternalServerError>{
-                body: {
-                    message: customError
                 }
             };
         }
@@ -1128,6 +1215,137 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         return mapDeployedProducts(productsResponse);
     }
 
+    # Add a product to a deployment by deployment ID.
+    #
+    # + id - ID of the deployment
+    # + payload - Deployed product creation payload
+    # + return - Created deployed product or error response
+    resource function post deployments/[string id]/products(http:RequestContext ctx,
+            types:DeployedProductCreatePayload payload) returns
+        entity:CreatedDeployedProduct|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        entity:DeployedProductCreateResponse|error response = entity:createDeployedProduct(userInfo.idToken,
+                {
+                    deploymentId: id,
+                    productId: payload.productId,
+                    projectId: payload.projectId,
+                    versionId: payload.versionId,
+                    cores: payload?.cores,
+                    tps: payload?.tps
+                });
+        if response is error {
+            if getStatusCode(response) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `User: ${userInfo.userId} is forbidden to add product to deployment with ID: ${
+                        id}!`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "You're not authorized to add products to the deployment. " +
+                        "Please check your access permissions or contact support."
+                    }
+                };
+            }
+
+            if getStatusCode(response) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
+            if getStatusCode(response) == http:STATUS_BAD_REQUEST {
+                string customError = "Invalid request parameters for adding product to the deployment.";
+                log:printWarn(customError, response);
+                return <http:BadRequest>{
+                    body: {
+                        message: customError
+                    }
+                };
+            }
+            string customError = "Failed to add product to the deployment.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return response.deployedProduct;
+    }
+
+    # Update a product in a deployment by deployment ID and product ID.
+    #
+    # + deploymentId - ID of the deployment
+    # + productId - ID of the product to be updated
+    # + payload - Deployed product update payload
+    # + return - Updated deployed product or error response
+    resource function patch deployments/[string deploymentId]/products/[string productId](http:RequestContext ctx,
+            entity:DeployedProductUpdatePayload payload) returns
+        entity:UpdatedDeployedProduct|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        entity:DeployedProductUpdateResponse|error response =
+            entity:updateDeployedProduct(userInfo.idToken, productId, payload);
+        if response is error {
+            if getStatusCode(response) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `User: ${userInfo.userId} is forbidden to update product with ID: ${
+                        productId} in deployment with ID: ${deploymentId}!`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "You're not authorized to update products in the deployment. " +
+                        "Please check your access permissions or contact support."
+                    }
+                };
+            }
+
+            if getStatusCode(response) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
+            if getStatusCode(response) == http:STATUS_BAD_REQUEST {
+                string customError = "Invalid request parameters for updating product in the deployment.";
+                log:printWarn(customError, response);
+                return <http:BadRequest>{
+                    body: {
+                        message: customError
+                    }
+                };
+            }
+
+            string customError = "Failed to update product in the deployment.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return response.deployedProduct;
+    }
+
     # Get recommended update levels.
     #
     # + return - List of recommended update levels or an error
@@ -1216,6 +1434,34 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         }
 
         return productUpdateLevels;
+    }
+
+    # Get products.
+    #
+    # + return - List of products or an error
+    resource function get products(http:RequestContext ctx, int? offset, int? 'limit)
+        returns entity:ProductsResponse|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        entity:ProductsResponse|error response = entity:getProducts(userInfo.idToken, {}); // TODO: Handle pagination
+        if response is error {
+            string customError = "Failed to retrieve products.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return response;
     }
 
     # Search product vulnerabilities based on provided filters.
@@ -1718,6 +1964,284 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             body: {
                 message: "Project contact is valid and can be added to the project!"
             }
+        };
+    }
+
+    # Search call requests for a specific case with filters and pagination.
+    #
+    # + id - ID of the case
+    # + payload - Call request search payload containing filters and pagination info
+    # + return - List of call requests matching the criteria or an error
+    resource function post cases/[string id]/call\-requests/search(http:RequestContext ctx,
+            types:CallRequestSearchPayload payload)
+        returns http:Ok|http:BadRequest|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        entity:CallRequestsResponse|error response = entity:searchCallRequests(userInfo.idToken,
+                {
+                    caseId: id,
+                    filters: payload.filters,
+                    pagination: payload.pagination
+                });
+        if response is error {
+            if getStatusCode(response) == http:STATUS_BAD_REQUEST {
+                return <http:BadRequest>{
+                    body: {
+                        message: "Invalid request parameters for searching call requests."
+                    }
+                };
+            }
+
+            if getStatusCode(response) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `Access to call request information is forbidden for user: ${
+                        userInfo.userId}`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "Access to call request information is forbidden for the user!"
+                    }
+                };
+            }
+
+            string customError = "Failed to search call requests.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return <http:Ok>{
+            body: mapSearchCallRequestResponse(response)
+        };
+    }
+
+    # Create a call request for a specific case.
+    #
+    # + id - ID of the case
+    # + payload - Call request creation payload
+    # + return - Created call request details or an error
+    resource function post cases/[string id]/call\-requests(http:RequestContext ctx,
+            types:CallRequestCreatePayload payload)
+        returns entity:CreatedCallRequest|http:BadRequest|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        string|error? validateUtcTimesError = entity:validateUtcTimes(payload.utcTimes);
+        if validateUtcTimesError is string {
+            log:printWarn(validateUtcTimesError);
+            return <http:BadRequest>{
+                body: {
+                    message: validateUtcTimesError
+                }
+            };
+        }
+
+        if validateUtcTimesError is error {
+            string customError = "Failed to validate UTC times for call request creation.";
+            log:printError(customError, validateUtcTimesError);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+
+        entity:CallRequestCreateResponse|error response = entity:createCallRequest(userInfo.idToken,
+                {
+                    caseId: id,
+                    reason: payload.reason,
+                    utcTimes: payload.utcTimes,
+                    durationInMinutes: payload.durationInMinutes
+                });
+        if response is error {
+            if getStatusCode(response) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `Access to create call request is forbidden for the user: ${userInfo.userId}`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "Access to create call request is forbidden for the user!"
+                    }
+                };
+            }
+
+            if getStatusCode(response) == http:STATUS_BAD_REQUEST {
+                return <http:BadRequest>{
+                    body: {
+                        message: "Invalid request parameters for creating a call request."
+                    }
+                };
+            }
+
+            string customError = "Failed to create call request.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return response.callRequest;
+    }
+
+    # Update a call request for a specific case.
+    #
+    # + caseId - ID of the case
+    # + callRequestId - ID of the call request
+    # + payload - Call request update payload
+    # + return - Updated call request details or an error
+    resource function patch cases/[string caseId]/call\-requests/[string callRequestId](http:RequestContext ctx,
+            types:CallRequestUpdatePayload payload)
+        returns entity:UpdatedCallRequest|http:BadRequest|http:Forbidden|http:NotFound|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        string? validationError = entity:validateCallRequestUpdatePayload(payload);
+        if validationError is string {
+            log:printWarn(validationError);
+            return <http:BadRequest>{
+                body: {
+                    message: validationError
+                }
+            };
+        }
+
+        string|error? validateUtcTimesError = entity:validateUtcTimes(payload.utcTimes);
+        if validateUtcTimesError is string {
+            log:printWarn(validateUtcTimesError);
+            return <http:BadRequest>{
+                body: {
+                    message: validateUtcTimesError
+                }
+            };
+        }
+
+        if validateUtcTimesError is error {
+            string customError = "Failed to validate UTC times for call request update.";
+            log:printError(customError, validateUtcTimesError);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+
+        string? validateCallRequestUpdatePayload = entity:validateCallRequestUpdatePayload(payload);
+        if validateCallRequestUpdatePayload is string {
+            log:printWarn(validateCallRequestUpdatePayload);
+            return <http:BadRequest>{
+                body: {
+                    message: validateCallRequestUpdatePayload
+                }
+            };
+        }
+
+        entity:CallRequestUpdateResponse|error response = entity:updateCallRequest(userInfo.idToken, callRequestId,
+                payload);
+        if response is error {
+            if getStatusCode(response) == http:STATUS_BAD_REQUEST {
+                return <http:BadRequest>{
+                    body: {
+                        message: "Invalid request parameters for updating call request."
+                    }
+                };
+            }
+
+            if getStatusCode(response) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `Access to update call request is forbidden for user: ${userInfo.userId}`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "Access to update call request is forbidden for the user!"
+                    }
+                };
+            }
+
+            if getStatusCode(response) == http:STATUS_NOT_FOUND {
+                return <http:NotFound>{
+                    body: {
+                        message: "The call request to be updated is not found!"
+                    }
+                };
+            }
+
+            string customError = "Failed to update call request.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return response.callRequest;
+    }
+
+    # Search product versions based on provided filters.
+    #
+    # + id - ID of the product
+    # + payload - Product version search payload containing filters and pagination info
+    # + return - List of product versions matching the criteria or an error
+    resource function post products/[string id]/versions/search(http:RequestContext ctx,
+            entity:ProductVersionSearchPayload payload)
+        returns http:Ok|http:BadRequest|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        entity:ProductVersionsResponse|error response = entity:searchProductVersions(userInfo.idToken, id, payload);
+        if response is error {
+            if getStatusCode(response) == http:STATUS_BAD_REQUEST {
+                return <http:BadRequest>{
+                    body: {
+                        message: "Invalid request parameters for searching product versions."
+                    }
+                };
+            }
+
+            if getStatusCode(response) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `Access to product version information is forbidden for user: ${userInfo.userId}`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "Access to product version information is forbidden for the user!"
+                    }
+                };
+            }
+
+            string customError = "Failed to search product versions.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return <http:Ok>{
+            body: mapProductVersionsResponse(response)
         };
     }
 }

@@ -21,17 +21,14 @@ import CallRequestCard from "@case-details-calls/CallRequestCard";
 
 const mockCall: CallRequest = {
   id: "call-1",
-  type: "CALL_REQUEST",
-  status: "SCHEDULED",
-  requestedOn: "2024-10-29T10:00:00Z",
-  preferredTime: {
-    start: "14:00",
-    end: "16:00",
-    timezone: "EST",
-  },
-  scheduledFor: "2024-11-05T14:00:00Z",
-  durationInMinutes: 60,
-  notes: "Test notes for the call",
+  case: { id: "case-1", label: "CS0438719" },
+  reason: "Test notes for the call",
+  preferredTimes: ["2024-10-29 14:00:00"],
+  durationMin: 60,
+  scheduleTime: "2024-11-05 14:00:00",
+  createdOn: "2024-10-29 10:00:00",
+  updatedOn: "2024-10-29 10:00:00",
+  state: { id: "1", label: "Pending on WSO2" },
 };
 
 describe("CallRequestCard", () => {
@@ -39,29 +36,32 @@ describe("CallRequestCard", () => {
     render(<CallRequestCard call={mockCall} />);
 
     expect(screen.getByText(/Call Request/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/SCHEDULED/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Pending on WSO2/i)).toBeInTheDocument();
     expect(screen.getByText(/Test notes for the call/i)).toBeInTheDocument();
-    expect(screen.getByText(/14:00 - 16:00 EST/i)).toBeInTheDocument();
     expect(screen.getByText(/60 minutes/i)).toBeInTheDocument();
   });
 
-  it("should format requestedOn date correctly", () => {
+  it("should format createdOn date correctly", () => {
     render(<CallRequestCard call={mockCall} />);
     expect(screen.getByText(/Requested on Oct 29/i)).toBeInTheDocument();
   });
 
   it("should display '--' for missing or nullish values", () => {
-    const incompleteCall = {
+    const incompleteCall: CallRequest = {
       id: "call-incomplete",
-      type: "CALL_REQUEST",
-    } as any;
+      case: { id: "c1", label: "CS1" },
+      reason: "",
+      preferredTimes: [],
+      durationMin: undefined,
+      scheduleTime: "",
+      createdOn: "",
+      updatedOn: "",
+      state: { id: "1", label: "" },
+    };
 
     render(<CallRequestCard call={incompleteCall} />);
 
-    const exactFallbacks = screen.getAllByText("--");
-    expect(exactFallbacks).toHaveLength(3);
     expect(screen.getByText(/Requested on --/i)).toBeInTheDocument();
-    expect(screen.getByText(/-- - -- --/i)).toBeInTheDocument();
-    expect(screen.getByText(/-- minutes/i)).toBeInTheDocument();
+    expect(screen.getAllByText("--").length).toBeGreaterThan(0);
   });
 });

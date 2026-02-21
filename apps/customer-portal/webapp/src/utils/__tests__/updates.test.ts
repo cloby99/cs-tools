@@ -19,6 +19,7 @@ import {
   aggregateUpdateStats,
   getStatValue,
   getStatTooltipText,
+  getPendingUpdateLevels,
   NULL_PLACEHOLDER,
 } from "@utils/updates";
 import { UPDATES_STATS } from "@constants/updatesConstants";
@@ -136,6 +137,63 @@ describe("updates utilities", () => {
       expect(getStatTooltipText(productStat, mockStats)).toBe(
         productStat.tooltipText,
       );
+    });
+  });
+
+  describe("getPendingUpdateLevels", () => {
+    const recommended: RecommendedUpdateLevelItem = createUpdateLevelItem({
+      productName: "wso2am",
+      productBaseVersion: "4.2.0",
+      endingUpdateLevel: 11,
+      recommendedUpdateLevel: 22,
+      availableSecurityUpdatesCount: 9,
+    });
+
+    const productLevels = [
+      {
+        productName: "wso2am",
+        productUpdateLevels: [
+          {
+            productBaseVersion: "4.2.0",
+            channel: "full",
+            updateLevels: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
+          },
+        ],
+      },
+    ];
+
+    it("returns empty array when productLevels is undefined", () => {
+      expect(getPendingUpdateLevels(recommended, undefined)).toEqual([]);
+    });
+
+    it("returns empty array when productName does not match", () => {
+      const levels = [{ ...productLevels[0], productName: "other" }];
+      expect(getPendingUpdateLevels(recommended, levels)).toEqual([]);
+    });
+
+    it("returns empty array when productBaseVersion does not match", () => {
+      const levels = [
+        {
+          ...productLevels[0],
+          productUpdateLevels: [{ ...productLevels[0].productUpdateLevels[0], productBaseVersion: "5.0.0" }],
+        },
+      ];
+      expect(getPendingUpdateLevels(recommended, levels)).toEqual([]);
+    });
+
+    it("returns pending levels between endingUpdateLevel+1 and recommendedUpdateLevel", () => {
+      const rows = getPendingUpdateLevels(recommended, productLevels);
+      expect(rows.map((r) => r.updateLevel)).toEqual([
+        12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+      ]);
+    });
+
+    it("assigns first availableSecurityUpdatesCount as security, rest as regular", () => {
+      const rows = getPendingUpdateLevels(recommended, productLevels);
+      const security = rows.filter((r) => r.updateType === "security");
+      const regular = rows.filter((r) => r.updateType === "regular");
+      expect(security.length).toBe(9);
+      expect(regular.length).toBe(2);
     });
   });
 });
