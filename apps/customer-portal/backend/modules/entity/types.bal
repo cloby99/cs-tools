@@ -228,6 +228,10 @@ public type Case record {|
     ReferenceTableItem? deployment;
     # Deployed product information
     ReferenceTableItem? deployedProduct;
+    # Related case information (if the case is related to an existing case)
+    ReferenceTableItem? parentCase;
+    # Related chat information (if the case is related to a chat)
+    ReferenceTableItem? chat;
     # issue type of the case
     ChoiceListItem? issueType;
     # Status information
