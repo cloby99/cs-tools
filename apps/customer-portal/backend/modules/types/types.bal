@@ -605,7 +605,7 @@ public type OnBoardContactPayload record {|
     # Whether the contact is System User or not
     boolean isCsIntegrationUser;
     # Whether the contact is Security Contact or not
-    boolean isSecurityContact;
+    boolean isSecurityContact = false;
 |};
 
 # Payload for updating membership security flag.
