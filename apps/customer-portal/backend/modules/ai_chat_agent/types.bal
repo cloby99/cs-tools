@@ -176,7 +176,7 @@ public type ChatResponse record {|
     # Current slot-filling progress, if any
     SlotState? slotState = ();
     # UI action buttons, if any
-    UIAction[]? actions = ();
+    Action[]? actions = ();
     # Recommendations (only included on the first chat invocation)
     RecommendationResponse? recommendations = ();
     # True when user indicates their issue is resolved
