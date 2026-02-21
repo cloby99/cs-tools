@@ -1540,7 +1540,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
                 }
             };
         }
-        
+
         user_management:Membership|error response = user_management:removeProjectContact(projectResponse.sfId, email, userInfo.email);
         if response is error {
             if getStatusCode(response) == http:STATUS_FORBIDDEN {
@@ -1648,7 +1648,8 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     # + id - ID of the project
     # + payload - Contact information to be validated
     # + return - Contact information if valid or error response
-    resource function post projects/[string id]/contacts/validate(http:RequestContext ctx, types:ValidationPayload payload)
+    resource function post projects/[string id]/contacts/validate(http:RequestContext ctx,
+            types:ValidationPayload payload)
         returns http:Ok|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
