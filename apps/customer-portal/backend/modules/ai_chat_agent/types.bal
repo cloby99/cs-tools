@@ -145,6 +145,7 @@ public type Action record {|
     string style = "primary";
     # Data sent when button is clicked
     map<json> payload = {};
+    json...;
 |};
 
 # Recommendation item.
