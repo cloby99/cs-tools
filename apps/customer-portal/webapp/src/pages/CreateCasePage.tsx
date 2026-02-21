@@ -25,7 +25,7 @@ import {
   type FormEvent,
   type JSX,
 } from "react";
-import { useNavigate, useParams, useLocation } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import useGetCasesFilters from "@api/useGetCasesFilters";
 import useGetProjectDetails from "@api/useGetProjectDetails";
 import { useGetProjectDeployments } from "@api/useGetProjectDeployments";
@@ -40,6 +40,7 @@ import { BasicInformationSection } from "@components/support/case-creation-layou
 import { CaseCreationHeader } from "@components/support/case-creation-layout/header/CaseCreationHeader";
 import { CaseDetailsSection } from "@components/support/case-creation-layout/form-sections/case-details-section/CaseDetailsSection";
 import { ConversationSummary } from "@components/support/case-creation-layout/form-sections/conversation-summary-section/ConversationSummary";
+import { RelatedCaseSummary } from "@components/support/case-creation-layout/form-sections/conversation-summary-section/RelatedCaseSummary";
 import {
   buildClassificationProductLabel,
   getBaseDeploymentOptions,
@@ -66,10 +67,22 @@ interface ChatMessageForClassification {
  *
  * @returns {JSX.Element} The rendered CreateCasePage.
  */
+export interface RelatedCaseState {
+  number: string;
+  title: string;
+  description: string;
+}
+
 export default function CreateCasePage(): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
   const { projectId } = useParams<{ projectId: string }>();
+  const locationStateRaw = location.state as {
+    relatedCase?: RelatedCaseState;
+    skipChat?: boolean;
+  } | null;
+  const relatedCase = locationStateRaw?.relatedCase;
+  const skipChat = !!locationStateRaw?.skipChat;
   const { showLoader, hideLoader } = useLoader();
   const { data: projectDetails, isLoading: isProjectLoading } =
     useGetProjectDetails(projectId || "");
@@ -127,6 +140,9 @@ export default function CreateCasePage(): JSX.Element {
   const hasInitializedRef = useRef(false);
   const hasClassificationAppliedRef = useRef(false);
 
+  const skipChatMode = skipChat;
+  const noAiMode = !!relatedCase || skipChatMode;
+
   const locationState = location.state as {
     messages?: ChatMessageForClassification[];
     classificationResponse?: {
@@ -158,6 +174,7 @@ export default function CreateCasePage(): JSX.Element {
       }
     | undefined
   >(() => {
+    if (skipChat) return undefined;
     if (locationState?.classificationResponse) {
       return locationState.classificationResponse;
     }
@@ -216,11 +233,20 @@ export default function CreateCasePage(): JSX.Element {
     if (isFiltersLoading || isDeploymentsLoading) return;
 
     const initialDeployment = baseDeploymentOptions[0] ?? "";
-    const initialIssueType = issueTypesList[0]?.label ?? "";
-    const initialSeverity = severityLevelsList[0]?.id ?? "";
+    const initialIssueType = noAiMode
+      ? ""
+      : (issueTypesList[0]?.label ?? "");
+    const initialSeverity = noAiMode ? "" : (severityLevelsList[0]?.id ?? "");
 
     queueMicrotask(() => {
-      if (!classificationResponse) {
+      if (noAiMode) {
+        setDeployment("");
+        setProduct("");
+        setIssueType("");
+        setSeverity("");
+        setTitle("");
+        setDescription("");
+      } else if (!classificationResponse) {
         setDeployment(initialDeployment);
         setProduct("");
         setIssueType(initialIssueType);
@@ -232,13 +258,16 @@ export default function CreateCasePage(): JSX.Element {
     hasInitializedRef.current = true;
   }, [
     baseDeploymentOptions,
+    classificationResponse,
     isDeploymentsLoading,
     issueTypesList,
     isFiltersLoading,
+    noAiMode,
     severityLevelsList,
   ]);
 
   useEffect(() => {
+    if (noAiMode) return;
     if (!classificationResponse?.caseInfo) return;
     const info = classificationResponse.caseInfo;
     if (info.shortDescription?.trim()) setTitle(info.shortDescription);
@@ -250,9 +279,10 @@ export default function CreateCasePage(): JSX.Element {
       const html = isLikelyHtml ? text : `<p>${escapeHtml(text)}</p>`;
       setDescription(html);
     }
-  }, [classificationResponse]);
+  }, [classificationResponse, noAiMode]);
 
   useEffect(() => {
+    if (noAiMode) return;
     if (hasClassificationAppliedRef.current || !classificationResponse) return;
     if (isFiltersLoading || isDeploymentsLoading) return;
 
@@ -302,6 +332,7 @@ export default function CreateCasePage(): JSX.Element {
   }, [
     classificationResponse,
     isFiltersLoading,
+    noAiMode,
     isDeploymentsLoading,
     baseDeploymentOptions,
     issueTypesList,
@@ -317,7 +348,11 @@ export default function CreateCasePage(): JSX.Element {
 
   const handleBack = () => {
     if (projectId) {
-      navigate(`/${projectId}/support/chat`);
+      navigate(
+        skipChatMode
+          ? `/${projectId}/dashboard`
+          : `/${projectId}/support/chat`,
+      );
     } else {
       navigate(-1);
     }
@@ -484,8 +519,8 @@ export default function CreateCasePage(): JSX.Element {
 
   const renderContent = () => (
     <Grid container spacing={3}>
-      {/* left column - form content */}
-      <Grid size={{ xs: 12, md: 8 }}>
+      {/* left column - form content (full width when skipChat) */}
+      <Grid size={{ xs: 12, md: skipChatMode ? 12 : 8 }}>
         {/* case creation form */}
         <Box
           component="form"
@@ -504,6 +539,7 @@ export default function CreateCasePage(): JSX.Element {
             isProductLoading={
               !!selectedDeploymentId && deploymentProductsLoading
             }
+            isRelatedCaseMode={noAiMode}
             extraProductOptions={extraProductOptions}
           />
 
@@ -525,6 +561,7 @@ export default function CreateCasePage(): JSX.Element {
             storageKey={
               projectId ? `create-case-draft-${projectId}` : undefined
             }
+            isRelatedCaseMode={noAiMode}
           />
 
           {/* form actions container */}
@@ -550,23 +587,44 @@ export default function CreateCasePage(): JSX.Element {
                 ? isUploadingAttachments
                   ? "Uploading Attachments..."
                   : "Creating..."
-                : "Create Support Case"}
+                : relatedCase
+                  ? "Create Related Case"
+                  : "Create Support Case"}
             </Button>
           </Box>
         </Box>
       </Grid>
 
-      {/* right column - sidebar */}
-      <Grid size={{ xs: 12, md: 4 }}>
-        <ConversationSummary metadata={undefined} isLoading={false} />
-      </Grid>
+      {/* right column - sidebar (hidden when skipChat) */}
+      {!skipChatMode && (
+        <Grid size={{ xs: 12, md: 4 }}>
+          {relatedCase ? (
+            <RelatedCaseSummary
+              number={relatedCase.number}
+              title={relatedCase.title}
+              description={relatedCase.description}
+            />
+          ) : (
+            <ConversationSummary metadata={undefined} isLoading={false} />
+          )}
+        </Grid>
+      )}
     </Grid>
   );
 
   return (
     <Box sx={{ width: "100%", pt: 0, position: "relative" }}>
       {/* header section */}
-      <CaseCreationHeader onBack={handleBack} />
+      <CaseCreationHeader
+        onBack={handleBack}
+        hideAiChip={noAiMode}
+        backLabel={skipChatMode ? "Back to Dashboard" : "Back to Chat"}
+        subtitle={
+          skipChatMode
+            ? "Fill in the case details below and submit"
+            : "Please review and edit the auto-populated information before submitting"
+        }
+      />
 
       {/* main content grid container */}
       {renderContent()}

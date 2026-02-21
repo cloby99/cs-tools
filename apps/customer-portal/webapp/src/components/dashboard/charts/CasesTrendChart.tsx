@@ -57,7 +57,7 @@ export const CasesTrendChart = ({
     <Card sx={{ p: 2, height: "100%" }}>
       {/* Title */}
       <Typography variant="h6" component="h3" sx={{ mb: 2 }}>
-        Cases trend
+        Cases Trend
       </Typography>
       {isLoading ? (
         <Box sx={{ height: 240 }}>
@@ -125,7 +125,7 @@ export const CasesTrendChart = ({
             mt: 2,
           }}
         >
-          {[1, 2, 3, 4].map((i) => (
+          {CASES_TREND_CHART_DATA.map((_, i) => (
             <Skeleton key={i} variant="rounded" width={60} height={20} />
           ))}
         </Box>

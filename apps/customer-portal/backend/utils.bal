@@ -395,3 +395,24 @@ public isolated function mapSearchCallRequestResponse(entity:CallRequestsRespons
 
     return {callRequests};
 }
+
+# Map product versions response to the desired structure.
+#
+# + response - Product versions response from the entity service
+# + return - Mapped product versions response
+public isolated function mapProductVersionsResponse(entity:ProductVersionsResponse response)
+    returns types:ProductVersionsResponse {
+
+    types:ProductVersion[] versions = from entity:ProductVersion version in response.versions
+        let entity:ReferenceTableItem? product = version.product
+        select {
+            id: version.id,
+            version: version.version,
+            currentSupportStatus: version.currentSupportStatus,
+            releaseDate: version.releaseDate,
+            supportEolDate: version.supportEolDate,
+            earliestPossibleSupportEolDate: version.earliestPossibleSupportEolDate,
+            product: product != () ? {id: product.id, label: product.name} : ()
+        };
+    return {versions};
+}

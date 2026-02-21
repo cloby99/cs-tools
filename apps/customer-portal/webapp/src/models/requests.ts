@@ -32,6 +32,8 @@ export interface CaseSearchRequest {
     deploymentId?: string;
     severityId?: number;
     statusId?: number;
+    /** Multiple status IDs for filtering (e.g. outstanding engagements: 1,10,18,1003,1006). */
+    statusIds?: number[];
     searchQuery?: string;
     caseTypeIds?: string[];
   };
@@ -77,7 +79,6 @@ export interface ProductVulnerabilitiesSearchRequest {
 
 // Request body for posting a case attachment.
 export interface PostCaseAttachmentRequest {
-  referenceType: "case";
   name: string;
   type: string;
   content: string;
@@ -92,10 +93,14 @@ export interface CreateDeploymentRequest {
 
 // Request body for creating a call request.
 export interface CreateCallRequest {
-  preferredTime: {
-    startTime: string;
-    endTime: string;
-  };
-  timezone: string;
-  notes: string;
+  durationInMinutes: number;
+  reason: string;
+  utcTimes: string[];
+}
+
+// Request body for updating a call request (PATCH /cases/:caseId/call-requests/:id).
+export interface PatchCallRequest {
+  reason: string;
+  stateKey: number;
+  utcTimes: string[];
 }

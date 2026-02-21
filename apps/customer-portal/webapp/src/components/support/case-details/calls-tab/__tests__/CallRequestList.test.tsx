@@ -14,31 +14,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { CallRequest } from "@models/responses";
 import CallRequestList from "@case-details-calls/CallRequestList";
 
 const mockRequests: CallRequest[] = [
   {
     id: "call-1",
-    type: "CALL_REQUEST",
-    status: "SCHEDULED",
-    requestedOn: "2024-10-29T10:00:00Z",
-    preferredTime: { start: "14:00", end: "16:00", timezone: "EST" },
-    scheduledFor: "2024-11-05T14:00:00Z",
-    durationInMinutes: 60,
-    notes: "Note 1",
+    case: { id: "case-1", label: "CS0438719" },
+    reason: "Note 1",
+    preferredTimes: ["2024-10-29 14:00:00"],
+    durationMin: 60,
+    scheduleTime: "2024-11-05 14:00:00",
+    createdOn: "2024-10-29 10:00:00",
+    updatedOn: "2024-10-29 10:00:00",
+    state: { id: "1", label: "Pending on WSO2" },
   },
   {
     id: "call-2",
-    type: "CALL_REQUEST",
-    status: "PENDING",
-    requestedOn: "2024-11-01T09:30:00Z",
-    preferredTime: { start: "10:00", end: "11:00", timezone: "EST" },
-    scheduledFor: "2024-11-06T10:00:00Z",
-    durationInMinutes: 30,
-    notes: "Note 2",
+    case: { id: "case-1", label: "CS0438719" },
+    reason: "Note 2",
+    preferredTimes: ["2024-11-01 10:00:00"],
+    durationMin: 30,
+    scheduleTime: "2024-11-06 10:00:00",
+    createdOn: "2024-11-01 09:30:00",
+    updatedOn: "2024-11-01 09:30:00",
+    state: { id: "2", label: "Scheduled" },
   },
 ];
 
@@ -49,7 +51,20 @@ describe("CallRequestList", () => {
     expect(screen.getAllByText(/Call Request/i)).toHaveLength(2);
     expect(screen.getByText(/Note 1/i)).toBeInTheDocument();
     expect(screen.getByText(/Note 2/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/SCHEDULED/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/PENDING/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Pending on WSO2/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Scheduled/i).length).toBeGreaterThan(0);
+  });
+
+  it("should call onEditClick with the request when edit button is clicked", () => {
+    const onEditClick = vi.fn();
+    render(
+      <CallRequestList requests={mockRequests} onEditClick={onEditClick} />,
+    );
+    const editButtons = screen.getAllByRole("button", {
+      name: /Edit call request/i,
+    });
+    fireEvent.click(editButtons[0]);
+    expect(onEditClick).toHaveBeenCalledTimes(1);
+    expect(onEditClick).toHaveBeenCalledWith(mockRequests[0]);
   });
 });

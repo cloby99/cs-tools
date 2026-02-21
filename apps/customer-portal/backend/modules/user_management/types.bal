@@ -110,7 +110,7 @@ public type MembershipSecurityPayload record {|
 
 # The request payload to be validated.
 public type ValidationPayload record {|
-    # ID of the Project
+    # Salesforce ID of the Project
     string projectId;
     # Contact email
     string contactEmail;

@@ -41,8 +41,11 @@ import {
   stripCodeWrapper,
   replaceInlineImageSources,
   formatCommentDate,
+  formatUtcToLocal,
   getInitials,
   hasDisplayableContent,
+  stripCustomerPrefixFromReason,
+  isWithinOpenRelatedCaseWindow,
 } from "@utils/support";
 import type { CaseComment } from "@models/responses";
 import { createTheme } from "@wso2/oxygen-ui";
@@ -90,6 +93,44 @@ describe("support utils", () => {
 
     it("should return secondary.main for others", () => {
       expect(getChatStatusColor("")).toBe("secondary.main");
+    });
+  });
+
+  describe("isWithinOpenRelatedCaseWindow", () => {
+    it("returns true when closedOn is null or undefined", () => {
+      expect(isWithinOpenRelatedCaseWindow(null)).toBe(true);
+      expect(isWithinOpenRelatedCaseWindow(undefined)).toBe(true);
+    });
+
+    it("returns true when closedOn is within 2 months", () => {
+      const recent = new Date();
+      recent.setMonth(recent.getMonth() - 1);
+      const str = recent.toISOString().replace("T", " ").slice(0, 19);
+      expect(isWithinOpenRelatedCaseWindow(str)).toBe(true);
+    });
+
+    it("returns false when closedOn is more than 2 months ago", () => {
+      expect(isWithinOpenRelatedCaseWindow("2020-01-01 10:00:00")).toBe(false);
+    });
+  });
+
+  describe("stripCustomerPrefixFromReason", () => {
+    it("strips [Customer] prefix case-insensitively", () => {
+      expect(stripCustomerPrefixFromReason("[Customer] Some notes")).toBe(
+        "Some notes",
+      );
+      expect(stripCustomerPrefixFromReason("[CUSTOMER] Call request")).toBe(
+        "Call request",
+      );
+    });
+
+    it("returns trimmed string when no prefix", () => {
+      expect(stripCustomerPrefixFromReason("Plain notes")).toBe("Plain notes");
+      expect(stripCustomerPrefixFromReason("  no prefix  ")).toBe("no prefix");
+    });
+
+    it("returns empty string for empty input", () => {
+      expect(stripCustomerPrefixFromReason("")).toBe("");
     });
   });
 
@@ -445,6 +486,38 @@ describe("support utils", () => {
       expect(getInitials(null)).toBe("--");
       expect(getInitials(undefined)).toBe("--");
       expect(getInitials("")).toBe("--");
+    });
+  });
+
+  describe("formatUtcToLocal", () => {
+    it("should return -- for null and undefined", () => {
+      expect(formatUtcToLocal(null)).toBe("--");
+      expect(formatUtcToLocal(undefined)).toBe("--");
+    });
+
+    it("should parse YYYY-MM-DD HH:mm:ss as UTC and format in local", () => {
+      const result = formatUtcToLocal("2024-10-29 10:00:00");
+      expect(result).toContain("Oct");
+      expect(result).toContain("29");
+      expect(result).toContain("2024");
+    });
+
+    it("should parse MM/DD/YYYY HH:mm:ss as UTC and format in local", () => {
+      const result = formatUtcToLocal("10/29/2024 14:00:00");
+      expect(result).toContain("Oct");
+      expect(result).toContain("29");
+      expect(result).toContain("2024");
+    });
+
+    it("should return -- for invalid date", () => {
+      expect(formatUtcToLocal("not-a-date")).toBe("--");
+    });
+
+    it("should format with short variant without four-digit year in output", () => {
+      const result = formatUtcToLocal("2024-10-29 14:00:00", "short");
+      expect(result).toContain("Oct");
+      expect(result).toContain("29");
+      expect(result).not.toMatch(/\b2024\b/);
     });
   });
 

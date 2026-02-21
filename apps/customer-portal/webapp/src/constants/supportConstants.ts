@@ -176,7 +176,7 @@ export const ALL_CASES_STAT_CONFIGS: SupportStatConfig<AllCasesStatKey>[] = [
     icon: CircleAlert,
     iconColor: "error",
     key: "openCases",
-    label: "Open",
+    label: "Total Active",
   },
   {
     icon: Clock,
@@ -200,18 +200,31 @@ export const ALL_CASES_STAT_CONFIGS: SupportStatConfig<AllCasesStatKey>[] = [
 
 /**
  * Flattens the project cases statistics for the stat cards.
+ * Derives openCases, workInProgress, waitingOnClient, waitingOnWso2 from stateCount.
  *
  * @param {ProjectCasesStats | undefined} stats - The original stats.
  * @returns {Record<AllCasesStatKey, number | undefined>} The flattened stats.
  */
 export const getAllCasesFlattenedStats = (
   stats: ProjectCasesStats | undefined,
-): Record<AllCasesStatKey, number | undefined> => ({
-  openCases: stats?.openCases,
-  waitingOnClient: stats?.activeCases?.waitingOnClient,
-  waitingOnWso2: stats?.activeCases?.waitingOnWso2,
-  workInProgress: stats?.activeCases?.workInProgress,
-});
+): Record<AllCasesStatKey, number | undefined> => {
+  const stateCount = stats?.stateCount ?? [];
+  const openCases = stateCount
+    .filter((s) => s.label !== CaseStatus.CLOSED)
+    .reduce((sum, s) => sum + (s.count ?? 0), 0);
+  const workInProgress =
+    stateCount.find((s) => s.label === CaseStatus.WORK_IN_PROGRESS)?.count;
+  const waitingOnClient =
+    stateCount.find((s) => s.label === CaseStatus.AWAITING_INFO)?.count;
+  const waitingOnWso2 =
+    stateCount.find((s) => s.label === CaseStatus.WAITING_ON_WSO2)?.count;
+  return {
+    openCases: openCases > 0 ? openCases : undefined,
+    waitingOnClient,
+    waitingOnWso2,
+    workInProgress,
+  };
+};
 
 // Configuration for the support statistics cards.
 export const SUPPORT_STAT_CONFIGS: SupportStatConfig[] = [
@@ -373,3 +386,12 @@ export const ALL_CASES_FILTER_DEFINITIONS: AllCasesFilterDefinition[] = [
     metadataKey: "deploymentTypes",
   },
 ];
+
+/**
+ * Constants for comment types when posting a comment to a case.
+ */
+export const CommentType = {
+  COMMENT: "comments",
+  WORK_NOTE: "work_note",
+} as const;
+export type CommentType = (typeof CommentType)[keyof typeof CommentType];

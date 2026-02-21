@@ -212,6 +212,8 @@ export interface CaseListItem {
     id: string;
     label: string;
   } | null;
+  /** Case type from API (type or caseTypes). */
+  type?: { id: string; label: string } | null;
   caseTypes?: {
     id: string;
     label: string;
@@ -238,6 +240,11 @@ export interface CaseDetailsAccount {
 }
 
 export interface CaseDetailsProject {
+  id: string;
+  name: string | null;
+}
+
+export interface CaseDetailsClosedBy {
   id: string;
   name: string | null;
 }
@@ -269,6 +276,10 @@ export interface CaseDetails {
   issueType: string | null;
   state: CaseStatus | null;
   severity: CaseStatus | null;
+  closedOn?: string | null;
+  closedBy?: CaseDetailsClosedBy | null;
+  closeNotes?: string | null;
+  hasAutoClosed?: boolean;
 }
 
 // Inline attachment for comment images (API shape).
@@ -319,6 +330,7 @@ export interface ProjectStatsResponse {
     totalTimeLogged: number;
     billableHours: number;
     lastDeploymentOn: string;
+    systemHealth?: string;
   };
 }
 
@@ -331,6 +343,7 @@ export interface MetadataItem {
 // Response for case metadata (fetching possible statuses, severities, types)
 export interface CaseMetadataResponse {
   statuses?: MetadataItem[];
+  caseStates?: MetadataItem[];
   severities?: MetadataItem[];
   issueTypes?: MetadataItem[];
   deploymentTypes?: MetadataItem[];
@@ -429,6 +442,11 @@ export interface DeploymentsResponse {
   deployments: Deployment[];
 }
 
+// Response for GET /projects/:projectId/deployments (real API).
+export interface ProjectDeploymentsListResponse {
+  deployments: ProjectDeploymentItem[];
+}
+
 // Single item from GET /projects/:projectId/deployments (array response).
 export interface ProjectDeploymentItem {
   id: string;
@@ -449,6 +467,12 @@ export interface DeploymentProductItem {
   description: string | null;
   product: { id: string; label: string };
   deployment: { id: string; label: string };
+  version?: string | null;
+  cores?: number | null;
+  tps?: number | null;
+  releasedOn?: string | null;
+  endOfLifeOn?: string | null;
+  updateLevel?: string | null;
 }
 
 // Case attachment item (GET /cases/:id/attachments).
@@ -537,15 +561,22 @@ export interface ProductVulnerability {
   id: string;
   cveId: string;
   vulnerabilityId: string;
-  severity: { id: number; label: string };
+  severity: { id: string | number; label: string };
   componentName: string;
   version: string;
   type: string;
-  useCase: string;
-  justification: string;
-  resolution: string;
+  useCase: string | null;
+  justification: string | null;
+  resolution: string | null;
   componentType?: string;
   updateLevel?: string;
+  /** Optional status/state if returned by API. */
+  status?: { id: string | number; label: string } | null;
+}
+
+// Response for product vulnerabilities metadata (GET /products/vulnerabilities/meta).
+export interface VulnerabilitiesMetaResponse {
+  severities: { id: string; label: string }[];
 }
 
 // Response for product vulnerabilities search.
@@ -563,28 +594,31 @@ export interface CreateDeploymentResponse {
   id: string;
 }
 
-// Call request structure.
+// Call request structure (from POST /cases/:caseId/call-requests/search).
 export interface CallRequest {
   id: string;
-  type: string;
-  status: string;
-  requestedOn: string;
-  preferredTime: {
-    start: string;
-    end: string;
-    timezone: string;
-  };
-  scheduledFor: string;
-  durationInMinutes: number;
-  notes: string;
+  case: { id: string; label: string };
+  reason: string;
+  preferredTimes: string[];
+  durationMin?: number | null;
+  scheduleTime: string;
+  createdOn: string;
+  updatedOn: string;
+  state: { id: string; label: string };
 }
 
-// Response for case call requests list.
+// Response for case call requests list (POST /cases/:caseId/call-requests/search).
 export interface CallRequestsResponse {
   callRequests: CallRequest[];
+  totalRecords?: number;
+  offset?: number;
+  limit?: number;
 }
 
-// Response for creating a call request.
+// Response for creating or updating a call request (POST/PATCH).
 export interface CreateCallResponse {
   id: string;
 }
+
+/** Alias for create/update call request response (shared shape). */
+export type CallRequestResponse = CreateCallResponse;

@@ -27,7 +27,6 @@ describe("PendingUpdatesListSkeleton", () => {
 
   it("renders table structure", () => {
     render(<PendingUpdatesListSkeleton />);
-    const table = document.querySelector("table");
-    expect(table).toBeDefined();
+    expect(screen.getByRole("table")).toBeInTheDocument();
   });
 });

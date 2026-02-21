@@ -103,6 +103,18 @@ public isolated function createCase(string idToken, CaseCreatePayload payload) r
     return csEntityClient->/cases.post(payload, generateHeaders(idToken));
 }
 
+# Update an existing case.
+# 
+# + idToken - ID token for authorization
+# + caseId - Unique ID of the case to be updated
+# + payload - Case update payload
+# + return - Case update response or error
+public isolated function updateCase(string idToken, string caseId, CaseUpdatePayload payload)
+    returns CaseUpdateResponse|error {
+
+    return csEntityClient->/cases/[caseId].patch(payload, generateHeaders(idToken));
+}
+
 # Search cases of a project.
 #
 # + idToken - ID token for authorization
@@ -163,6 +175,29 @@ public isolated function getDeployedProducts(string idToken, string deploymentId
     return csEntityClient->/deployed\-products/search.post({deploymentId}, generateHeaders(idToken));
 }
 
+# Create a deployed product.
+#
+# + idToken - ID token for authorization
+# + payload - Deployed product creation payload
+# + return - Deployed product creation response or error
+public isolated function createDeployedProduct(string idToken, DeployedProductCreatePayload payload)
+    returns DeployedProductCreateResponse|error {
+
+    return csEntityClient->/deployed\-products.post(payload, generateHeaders(idToken));
+}
+
+# Update a deployed product.
+# 
+# + idToken - ID token for authorization
+# + deployedProductId - ID of the deployed product to update
+# + payload - Deployed product update payload
+# + return - Deployed product update response or error
+public isolated function updateDeployedProduct(string idToken, string deployedProductId,
+        DeployedProductUpdatePayload payload) returns DeployedProductUpdateResponse|error {
+
+    return csEntityClient->/deployed\-products/[deployedProductId].patch(payload, generateHeaders(idToken));
+}
+
 # Get deployments of a project.
 #
 # + idToken - ID token for authorization
@@ -181,6 +216,18 @@ public isolated function createDeployment(string idToken, DeploymentCreatePayloa
     returns DeploymentCreateResponse|error {
 
     return csEntityClient->/deployments.post(payload, generateHeaders(idToken));
+}
+
+# Update a deployment.
+#
+# + idToken - ID token for authorization
+# + deploymentId - ID of the deployment to update
+# + payload - Deployment update payload
+# + return - Deployment update response or error
+public isolated function updateDeployment(string idToken, string deploymentId, DeploymentUpdatePayload payload)
+    returns DeploymentUpdateResponse|error {
+
+    return csEntityClient->/deployments/[deploymentId].patch(payload, generateHeaders(idToken));
 }
 
 # Create a comment for a case.
@@ -256,4 +303,25 @@ public isolated function updateCallRequest(string idToken, string callRequestId,
     returns CallRequestUpdateResponse|error {
 
     return csEntityClient->/call\-requests/[callRequestId].patch(payload, generateHeaders(idToken));
+}
+
+# Get products by search criteria.
+#
+# + idToken - ID token for authorization
+# + payload - Product search payload containing search criteria
+# + return - Products response containing matching products or error
+public isolated function getProducts(string idToken, ProductSearchPayload payload) returns ProductsResponse|error {
+    return csEntityClient->/products/search.post(payload, generateHeaders(idToken));
+}
+
+# Search product versions by criteria.
+#
+# + idToken - ID token for authorization
+# + productId - Unique ID of the product for which versions are to be searched
+# + payload - Product version search payload containing search criteria
+# + return - Product versions response containing matching product versions or error
+public isolated function searchProductVersions(string idToken, string productId, ProductVersionSearchPayload payload)
+    returns ProductVersionsResponse|error {
+
+    return csEntityClient->/products/[productId]/versions/search.post(payload, generateHeaders(idToken));
 }

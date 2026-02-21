@@ -15,18 +15,19 @@
 // under the License.
 
 import { ListingTable } from "@wso2/oxygen-ui";
-import { type JSX, useState, useEffect, useMemo } from "react";
+import { type JSX, useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useAsgardeo } from "@asgardeo/react";
-import useGetProjectCases from "@api/useGetProjectCases";
+import { useGetProjectCasesPage } from "@api/useGetProjectCasesPage";
 import useGetCasesFilters from "@api/useGetCasesFilters";
-import { useLoader } from "@context/linear-loader/LoaderContext";
 import FilterPopover, {
   type FilterField,
 } from "@components/common/filter-panel/FilterPopover";
 import CasesTableHeader from "@components/dashboard/cases-table/CasesTableHeader";
 import CasesList from "@components/dashboard/cases-table/CasesList";
 import { normalizeCaseTypeOptions } from "@utils/support";
+
+const OUTSTANDING_STATUS_IDS = [1, 10, 18, 1003, 1006] as const;
 
 interface CasesTableProps {
   projectId: string;
@@ -35,11 +36,10 @@ interface CasesTableProps {
 const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
   const navigate = useNavigate();
   const { isLoading: isAuthLoading } = useAsgardeo();
-  const { showLoader, hideLoader } = useLoader();
   const [filters, setFilters] = useState<Record<string, any>>({});
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const {
     data: filtersMetadata,
@@ -53,10 +53,9 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
       label: "Status",
       type: "select",
       options:
-        filtersMetadata?.statuses?.map((s) => ({
-          label: s.label,
-          value: s.id,
-        })) || [],
+        (filtersMetadata?.caseStates ?? filtersMetadata?.statuses ?? []).map(
+          (s) => ({ label: s.label, value: s.id }),
+        ),
     },
     {
       id: "severityId",
@@ -100,6 +99,7 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
     () => ({
       filters: {
         statusId: filters.statusId ? Number(filters.statusId) : undefined,
+        statusIds: filters.statusId ? undefined : [...OUTSTANDING_STATUS_IDS],
         severityId: filters.severityId ? Number(filters.severityId) : undefined,
         issueId: filters.issueTypes ? Number(filters.issueTypes) : undefined,
         deploymentId: filters.deploymentId || undefined,
@@ -113,40 +113,28 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
     [filters],
   );
 
+  const offset = page * rowsPerPage;
   const {
-    data,
+    data: pageData,
     isFetching: isFetchingCases,
     isError,
-  } = useGetProjectCases(projectId, caseSearchRequest);
-
-  const allCases = data?.pages.flatMap((page) => page.cases) ?? [];
-  const apiTotalRecords = data?.pages?.[0]?.totalRecords ?? 0;
-
-  const filteredCases = useMemo(() => [...allCases], [allCases]);
+  } = useGetProjectCasesPage(
+    projectId,
+    caseSearchRequest,
+    offset,
+    rowsPerPage,
+  );
 
   const paginatedData = useMemo(() => {
-    const startIndex = page * rowsPerPage;
-    const totalRecords =
-      filteredCases.length === 0 ? 0 : apiTotalRecords || filteredCases.length;
-
+    const cases = pageData?.cases ?? [];
+    const totalRecords = pageData?.totalRecords ?? 0;
     return {
-      cases: filteredCases.slice(startIndex, startIndex + rowsPerPage),
+      cases,
       totalRecords,
-      offset: startIndex,
+      offset,
       limit: rowsPerPage,
     };
-  }, [filteredCases, page, rowsPerPage, apiTotalRecords]);
-
-  const tableLoading = isAuthLoading || isFetchingCases || isFetchingFilters;
-
-  useEffect(() => {
-    if (tableLoading) {
-      showLoader();
-    } else {
-      hideLoader();
-    }
-    return () => hideLoader();
-  }, [tableLoading, showLoader, hideLoader]);
+  }, [pageData, offset, rowsPerPage]);
 
   const handleFilterSearch = (newFilters: Record<string, any>) => {
     setFilters(newFilters);
@@ -223,6 +211,7 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
         onUpdateFilter={handleUpdateFilter}
         onClearAll={handleClearFilters}
         onFilterClick={() => setIsFilterOpen(true)}
+        onAllCases={() => navigate(`/${projectId}/support/cases`)}
         onCreateCase={() => navigate(`/${projectId}/support/chat`)}
       />
 

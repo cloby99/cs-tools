@@ -349,13 +349,27 @@ public type DeployedProduct record {|
     # Cores allocated for the product
     int? cores;
     # TPS allocated for the product
-    int? tps;
+    decimal? tps;
     # Release date of the product
     string? releasedOn;
     # End of life date of the product
     string? endOfLifeOn;
     # Update level of the product
     string? updateLevel;
+|};
+
+# Request payload for creating a deployed product.
+public type DeployedProductCreatePayload record {|
+    # Project ID
+    string projectId;
+    # Product ID
+    string productId;
+    # Product version ID
+    string versionId;
+    # Cores allocated for the product
+    int? cores?;
+    # TPS allocated for the product
+    decimal? tps?;
 |};
 
 # Payload for creating a comment.
@@ -594,7 +608,7 @@ public type DeploymentCreatePayload record {|
 |};
 
 # The request payload to be validated.
-public type OnBoardContactPayload record {|
+public type ContactOnboardPayload record {|
     # Email address of the Contact
     @constraint:String {pattern: re `^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$`}
     string contactEmail;
@@ -605,7 +619,7 @@ public type OnBoardContactPayload record {|
     # Whether the contact is System User or not
     boolean isCsIntegrationUser;
     # Whether the contact is Security Contact or not
-    boolean isSecurityContact;
+    boolean isSecurityContact = false;
 |};
 
 # Payload for updating membership security flag.
@@ -689,4 +703,30 @@ public type CallRequestUpdatePayload record {|
     string? reason;
     # New preferred UTC times for the call (mandatory when stateKey is 2)
     Date[] utcTimes?;
+|};
+
+# Product version data.
+public type ProductVersion record {|
+    # ID
+    string id;
+    # Version number
+    string version;
+    # Current support status
+    string? currentSupportStatus;
+    # Release date
+    string? releaseDate;
+    # Support end of life date
+    string? supportEolDate;
+    # Earliest possible support end of life date
+    string? earliestPossibleSupportEolDate;
+    # Product information
+    ReferenceItem? product;
+    json...;
+|};
+
+# Product versions response.
+public type ProductVersionsResponse record {|
+    # List of product versions
+    ProductVersion[] versions;
+    json...; // TODO: Add pagination
 |};
