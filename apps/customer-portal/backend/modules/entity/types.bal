@@ -146,6 +146,10 @@ public type CaseCreatePayload record {|
     int issueTypeKey;
     # Severity key
     int severityKey;
+    # Related case ID (if the case is related to an existing case)
+    IdString parentCaseId?;
+    # Chat ID (if the case is related to a chat)
+    IdString chatId?;
 |};
 
 # Response from creating a case.
