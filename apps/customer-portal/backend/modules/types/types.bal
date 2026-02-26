@@ -1074,6 +1074,26 @@ public type ChangeRequestSearchResponse record {|
     *entity:Pagination;
 |};
 
+# Catalog data.
+public type Catalog record {|
+    # ID
+    entity:IdString id;
+    # Name of the catalog
+    string name;
+    # List of catalog items
+    ReferenceItem[] catalogItems;
+    json...;
+|};
+
+# Catalog search response.
+public type CatalogSearchResponse record {|
+    # List of catalogs
+    Catalog[] catalogs;
+    # Total records count
+    int totalRecords;
+    *entity:Pagination;
+|};
+
 # Request payload for searching change requests.
 public type ChangeRequestSearchPayload record {|
     # Filter criteria
@@ -1085,6 +1105,12 @@ public type ChangeRequestSearchPayload record {|
         # Change request impact key
         int impactKey?;
     |} filters?;
+    # Pagination details
+    entity:Pagination pagination?;
+|};
+
+# Request payload for searching catalogs.
+public type CatalogSearchPayload record {|
     # Pagination details
     entity:Pagination pagination?;
 |};
