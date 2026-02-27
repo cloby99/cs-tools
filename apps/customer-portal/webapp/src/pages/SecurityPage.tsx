@@ -29,16 +29,21 @@ const SecurityPage = (): JSX.Element => {
   const { projectId } = useParams<{ projectId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const activeTab =
-    (searchParams.get("tab") as SecurityTab) || SecurityTab.COMPONENTS;
+  const tabParam = searchParams.get("tab");
+  const isValidTab = Object.values(SecurityTab).includes(
+    tabParam as SecurityTab,
+  );
+  const activeTab = isValidTab
+    ? (tabParam as SecurityTab)
+    : SecurityTab.COMPONENTS;
 
   const handleTabChange = useCallback(
     (tabId: string) => {
-      const nextParams = new URLSearchParams(searchParams);
+      const nextParams = new URLSearchParams(window.location.search);
       nextParams.set("tab", tabId);
       setSearchParams(nextParams, { replace: true });
     },
-    [searchParams, setSearchParams],
+    [setSearchParams],
   );
 
   const handleVulnerabilityClick = useCallback(

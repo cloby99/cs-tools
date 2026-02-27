@@ -252,8 +252,10 @@ export default function CaseDetailsDetailsPanel({
           {isSecurityReportAnalysis && (
             <Box>
               <Typography {...labelSx}>Report Type</Typography>
-              {data?.type?.label ? (
+              {typeof data?.type === "object" && data?.type?.label ? (
                 <Typography {...valueSx}>{data.type.label}</Typography>
+              ) : typeof data?.type === "string" ? (
+                <Typography {...valueSx}>{data.type}</Typography>
               ) : (
                 <Typography {...valueSx}>Not available</Typography>
               )}

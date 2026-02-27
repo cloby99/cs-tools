@@ -293,9 +293,9 @@ export default function NoveraChatPage(): JSX.Element {
     ],
   );
 
-  const handleSendMessage = useCallback(async () => {
+  const handleSendMessage = useCallback(async (): Promise<boolean> => {
     const text = htmlToPlainText(inputValueRef.current).trim();
-    if (!text || isSending || !projectId) return;
+    if (!text || isSending || !projectId) return false;
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
@@ -336,6 +336,7 @@ export default function NoveraChatPage(): JSX.Element {
             : m,
         ),
       );
+      return true;
     } catch {
       setMessages((prev) =>
         prev.map((m) =>
@@ -349,6 +350,7 @@ export default function NoveraChatPage(): JSX.Element {
             : m,
         ),
       );
+      return false;
     } finally {
       setIsSending(false);
     }
@@ -378,21 +380,24 @@ export default function NoveraChatPage(): JSX.Element {
       inputValueRef.current = formattedMessage;
       setInputValue(formattedMessage);
 
-      setMessages((prev) =>
-        prev.map((currentMessage) =>
-          currentMessage.id === messageId && currentMessage.slotState
-            ? {
-                ...currentMessage,
-                slotState: {
-                  ...currentMessage.slotState,
-                  filledSlots: {},
-                },
-              }
-            : currentMessage,
-        ),
-      );
-
-      handleSendMessage();
+      void handleSendMessage().then((didSend) => {
+        if (!didSend) {
+          return;
+        }
+        setMessages((prev) =>
+          prev.map((currentMessage) =>
+            currentMessage.id === messageId && currentMessage.slotState
+              ? {
+                  ...currentMessage,
+                  slotState: {
+                    ...currentMessage.slotState,
+                    filledSlots: {},
+                  },
+                }
+              : currentMessage,
+          ),
+        );
+      });
     },
     [messages, handleSendMessage],
   );

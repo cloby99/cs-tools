@@ -268,7 +268,8 @@ export default function ChatMessageBubble({
                           component="ul"
                           sx={{ m: 0, pl: 2.5, listStyleType: "disc" }}
                         >
-                          {slotOption.type === "select" &&
+                          {isRenderableSlotOption(slotOption) &&
+                          slotOption.type === "select" &&
                           slotOption.options ? (
                             slotOption.options.map((option) => (
                               <Typography
@@ -418,7 +419,8 @@ export default function ChatMessageBubble({
           {!isUser &&
             (message.showCreateCaseAction || message.isError) &&
             onCreateCase &&
-            !message.slotState?.slotOptions?.length &&
+            ((message.slotState?.slotOptions?.filter(isRenderableSlotOption)
+              .length ?? 0) === 0) &&
             (isCreateCaseLoading ? (
               <Box
                 sx={{ mt: 2, display: "flex", alignItems: "center", gap: 1 }}

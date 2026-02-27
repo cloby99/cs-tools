@@ -152,10 +152,10 @@ export function isCreatedCaseSecurityReport(
           id?: string | null;
           label?: string | null;
         };
-        if (typeObj.id && typeObj.label) {
+        if (typeObj.id != null || typeObj.label != null) {
           return isSecurityReportAnalysisType({
-            id: typeObj.id,
-            label: typeObj.label,
+            id: typeObj.id ?? "",
+            label: typeObj.label ?? "",
           });
         }
       }
