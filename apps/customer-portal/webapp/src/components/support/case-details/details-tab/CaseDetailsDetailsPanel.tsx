@@ -23,12 +23,15 @@ import {
   Tag,
   Building2,
   Info,
+  Mail,
 } from "@wso2/oxygen-ui-icons-react";
 import { type ReactElement, type JSX } from "react";
 import type { CaseDetails } from "@models/responses";
+import { CaseType } from "@constants/supportConstants";
 import AssignedEngineerDisplay from "@case-details-details/AssignedEngineerDisplay";
 import CaseDetailsCard from "@case-details-details/CaseDetailsCard";
 import ErrorStateIcon from "@components/common/error-state/ErrorStateIcon";
+import ErrorIndicator from "@components/common/error-indicator/ErrorIndicator";
 import {
   formatValue,
   formatSlaResponseTime,
@@ -59,6 +62,10 @@ export default function CaseDetailsDetailsPanel({
   isError,
 }: CaseDetailsDetailsPanelProps): JSX.Element {
   const theme = useTheme();
+
+  const isSecurityReportAnalysis =
+    data?.type?.label?.toLowerCase() ===
+    CaseType.SECURITY_REPORT_ANALYSIS.toLowerCase().replace(/_/g, " ");
 
   if (isError) {
     return (
@@ -200,11 +207,41 @@ export default function CaseDetailsDetailsPanel({
               {formatSlaResponseTime(data?.slaResponseTime)}
             </Typography>
           </Box>
-          {getAssignedEngineerLabel(assignedEngineer) && (
-            <Box>
-              <Typography {...labelSx}>Assigned Engineer</Typography>
-              <AssignedEngineerDisplay assignedEngineer={assignedEngineer} />
-            </Box>
+          {isSecurityReportAnalysis ? (
+            <>
+              <Box>
+                <Typography {...labelSx}>Assigned Engineer</Typography>
+                {getAssignedEngineerLabel(assignedEngineer) ? (
+                  <AssignedEngineerDisplay
+                    assignedEngineer={assignedEngineer}
+                  />
+                ) : (
+                  <ErrorIndicator entityName="assigned engineer" />
+                )}
+              </Box>
+              <Box>
+                <Typography {...labelSx}>Engineer Email</Typography>
+                {data?.engineerEmail ? (
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Mail
+                      size={16}
+                      color={theme.palette.text.secondary}
+                      aria-hidden
+                    />
+                    <Typography {...valueSx}>{data.engineerEmail}</Typography>
+                  </Stack>
+                ) : (
+                  <ErrorIndicator entityName="engineer email" />
+                )}
+              </Box>
+            </>
+          ) : (
+            getAssignedEngineerLabel(assignedEngineer) && (
+              <Box>
+                <Typography {...labelSx}>Assigned Engineer</Typography>
+                <AssignedEngineerDisplay assignedEngineer={assignedEngineer} />
+              </Box>
+            )
           )}
         </Box>
       </CaseDetailsCard>
@@ -215,6 +252,16 @@ export default function CaseDetailsDetailsPanel({
         icon={<Package size={20} aria-hidden />}
       >
         <Box sx={twoColumnGridSx}>
+          {isSecurityReportAnalysis && (
+            <Box>
+              <Typography {...labelSx}>Report Type</Typography>
+              {data?.type?.label ? (
+                <Typography {...valueSx}>{data.type.label}</Typography>
+              ) : (
+                <ErrorIndicator entityName="report type" />
+              )}
+            </Box>
+          )}
           <Box>
             <Typography {...labelSx}>Product Name</Typography>
             <Typography {...valueSx}>
@@ -304,22 +351,30 @@ export default function CaseDetailsDetailsPanel({
               }}
             />
           </Box>
-          <Box>
-            <Typography {...labelSx}>Project</Typography>
-            <Typography {...valueSx}>
-              {formatValue(data?.project?.label)}
-            </Typography>
-          </Box>
-          {getAssignedEngineerLabel(assignedEngineer) && (
-            <Box>
-              <Typography {...labelSx}>Assigned Engineer</Typography>
-              <AssignedEngineerDisplay assignedEngineer={assignedEngineer} />
-            </Box>
+          {!isSecurityReportAnalysis && (
+            <>
+              <Box>
+                <Typography {...labelSx}>Project</Typography>
+                <Typography {...valueSx}>
+                  {formatValue(data?.project?.label)}
+                </Typography>
+              </Box>
+              {getAssignedEngineerLabel(assignedEngineer) && (
+                <Box>
+                  <Typography {...labelSx}>Assigned Engineer</Typography>
+                  <AssignedEngineerDisplay
+                    assignedEngineer={assignedEngineer}
+                  />
+                </Box>
+              )}
+              <Box>
+                <Typography {...labelSx}>CS Manager</Typography>
+                <Typography {...valueSx}>
+                  {formatValue(data?.csManager)}
+                </Typography>
+              </Box>
+            </>
           )}
-          <Box>
-            <Typography {...labelSx}>CS Manager</Typography>
-            <Typography {...valueSx}>{formatValue(data?.csManager)}</Typography>
-          </Box>
         </Box>
       </CaseDetailsCard>
     </Stack>
