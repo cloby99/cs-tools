@@ -15,7 +15,7 @@
 // under the License.
 
 import { Box, IconButton, Tooltip } from "@wso2/oxygen-ui";
-import { Send, Sparkles } from "@wso2/oxygen-ui-icons-react";
+import { Send, PanelTopClose } from "@wso2/oxygen-ui-icons-react";
 import { type JSX, useState } from "react";
 import Editor from "@components/common/rich-text-editor/Editor";
 import { htmlToPlainText } from "@utils/richTextEditor";
@@ -86,7 +86,7 @@ export default function ChatInput({
                 }}
                 aria-label={showToolbar ? "Hide formatting" : "Show formatting"}
               >
-                <Sparkles size={16} />
+                <PanelTopClose size={16} />
               </IconButton>
             </Tooltip>
           </Box>

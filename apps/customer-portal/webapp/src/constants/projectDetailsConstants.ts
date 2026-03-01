@@ -26,6 +26,7 @@ import type { ElementType } from "react";
 import type { TabOption } from "@components/common/tab-bar/TabBar";
 import { colors } from "@wso2/oxygen-ui";
 import type { ProjectStatsResponse } from "@models/responses";
+import { convertMinutesToHours } from "@utils/projectDetails";
 
 export interface Contact {
   role: string;
@@ -105,10 +106,6 @@ export const statItems: Stat[] = [
 export const getRecentActivityItems = (
   activity?: ProjectStatsResponse["recentActivity"],
 ): ActivityItem[] => {
-  const convertMinutesToHours = (minutes: number): number => {
-    return Math.round((minutes / 60) * 100) / 100;
-  };
-
   const formatDateTime = (dateString: string): string => {
     if (!dateString) return "";
     try {
