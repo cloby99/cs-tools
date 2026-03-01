@@ -180,13 +180,11 @@ export const convertMinutesToHours = (minutes: number): number => {
 export const getSLAStatusColor = (status: string): ProjectStatusChipColor => {
   const normalizedStatus = status?.toLowerCase();
 
-  // Handle "All Good" (case-insensitive)
-  if (normalizedStatus === "all good" || normalizedStatus === "good") {
+  if (normalizedStatus === "all good") {
     return "success";
   }
 
-  // Handle "Needs attention" (case-insensitive)
-  if (normalizedStatus === "needs attention" || normalizedStatus === "bad") {
+  if (normalizedStatus === "needs attention") {
     return "error";
   }
 
