@@ -20,7 +20,7 @@ import { useNavigate } from "react-router";
 import useInfiniteProjects, {
   flattenProjectPages,
   getTotalRecords,
-} from "@api/useInfiniteProjects";
+} from "@api/useGetProjects";
 import { useLogger } from "@hooks/useLogger";
 import { useLoader } from "@context/linear-loader/LoaderContext";
 import { useDebouncedValue } from "@hooks/useDebouncedValue";

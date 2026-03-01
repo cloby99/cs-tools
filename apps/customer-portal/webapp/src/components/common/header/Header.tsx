@@ -17,9 +17,7 @@
 import { useState, useEffect, type JSX, useMemo, useCallback } from "react";
 import { Header as HeaderUI } from "@wso2/oxygen-ui";
 import { useNavigate, useLocation, useParams } from "react-router";
-import useInfiniteProjects, {
-  flattenProjectPages,
-} from "@api/useInfiniteProjects";
+import useInfiniteProjects, { flattenProjectPages } from "@api/useGetProjects";
 import { useLogger } from "@hooks/useLogger";
 import type { ProjectListItem } from "@models/responses";
 import Brand from "@components/common/header/Brand";
