@@ -43,6 +43,7 @@ import { useGetDeploymentsProducts } from "@api/useGetDeploymentsProducts";
 import { usePatchDeploymentProduct } from "@api/usePatchDeploymentProduct";
 import { ApiQueryKeys } from "@constants/apiConstants";
 import ErrorIndicator from "@components/common/error-indicator/ErrorIndicator";
+import ErrorBanner from "@components/common/error-banner/ErrorBanner";
 import AddProductModal from "@components/project-details/deployments/AddProductModal";
 import ManageProductModal from "@components/project-details/deployments/ManageProductModal";
 import DeleteProductModal from "@components/project-details/deployments/DeleteProductModal";
@@ -153,6 +154,7 @@ export default function DeploymentProductList({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] =
     useState<DeploymentProductItem | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const {
     data: products = [],
     isLoading,
@@ -169,6 +171,7 @@ export default function DeploymentProductList({
   const handleConfirmDelete = async () => {
     if (!productToDelete) return;
     setDeletingProductId(productToDelete.id);
+    setDeleteError(null);
     try {
       await patchProduct.mutateAsync({
         deploymentId,
@@ -179,111 +182,121 @@ export default function DeploymentProductList({
       setProductToDelete(null);
     } catch (error) {
       console.error("Failed to delete product:", error);
+      const productName = productToDelete.product?.label || "product";
+      setDeleteError(`Failed to delete ${productName}. Please try again.`);
     } finally {
       setDeletingProductId(null);
     }
   };
 
   return (
-    <Box>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Package size={16} />
-          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            WSO2 Products
-          </Typography>
-          {isLoading || isFetching ? (
-            <Skeleton
-              variant="rounded"
-              width={32}
-              height={20}
-              sx={{ flexShrink: 0 }}
-            />
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              ({products.length})
-            </Typography>
-          )}
-        </Box>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<Plus />}
-          sx={{ height: 32, fontSize: "0.75rem" }}
-          onClick={() => setIsAddProductModalOpen(true)}
-        >
-          Add Product
-        </Button>
-      </Box>
-      {isLoading || isFetching ? (
-        <ProductsSkeleton />
-      ) : isError ? (
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, py: 2 }}>
-          <ErrorIndicator entityName="products" size="small" />
-          <Typography variant="body2" color="text.secondary">
-            Failed to load products
-          </Typography>
-        </Box>
-      ) : products.length === 0 ? (
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{ py: 2, textAlign: "center" }}
-        >
-          No products added yet
-        </Typography>
-      ) : (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {products.map((item) => (
-            <ProductItemRow
-              key={item.id}
-              item={item}
-              deploymentId={deploymentId}
-              onEdit={() => setEditingProduct(item)}
-              onDelete={() => handleDeleteClick(item)}
-              isDeleting={deletingProductId === item.id}
-            />
-          ))}
-        </Box>
+    <>
+      {deleteError && (
+        <ErrorBanner
+          message={deleteError}
+          onClose={() => setDeleteError(null)}
+        />
       )}
+      <Box>
+        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Package size={16} />
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+              WSO2 Products
+            </Typography>
+            {isLoading || isFetching ? (
+              <Skeleton
+                variant="rounded"
+                width={32}
+                height={20}
+                sx={{ flexShrink: 0 }}
+              />
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                ({products.length})
+              </Typography>
+            )}
+          </Box>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<Plus />}
+            sx={{ height: 32, fontSize: "0.75rem" }}
+            onClick={() => setIsAddProductModalOpen(true)}
+          >
+            Add Product
+          </Button>
+        </Box>
+        {isLoading || isFetching ? (
+          <ProductsSkeleton />
+        ) : isError ? (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, py: 2 }}>
+            <ErrorIndicator entityName="products" size="small" />
+            <Typography variant="body2" color="text.secondary">
+              Failed to load products
+            </Typography>
+          </Box>
+        ) : products.length === 0 ? (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ py: 2, textAlign: "center" }}
+          >
+            No products added yet
+          </Typography>
+        ) : (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {products.map((item) => (
+              <ProductItemRow
+                key={item.id}
+                item={item}
+                deploymentId={deploymentId}
+                onEdit={() => setEditingProduct(item)}
+                onDelete={() => handleDeleteClick(item)}
+                isDeleting={deletingProductId === item.id}
+              />
+            ))}
+          </Box>
+        )}
 
-      <AddProductModal
-        open={isAddProductModalOpen}
-        deploymentId={deploymentId}
-        projectId={projectId}
-        onClose={() => setIsAddProductModalOpen(false)}
-        onSuccess={() => {
-          setIsAddProductModalOpen(false);
-          queryClient.invalidateQueries({
-            queryKey: [ApiQueryKeys.DEPLOYMENT_PRODUCTS, deploymentId],
-          });
-        }}
-      />
-      <ManageProductModal
-        open={!!editingProduct}
-        deploymentId={deploymentId}
-        product={editingProduct}
-        onClose={() => setEditingProduct(null)}
-        onSuccess={() => {
-          setEditingProduct(null);
-          queryClient.invalidateQueries({
-            queryKey: [ApiQueryKeys.DEPLOYMENT_PRODUCTS, deploymentId],
-          });
-        }}
-      />
-      <DeleteProductModal
-        open={deleteModalOpen}
-        product={productToDelete}
-        onClose={() => {
-          setDeleteModalOpen(false);
-          setProductToDelete(null);
-        }}
-        onConfirm={handleConfirmDelete}
-        isDeleting={
-          !!deletingProductId && deletingProductId === productToDelete?.id
-        }
-      />
-    </Box>
+        <AddProductModal
+          open={isAddProductModalOpen}
+          deploymentId={deploymentId}
+          projectId={projectId}
+          onClose={() => setIsAddProductModalOpen(false)}
+          onSuccess={() => {
+            setIsAddProductModalOpen(false);
+            queryClient.invalidateQueries({
+              queryKey: [ApiQueryKeys.DEPLOYMENT_PRODUCTS, deploymentId],
+            });
+          }}
+        />
+        <ManageProductModal
+          open={!!editingProduct}
+          deploymentId={deploymentId}
+          product={editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onSuccess={() => {
+            setEditingProduct(null);
+            queryClient.invalidateQueries({
+              queryKey: [ApiQueryKeys.DEPLOYMENT_PRODUCTS, deploymentId],
+            });
+          }}
+        />
+        <DeleteProductModal
+          open={deleteModalOpen}
+          product={productToDelete}
+          onClose={() => {
+            setDeleteModalOpen(false);
+            setProductToDelete(null);
+          }}
+          onConfirm={handleConfirmDelete}
+          isDeleting={
+            !!deletingProductId && deletingProductId === productToDelete?.id
+          }
+        />
+      </Box>
+    </>
   );
 }
 
