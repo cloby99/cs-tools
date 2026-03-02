@@ -361,8 +361,8 @@ export default function ChangeRequestDetailsPage(): JSX.Element {
     );
   }
 
-  // Loading state
-  if (isLoading || isFetching) {
+  // Loading state or no data yet
+  if (!changeRequest) {
     return (
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {/* Header Skeleton */}
@@ -435,31 +435,6 @@ export default function ChangeRequestDetailsPage(): JSX.Element {
           </Paper>
         ))}
       </Box>
-    );
-  }
-
-  // Not found state
-  if (!changeRequest) {
-    return (
-      <Stack spacing={2}>
-        <Paper variant="outlined" sx={{ p: 4, textAlign: "center" }}>
-          <ErrorStateIcon style={{ width: 48, height: 48 }} />
-          <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-            Change Request Not Found
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            The change request you're looking for could not be found or you may not have access to it.
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<ArrowLeft size={18} />}
-            sx={{ mt: 3 }}
-            onClick={() => navigate(`/${projectId}/change-requests`)}
-          >
-            Back to Change Requests
-          </Button>
-        </Paper>
-      </Stack>
     );
   }
 
