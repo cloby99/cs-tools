@@ -67,15 +67,6 @@ http:ListenerConfiguration listenerConf = {
     label: "Customer Portal",
     id: "cs/customer-portal"
 }
-@http:ServiceConfig {
-    cors: {
-        allowOrigins: ["*"],
-        allowCredentials: true,
-        allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowHeaders: ["*"],
-        exposeHeaders: ["*"]
-    }
-}
 service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     public function createInterceptors() returns http:Interceptor[] =>
         [new authorization:JwtInterceptor(), new ErrorInterceptor()];
