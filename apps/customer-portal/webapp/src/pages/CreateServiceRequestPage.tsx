@@ -489,7 +489,15 @@ export default function CreateServiceRequestPage(): JSX.Element {
           onSelect={handleSelectAttachment}
         />
 
-        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5 }}>
+          <Button
+            variant="outlined"
+            color="inherit"
+            onClick={handleBack}
+            sx={{ borderRadius: 0 }}
+          >
+            Cancel
+          </Button>
           <Button
             type="submit"
             variant="contained"
