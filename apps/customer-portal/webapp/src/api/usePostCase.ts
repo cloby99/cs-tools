@@ -46,12 +46,18 @@ export function usePostCase(): UseMutationResult<
     mutationFn: async (
       body: CreateCaseRequest | CreateServiceRequestPayload,
     ): Promise<CreateCaseResponse> => {
-      logger.debug("[usePostCase] Request payload:", {
-        ...body,
-        description:
+      logger.debug("[usePostCase] Request payload summary:", {
+        requestType: "type" in body ? body.type : "case",
+        projectId: body.projectId,
+        deploymentId: "deploymentId" in body ? body.deploymentId : undefined,
+        deployedProductId:
+          "deployedProductId" in body ? body.deployedProductId : undefined,
+        descriptionPreview:
           "description" in body && body.description
             ? `${body.description.slice(0, 80)}...`
-            : "",
+            : undefined,
+        variableCount: "variables" in body ? body.variables.length : undefined,
+        attachmentCount: body.attachments?.length ?? 0,
       });
 
       try {
