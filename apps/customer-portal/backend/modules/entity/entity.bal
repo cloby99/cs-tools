@@ -453,3 +453,14 @@ public isolated function getCatalogItemVariable(string idToken, string catalogId
 
     return csEntityClient->/catalogs/[catalogId]/items/[catalogItemId]/variables.get(generateHeaders(idToken));
 }
+
+# Get project change request statistics.
+#
+# + idToken - ID token for authorization
+# + projectId - Unique ID of the project for which change request statistics are to be retrieved
+# + return - Project change request statistics response or error
+public isolated function getProjectChangeRequestStats(string idToken, string projectId)
+    returns ProjectChangeRequestStatsResponse|error {
+
+    return csEntityClient->/projects/[projectId]/change\-requests/stats.get(generateHeaders(idToken));
+}

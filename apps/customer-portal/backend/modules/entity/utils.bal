@@ -24,7 +24,7 @@ public configurable CaseStateIds & readonly caseStateIds = {
     solutionProposed: 6,
     workInProgress: 10
 };
-public configurable ConverstaionStateIds & readonly conversationStateIds =
+public configurable ConversationStateIds & readonly conversationStateIds =
     {open: 1, active: 2, resolved: 3, converted: 4, abandonded: 5};
 
 # Generate authorization headers.

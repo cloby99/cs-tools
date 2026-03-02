@@ -3137,4 +3137,51 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         }
         return mapChangeRequestResponse(response);
     }
+
+    # Get change request statistics for a project.
+    #
+    # + id - ID of the project
+    # + return - Change request statistics for the project or an error
+    resource function get projects/[string id]/stats/change\-requests(http:RequestContext ctx)
+        returns types:ProjectChangeRequestStatsResponse|http:Unauthorized|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        entity:ProjectChangeRequestStatsResponse|error response = entity:getProjectChangeRequestStats(userInfo.idToken, id);
+        if response is error {
+            if getStatusCode(response) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${
+                        userInfo.userId} is not authorized to access change request information!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+            if getStatusCode(response) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `Access to change request information is forbidden for user: ${userInfo.userId}`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "Access to change request information is forbidden for the user!"
+                    }
+                };
+            }
+
+            string customError = "Failed to retrieve change request stats.";
+            log:printError(customError, response);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return mapProjectChangeRequestStatsResponse(response);
+    }
 }

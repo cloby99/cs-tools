@@ -755,3 +755,15 @@ public isolated function mapChangeRequestResponse(entity:ChangeRequestResponse r
         hasCustomerReviewed: response.hasCustomerReviewed
     };
 }
+
+# Map project change request stats response to the desired structure.
+#
+# + response - Project change request stats response from the entity service
+# + return - Mapped project change request stats response
+public isolated function mapProjectChangeRequestStatsResponse(entity:ProjectChangeRequestStatsResponse response)
+    returns types:ProjectChangeRequestStatsResponse {
+
+    types:ReferenceItem[] stateCount = from entity:ChoiceListItem item in response.stateCount
+        select {id: item.id.toString(), label: item.label, count: item.count};
+    return {stateCount, totalCount: response.totalCount};
+}

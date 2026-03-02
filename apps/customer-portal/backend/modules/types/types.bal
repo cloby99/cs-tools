@@ -1151,3 +1151,11 @@ public type ChangeRequestResponse record {|
     # Indicates if the customer has reviewed
     boolean hasCustomerReviewed;
 |};
+
+# Change request statistics.
+public type ProjectChangeRequestStatsResponse record {|
+    # Total change request count
+    int totalCount;
+    # Count of change requests by state
+    ReferenceItem[] stateCount;
+|};

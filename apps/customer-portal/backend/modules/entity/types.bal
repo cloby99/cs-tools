@@ -1359,7 +1359,7 @@ public type CaseStateIds record {|
 |};
 
 # Conversation state IDs.
-public type ConverstaionStateIds record {|
+public type ConversationStateIds record {|
     # Open state ID
     int open;
     # Active state ID
@@ -1515,5 +1515,14 @@ public type ChangeRequestResponse record {|
     boolean hasCustomerApproved;
     # Indicates if the customer has reviewed
     boolean hasCustomerReviewed;
+    json...;
+|};
+
+# Change request statistics.
+public type ProjectChangeRequestStatsResponse record {|
+    # Total change request count
+    int totalCount;
+    # Count of change requests by state
+    ChoiceListItem[] stateCount;
     json...;
 |};
