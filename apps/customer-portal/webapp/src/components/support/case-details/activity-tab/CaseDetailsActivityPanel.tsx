@@ -31,6 +31,7 @@ import { formatCommentDate } from "@utils/support";
 import ActivityCommentInput from "@case-details-activity/ActivityCommentInput";
 import CommentBubble from "@case-details-activity/CommentBubble";
 import { hasDisplayableContent } from "@utils/support";
+import type { IdLabelRef } from "@models/responses";
 
 // TODO : DUE TO URGENCY THIS COMPONENT BREAKS THE BEST PRACTICES , NEED FULL REFACTOR
 export interface CaseDetailsActivityPanelProps {
@@ -39,7 +40,7 @@ export interface CaseDetailsActivityPanelProps {
   caseCreatedOn?: string | null;
   focusMode?: boolean;
   caseStatus?: string | null;
-  caseType?: { id?: string; label?: string } | null;
+  caseType?: IdLabelRef | null;
 }
 
 /**

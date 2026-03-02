@@ -19,7 +19,7 @@ import { Calendar, Server, TriangleAlert } from "@wso2/oxygen-ui-icons-react";
 import type { JSX } from "react";
 import type { ChangeRequestItem } from "@models/responses";
 import ChangeRequestsListSkeleton from "@components/support/change-requests/ChangeRequestsListSkeleton";
-import ErrorIndicator from "@components/common/error-indicator/ErrorIndicator";
+import ErrorStateIcon from "@components/common/error-state/ErrorStateIcon";
 import { formatDateTime, formatDuration } from "@utils/support";
 import {
   getChangeRequestStateColor,
@@ -54,8 +54,8 @@ export default function ChangeRequestsList({
   if (isError) {
     return (
       <Box sx={{ textAlign: "center", py: 6 }}>
-        <ErrorIndicator entityName="change requests" size="medium" />
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+        <ErrorStateIcon style={{ width: 200, height: "auto" }} />
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
           Failed to load change requests. Please try again.
         </Typography>
       </Box>

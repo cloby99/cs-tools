@@ -26,12 +26,13 @@ import Editor from "@components/common/rich-text-editor/Editor";
 import UploadAttachmentModal from "@case-details-attachments/UploadAttachmentModal";
 import type { JSX } from "react";
 import { CommentType } from "@/constants/supportConstants";
+import type { IdLabelRef } from "@models/responses";
 
 export interface ActivityCommentInputProps {
   caseId: string;
   focusMode?: boolean;
   caseStatus?: string | null;
-  caseType?: { id?: string; label?: string } | null;
+  caseType?: IdLabelRef | null;
 }
 
 /**
