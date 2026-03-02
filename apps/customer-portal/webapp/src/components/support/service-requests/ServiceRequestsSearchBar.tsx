@@ -49,6 +49,15 @@ const STATUS_TABS: { value: ServiceRequestStatusFilter; label: string }[] = [
   { value: "completed", label: "Completed" },
 ];
 
+const TAB_VALUE_TO_STATS_KEY: Record<
+  Exclude<ServiceRequestStatusFilter, "all">,
+  keyof ServiceRequestStats
+> = {
+  pending: "pending",
+  in_progress: "inProgress",
+  completed: "completed",
+};
+
 /**
  * Search bar with status filter tabs for Service Requests.
  *
@@ -130,7 +139,7 @@ export default function ServiceRequestsSearchBar({
                       stats.completed +
                       stats.rejected
                     : 0)
-                : stats?.[tab.value as keyof ServiceRequestStats] ?? 0;
+                : stats?.[TAB_VALUE_TO_STATS_KEY[tab.value]] ?? 0;
             const label = stats ? `${tab.label} (${count})` : tab.label;
 
             return (
