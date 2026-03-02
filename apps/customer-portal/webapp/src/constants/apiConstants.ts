@@ -49,4 +49,5 @@ export const ApiQueryKeys = {
   PROJECT_DEPLOYMENT_DETAILS: "project-deployment-details",
   UPDATE_LEVELS_SEARCH: "update-levels-search",
   CHANGE_REQUESTS: "change-requests",
+  CHANGE_REQUEST_DETAILS: "change-request-details",
 } as const;

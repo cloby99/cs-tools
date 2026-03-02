@@ -44,7 +44,7 @@ import {
   UserCheck,
   CalendarCheck,
 } from "@wso2/oxygen-ui-icons-react";
-import { colors } from "@wso2/oxygen-ui";
+import { colors, alpha } from "@wso2/oxygen-ui";
 import { type ComponentType } from "react";
 import type {
   ProjectSupportStats,
@@ -52,6 +52,7 @@ import type {
   CaseMetadataResponse,
   AllCasesFilterValues,
   AllConversationsFilterValues,
+  ChangeRequestFilterValues,
 } from "@models/responses";
 
 // Chat actions for the history list.
@@ -613,40 +614,60 @@ export const ChangeRequestStates = {
   CANCELED: "Canceled",
 } as const;
 
+export type ChangeRequestState =
+  (typeof ChangeRequestStates)[keyof typeof ChangeRequestStates];
+
+/**
+ * Helper: Get color palette object for state label using exact matching.
+ */
+function getStateColorPalette(stateLabel: string | undefined) {
+  if (!stateLabel) return colors.grey;
+
+  switch (stateLabel) {
+    case ChangeRequestStates.NEW:
+      return colors.blue;
+    case ChangeRequestStates.ASSESS:
+      return colors.purple;
+    case ChangeRequestStates.AUTHORIZE:
+      return colors.pink;
+    case ChangeRequestStates.CUSTOMER_APPROVAL:
+      return colors.amber;
+    case ChangeRequestStates.SCHEDULED:
+      return colors.cyan;
+    case ChangeRequestStates.IMPLEMENT:
+      return colors.orange;
+    case ChangeRequestStates.REVIEW:
+      return colors.indigo;
+    case ChangeRequestStates.CUSTOMER_REVIEW:
+      return colors.yellow;
+    case ChangeRequestStates.ROLLBACK:
+      return colors.red;
+    case ChangeRequestStates.CLOSED:
+      return colors.green;
+    case ChangeRequestStates.CANCELED:
+      return colors.red;
+    default:
+      return colors.grey;
+  }
+}
+
 /**
  * Get color for change request state.
  */
 export function getChangeRequestStateColor(
   stateLabel: string | undefined,
 ): string {
-  if (!stateLabel) return colors.grey[400];
+  const palette = getStateColorPalette(stateLabel);
 
-  switch (stateLabel) {
-    case ChangeRequestStates.NEW:
-      return colors.blue[500];
-    case ChangeRequestStates.ASSESS:
-      return colors.purple[500];
-    case ChangeRequestStates.AUTHORIZE:
-      return colors.pink[500];
-    case ChangeRequestStates.CUSTOMER_APPROVAL:
-      return colors.amber[500];
-    case ChangeRequestStates.SCHEDULED:
-      return colors.cyan[500];
-    case ChangeRequestStates.IMPLEMENT:
-      return colors.orange[500];
-    case ChangeRequestStates.REVIEW:
-      return colors.indigo[500];
-    case ChangeRequestStates.CUSTOMER_REVIEW:
-      return colors.yellow[600];
-    case ChangeRequestStates.ROLLBACK:
-      return colors.red[500];
-    case ChangeRequestStates.CLOSED:
-      return colors.green[500];
-    case ChangeRequestStates.CANCELED:
-      return colors.red[700];
-    default:
-      return colors.grey[400];
+  if (stateLabel === ChangeRequestStates.CUSTOMER_REVIEW) {
+    return palette[600];
+  } else if (stateLabel === ChangeRequestStates.CANCELED) {
+    return palette[700];
+  } else if (!stateLabel) {
+    return palette[400];
   }
+
+  return palette[500];
 }
 
 /**
@@ -688,11 +709,29 @@ export function getChangeRequestStateIcon(
 /**
  * Change Request Impact labels.
  */
-export const ChangeRequestImpacts = {
+export const ChangeRequestImpactLabels = {
   HIGH: "1 - High",
   MEDIUM: "2 - Medium",
   LOW: "3 - Low",
 } as const;
+
+/**
+ * Helper: Get color palette object for impact label using exact matching.
+ */
+function getImpactColorPalette(impactLabel: string | undefined) {
+  if (!impactLabel) return colors.grey;
+
+  switch (impactLabel) {
+    case ChangeRequestImpactLabels.HIGH:
+      return colors.red;
+    case ChangeRequestImpactLabels.MEDIUM:
+      return colors.orange;
+    case ChangeRequestImpactLabels.LOW:
+      return colors.green;
+    default:
+      return colors.grey;
+  }
+}
 
 /**
  * Get color for change request impact level.
@@ -700,19 +739,38 @@ export const ChangeRequestImpacts = {
 export function getChangeRequestImpactColor(
   impactLabel: string | undefined,
 ): string {
-  if (!impactLabel) return colors.grey[400];
+  const palette = getImpactColorPalette(impactLabel);
+  return !impactLabel ? palette[400] : palette[500];
+}
 
-  const normalizedLabel = impactLabel.toLowerCase();
+/**
+ * Get color shadesfor change request impact level.
+ */
+export function getChangeRequestImpactColorShades(
+  impactLabel: string | undefined,
+): { bg: string; text: string; border: string } {
+  const colorShades = getImpactColorPalette(impactLabel);
 
-  if (normalizedLabel.includes("high")) {
-    return colors.red[500];
-  } else if (normalizedLabel.includes("medium")) {
-    return colors.orange[500];
-  } else if (normalizedLabel.includes("low")) {
-    return colors.green[500];
-  }
+  return {
+    bg: alpha(colorShades[500], 0.1),
+    text: colorShades[800],
+    border: alpha(colorShades[500], 0.2),
+  };
+}
 
-  return colors.grey[400];
+/**
+ * Get color shades (bg, text, border) for change request state.
+ */
+export function getChangeRequestStateColorShades(
+  stateLabel: string | undefined,
+): { bg: string; text: string; border: string } {
+  const colorShades = getStateColorPalette(stateLabel);
+
+  return {
+    bg: alpha(colorShades[500], 0.1),
+    text: colorShades[800],
+    border: alpha(colorShades[500], 0.2),
+  };
 }
 
 /**
@@ -765,14 +823,6 @@ export const CHANGE_REQUEST_STAT_CONFIGS: SupportStatConfig<ChangeRequestStatKey
       label: "Completed",
     },
   ];
-
-/**
- * Filter values for change requests page.
- */
-export interface ChangeRequestFilterValues {
-  stateId?: string;
-  impactId?: string;
-}
 
 /**
  * Change request filter definitions.
