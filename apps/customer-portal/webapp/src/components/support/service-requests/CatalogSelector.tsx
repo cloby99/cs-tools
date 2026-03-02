@@ -246,7 +246,6 @@ export default function CatalogSelector({
                     sx={{
                       width: 40,
                       height: 40,
-                      borderRadius: 1,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -274,14 +273,7 @@ export default function CatalogSelector({
                   </Box>
                 </Box>
               </AccordionSummary>
-              <AccordionDetails
-                sx={{
-                  p: 0,
-                  borderRadius: 0,
-                  borderTop: 1,
-                  borderColor: "divider",
-                }}
-              >
+              <AccordionDetails sx={{ p: 0, borderRadius: 0, borderTop: 1 }}>
                 <Box sx={{ display: "flex", flexDirection: "column" }}>
                   {(catalog.catalogItems ?? []).map((item: CatalogItem, idx) => {
                     const isSelected =
@@ -308,7 +300,6 @@ export default function CatalogSelector({
                             idx < (catalog.catalogItems?.length ?? 1) - 1
                               ? 1
                               : "none",
-                          borderColor: "divider",
                           background: isSelected
                             ? "action.selected"
                             : "transparent",
