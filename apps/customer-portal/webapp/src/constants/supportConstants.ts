@@ -766,6 +766,21 @@ export function getChangeRequestStateColorShades(
 ): { bg: string; text: string; border: string } {
   const colorShades = getStateColorPalette(stateLabel);
 
+  // Match the special-case shades used by getChangeRequestStateColor
+  if (stateLabel === ChangeRequestStates.CUSTOMER_REVIEW) {
+    return {
+      bg: alpha(colorShades[600], 0.1),
+      text: colorShades[800],
+      border: alpha(colorShades[600], 0.2),
+    };
+  } else if (stateLabel === ChangeRequestStates.CANCELED) {
+    return {
+      bg: alpha(colorShades[700], 0.1),
+      text: colorShades[800],
+      border: alpha(colorShades[700], 0.2),
+    };
+  }
+
   return {
     bg: alpha(colorShades[500], 0.1),
     text: colorShades[800],

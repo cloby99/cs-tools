@@ -225,13 +225,6 @@ export default function ChangeRequestsCalendarView({
                       e.stopPropagation();
                       onChangeRequestClick?.(item);
                     }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onChangeRequestClick?.(item);
-                      }
-                    }}
                     sx={{
                       fontSize: "0.75rem",
                       p: 0.75,

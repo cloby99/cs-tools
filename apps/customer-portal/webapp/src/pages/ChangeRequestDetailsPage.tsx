@@ -97,14 +97,10 @@ export default function ChangeRequestDetailsPage(): JSX.Element {
     error,
   } = useGetChangeRequestDetails(changeRequestId || "");
 
-  const currentStateIndex = STATE_ORDER.indexOf(
-    (changeRequest?.state?.label as ChangeRequestState) ||
-      ChangeRequestStates.NEW,
-  );
-
   // Workflow stages with dynamic state
-  const workflowStages = useMemo(() => {
-    if (!changeRequest) return [];
+  const { workflowStages, currentStateIndex } = useMemo(() => {
+    if (!changeRequest)
+      return { workflowStages: [], currentStateIndex: -1 };
 
     const currentState =
       (changeRequest.state?.label as ChangeRequestState) ||
@@ -113,7 +109,7 @@ export default function ChangeRequestDetailsPage(): JSX.Element {
 
     const currentIndex = STATE_ORDER.indexOf(currentState);
 
-    return [
+    const stages = [
       {
         name: ChangeRequestStates.NEW,
         description: "Change request created",
@@ -205,6 +201,8 @@ export default function ChangeRequestDetailsPage(): JSX.Element {
           currentState === ChangeRequestStates.ROLLBACK,
       },
     ];
+
+    return { workflowStages: stages, currentStateIndex: currentIndex };
   }, [changeRequest]);
 
   const impactColor = getChangeRequestImpactColorShades(
@@ -797,9 +795,16 @@ export default function ChangeRequestDetailsPage(): JSX.Element {
       </Paper>
 
       {/* Notes & Comments Card */}
-      <Paper variant="outlined" sx={{ opacity: 0.6, pointerEvents: "none" }}>
+      <Paper
+        variant="outlined"
+        sx={{ opacity: 0.6, pointerEvents: "none" }}
+        aria-disabled="true"
+      >
         <Box sx={{ px: 3, pt: 3 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+          <Box
+            sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}
+            aria-hidden="true"
+          >
             <MessageSquare size={20} />
             <Typography variant="h6">Notes & Comments</Typography>
           </Box>

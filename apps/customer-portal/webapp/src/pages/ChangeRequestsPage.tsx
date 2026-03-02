@@ -131,39 +131,6 @@ export default function ChangeRequestsPage(): JSX.Element {
     }
   }, [viewMode, isExporting, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  // Handle export completion when all data is fetched
-  useEffect(() => {
-    if (isExporting) {
-      if (isInfiniteError) {
-        // Handle error case
-        console.error("Failed to fetch change requests for export");
-        setIsExporting(false);
-      } else if (
-        !isInfiniteLoading &&
-        !hasNextPage &&
-        !isFetchingNextPage &&
-        infiniteData
-      ) {
-        // Success case - all data fetched
-        const allChangeRequests =
-          infiniteData.pages.flatMap(
-            (page: { changeRequests: ChangeRequestItem[] }) =>
-              page.changeRequests,
-          ) || [];
-        generateChangeRequestsSchedulePdf(allChangeRequests, stats);
-        setIsExporting(false);
-      }
-    }
-  }, [
-    isExporting,
-    isInfiniteLoading,
-    isInfiniteError,
-    hasNextPage,
-    isFetchingNextPage,
-    infiniteData,
-    stats,
-  ]);
-
   // Combine data based on view mode
   const changeRequests = useMemo(() => {
     if (viewMode === "list") {
@@ -200,6 +167,39 @@ export default function ChangeRequestsPage(): JSX.Element {
     }),
     [totalRecords],
   );
+
+  // Handle export completion when all data is fetched
+  useEffect(() => {
+    if (isExporting) {
+      if (isInfiniteError) {
+        // Handle error case
+        console.error("Failed to fetch change requests for export");
+        setIsExporting(false);
+      } else if (
+        !isInfiniteLoading &&
+        !hasNextPage &&
+        !isFetchingNextPage &&
+        infiniteData
+      ) {
+        // Success case - all data fetched
+        const allChangeRequests =
+          infiniteData.pages.flatMap(
+            (page: { changeRequests: ChangeRequestItem[] }) =>
+              page.changeRequests,
+          ) || [];
+        generateChangeRequestsSchedulePdf(allChangeRequests, stats);
+        setIsExporting(false);
+      }
+    }
+  }, [
+    isExporting,
+    isInfiniteLoading,
+    isInfiniteError,
+    hasNextPage,
+    isFetchingNextPage,
+    infiniteData,
+    stats,
+  ]);
 
   const handlePageChange = (_event: ChangeEvent<unknown>, value: number) => {
     setPage(value);

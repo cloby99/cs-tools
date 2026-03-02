@@ -47,7 +47,7 @@ export default function useGetChangeRequestDetails(
           throw new Error("CUSTOMER_PORTAL_BACKEND_BASE_URL is not configured");
         }
 
-        const requestUrl = `${baseUrl}/change-requests/${changeRequestId}`;
+        const requestUrl = `${baseUrl}/change-requests/${encodeURIComponent(changeRequestId)}`;
         const response = await fetchFn(requestUrl, { method: "GET" });
 
         if (!response.ok) {
@@ -57,10 +57,16 @@ export default function useGetChangeRequestDetails(
         }
 
         const data: ChangeRequestDetails = await response.json();
-        logger.debug("[useGetChangeRequestDetails] Data received:", data);
+        logger.debug("[useGetChangeRequestDetails] Data received", {
+          id: data.id,
+          state: data.state?.label,
+        });
         return data;
       } catch (error) {
-        logger.error("[useGetChangeRequestDetails] Error:", error);
+        logger.error(
+          "[useGetChangeRequestDetails] Error:",
+          error instanceof Error ? error.message : String(error),
+        );
         throw error;
       }
     },
