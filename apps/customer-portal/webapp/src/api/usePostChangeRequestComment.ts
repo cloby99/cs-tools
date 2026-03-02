@@ -22,7 +22,7 @@ import {
 import { useAsgardeo } from "@asgardeo/react";
 import { useLogger } from "@hooks/useLogger";
 import { useAuthApiClient } from "@context/AuthApiContext";
-import { ApiQueryKeys } from "@constants/apiConstants";
+import { ApiQueryKeys, ApiMutationKeys } from "@constants/apiConstants";
 import { CommentType } from "@constants/supportConstants";
 
 export interface PostChangeRequestCommentRequest {
@@ -66,7 +66,7 @@ export function usePostChangeRequestComment(): UseMutationResult<
     Error,
     PostChangeRequestCommentVariables
   >({
-    mutationKey: ["postChangeRequestComment"],
+    mutationKey: ApiMutationKeys.POST_CHANGE_REQUEST_COMMENT,
     mutationFn: async ({
       changeRequestId,
       body,
@@ -108,13 +108,16 @@ export function usePostChangeRequestComment(): UseMutationResult<
       }
 
       const data: PostChangeRequestCommentResponse = await response.json();
-      logger.debug("[usePostChangeRequestComment] Comment posted:", data);
+      logger.debug("[usePostChangeRequestComment] Comment posted:", {
+        id: data.id,
+        changeRequestId,
+      });
       return data;
     },
-    onSuccess: () => {
-      // Invalidate change request comments queries to trigger refetch
+    onSuccess: (_data, variables) => {
+      // Invalidate only the active change request's comments
       queryClient.invalidateQueries({
-        queryKey: [ApiQueryKeys.CHANGE_REQUEST_COMMENTS],
+        queryKey: [ApiQueryKeys.CHANGE_REQUEST_COMMENTS, variables.changeRequestId],
       });
     },
   });

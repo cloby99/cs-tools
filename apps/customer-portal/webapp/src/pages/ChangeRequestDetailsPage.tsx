@@ -116,13 +116,14 @@ export default function ChangeRequestDetailsPage(): JSX.Element {
     isError: isErrorComments,
     hasNextPage,
     fetchNextPage,
+    isFetchingNextPage,
   } = useInfiniteChangeRequestComments(changeRequestId || "");
 
   // Auto-fetch all pages in background
   useEffect(() => {
-    if (!commentsData || !hasNextPage) return;
+    if (!commentsData || !hasNextPage || isFetchingNextPage) return;
     void fetchNextPage();
-  }, [commentsData, hasNextPage, fetchNextPage]);
+  }, [commentsData, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Check if any change request comment mutation is pending
   const isPostingComment = useIsMutating({ mutationKey: ["postChangeRequestComment"] }) > 0;
