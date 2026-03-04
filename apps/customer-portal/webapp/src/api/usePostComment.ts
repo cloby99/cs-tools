@@ -20,8 +20,8 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
+import { useAuthApiClient } from "@api/useAuthApiClient";
 import { useLogger } from "@hooks/useLogger";
-import { addApiHeaders } from "@utils/apiUtils";
 import { ApiQueryKeys, ApiMutationKeys } from "@constants/apiConstants";
 import { CommentType } from "@constants/supportConstants";
 
@@ -48,7 +48,8 @@ export function usePostComment(): UseMutationResult<
 > {
   const logger = useLogger();
   const queryClient = useQueryClient();
-  const { isSignedIn, isLoading: isAuthLoading, getIdToken } = useAsgardeo();
+  const { isSignedIn, isLoading: isAuthLoading } = useAsgardeo();
+  const authFetch = useAuthApiClient();
 
   return useMutation<void, Error, PostCommentVariables>({
     mutationKey: ApiMutationKeys.POST_COMMENT,
@@ -71,10 +72,9 @@ export function usePostComment(): UseMutationResult<
       }
 
       const requestUrl = `${baseUrl}/cases/${caseId}/comments`;
-      const token = await getIdToken();
-      const response = await fetch(requestUrl, {
+      const response = await authFetch(requestUrl, {
         method: "POST",
-        headers: addApiHeaders(token),
+
         body: JSON.stringify({
           content: body.content,
           type: body.type,

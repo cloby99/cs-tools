@@ -16,8 +16,8 @@
 
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
+import { useAuthApiClient } from "@api/useAuthApiClient";
 import { useLogger } from "@hooks/useLogger";
-import { addApiHeaders } from "@utils/apiUtils";
 import type { CaseClassificationRequest } from "@models/requests";
 import type { CaseClassificationResponse } from "@models/responses";
 
@@ -32,7 +32,8 @@ export function usePostCaseClassifications(): UseMutationResult<
   CaseClassificationRequest
 > {
   const logger = useLogger();
-  const { isSignedIn, isLoading: isAuthLoading, getIdToken } = useAsgardeo();
+  const { isSignedIn, isLoading: isAuthLoading } = useAsgardeo();
+  const authFetch = useAuthApiClient();
 
   return useMutation<
     CaseClassificationResponse,
@@ -66,10 +67,9 @@ export function usePostCaseClassifications(): UseMutationResult<
 
         const requestUrl = `${baseUrl}/cases/classify`;
 
-        const token = await getIdToken();
-        const response = await fetch(requestUrl, {
+        const response = await authFetch(requestUrl, {
           method: "POST",
-          headers: addApiHeaders(token),
+
           body: JSON.stringify(requestBody),
         });
 
