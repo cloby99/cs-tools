@@ -1556,3 +1556,28 @@ public type ProjectChangeRequestStatsResponse record {|
     ChoiceListItem[] stateCount;
     json...;
 |};
+
+# Request payload for updating a change request.
+public type ChangeRequestUpdatePayload record {|
+    # Planned start date and time (format: YYYY-MM-DD HH:MM:SS)
+    DateTime plannedStartOn;
+|};
+
+# Response from updating a change request.
+public type ChangeRequestUpdateResponse record {|
+    # Success message
+    string message;
+    # Updated change request details
+    UpdatedChangeRequest changeRequest;
+|};
+
+# Updated change request details.
+public type UpdatedChangeRequest record {|
+    # ID of the updated change request
+    IdString id;
+    # Updated date and time
+    string updatedOn;
+    # User who updated the change request
+    string updatedBy;
+    json...;
+|};
