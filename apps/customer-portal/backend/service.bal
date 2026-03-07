@@ -1890,7 +1890,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
                 log:printWarn(string `User: ${userInfo.userId} is forbidden to delete attachment with ID: ${id}!`);
                 return <http:Forbidden>{
                     body: {
-                        message: "You're not authorized to delete attachments for the requested case. " +
+                        message: "You're not authorized to delete the requested attachment. " +
                         "Please check your access permissions or contact support."
                     }
                 };
