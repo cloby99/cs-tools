@@ -28,15 +28,24 @@ import FilterPopover, {
 } from "@components/common/filter-panel/FilterPopover";
 import CasesTableHeader from "@components/dashboard/cases-table/CasesTableHeader";
 import CasesList from "@components/dashboard/cases-table/CasesList";
-import { normalizeCaseTypeOptions, mapSeverityToDisplay } from "@utils/support";
+import {
+  normalizeCaseTypeOptions,
+  mapSeverityToDisplay,
+  isS0Case,
+} from "@utils/support";
+import { isS0SeverityLabel } from "@constants/dashboardConstants";
 
 const OUTSTANDING_STATUS_IDS = [1, 10, 18, 1003, 1006] as const;
 
 interface CasesTableProps {
   projectId: string;
+  excludeS0?: boolean;
 }
 
-const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
+const CasesTable = ({
+  projectId,
+  excludeS0 = false,
+}: CasesTableProps): JSX.Element => {
   const navigate = useNavigate();
   const { isLoading: isAuthLoading } = useAsgardeo();
   const [filters, setFilters] = useState<Record<string, any>>({});
@@ -55,6 +64,13 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
   // Fetch deployments for the deployment filter
   const { data: deploymentsData } = useGetDeployments(projectId);
 
+  const severityOptions = (filtersMetadata?.severities ?? [])
+    .filter((s) => !excludeS0 || !isS0SeverityLabel(s.label))
+    .map((s) => ({
+      label: mapSeverityToDisplay(s.label),
+      value: s.id,
+    }));
+
   const dynamicFilterFields: FilterField[] = [
     {
       id: "statusId",
@@ -70,11 +86,7 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
       id: "severityId",
       label: "Severity",
       type: "select",
-      options:
-        filtersMetadata?.severities?.map((s) => ({
-          label: mapSeverityToDisplay(s.label),
-          value: s.id,
-        })) || [],
+      options: severityOptions,
     },
     {
       id: "issueTypes",
@@ -141,7 +153,6 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
     if (showAll && infiniteQuery.hasNextPage && !infiniteQuery.isFetchingNextPage && isLoadingAll) {
       void infiniteQuery.fetchNextPage();
     } else if (showAll && !infiniteQuery.hasNextPage && isLoadingAll) {
-      // All pages loaded
       setIsLoadingAll(false);
     }
   }, [
@@ -150,12 +161,25 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
     infiniteQuery.isFetchingNextPage,
     infiniteQuery.fetchNextPage,
     isLoadingAll,
+    infiniteQuery.data,
   ]);
 
   const paginatedData = useMemo(() => {
-    if (showAll && infiniteQuery.data) {
-      const cases = infiniteQuery.data.pages.flatMap((p) => p.cases ?? []);
-      const totalRecords = infiniteQuery.data.pages[0]?.totalRecords ?? cases.length;
+    const filterS0 = (items: { severity?: { label?: string } }[]) =>
+      excludeS0 ? items.filter((c) => !isS0Case(c)) : items;
+
+    if (showAll) {
+      if (!infiniteQuery.data) {
+        return {
+          cases: [] as { severity?: { label?: string } }[],
+          totalRecords: 0,
+          offset: 0,
+          limit: 0,
+        };
+      }
+      const rawCases = infiniteQuery.data.pages.flatMap((p) => p.cases ?? []);
+      const cases = filterS0(rawCases);
+      const totalRecords = excludeS0 ? cases.length : (infiniteQuery.data.pages[0]?.totalRecords ?? cases.length);
       return {
         cases,
         totalRecords,
@@ -164,15 +188,16 @@ const CasesTable = ({ projectId }: CasesTableProps): JSX.Element => {
       };
     }
     const pageData = pageQuery.data;
-    const cases = pageData?.cases ?? [];
-    const totalRecords = pageData?.totalRecords ?? 0;
+    const rawCases = pageData?.cases ?? [];
+    const cases = filterS0(rawCases);
+    const totalRecords = excludeS0 ? cases.length : (pageData?.totalRecords ?? 0);
     return {
       cases,
       totalRecords,
       offset,
       limit,
     };
-  }, [showAll, infiniteQuery.data, pageQuery.data, offset, limit]);
+  }, [showAll, infiniteQuery.data, pageQuery.data, offset, limit, excludeS0]);
 
   const isFetchingCases = showAll
     ? isLoadingAll || infiniteQuery.isFetching || infiniteQuery.isFetchingNextPage
