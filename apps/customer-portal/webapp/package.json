@@ -30,7 +30,6 @@
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
     "lexical": "^0.40.0",
-    "mui-tel-input": "^9.0.1",
     "prismjs": "^1.30.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

@@ -14,6 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { getCountries, getCountryCallingCode } from "react-phone-number-input";
+
 /** Country dial code and name for phone input. */
 export interface PhoneCountryOption {
   dialCode: string;
@@ -22,51 +24,57 @@ export interface PhoneCountryOption {
   flag: string;
 }
 
-/** Common country options for phone input (E.164). */
-export const PHONE_COUNTRY_OPTIONS: PhoneCountryOption[] = [
-  { dialCode: "+1", countryCode: "US", label: "United States (+1)", flag: "🇺🇸" },
-  { dialCode: "+44", countryCode: "GB", label: "United Kingdom (+44)", flag: "🇬🇧" },
-  { dialCode: "+91", countryCode: "IN", label: "India (+91)", flag: "🇮🇳" },
-  { dialCode: "+94", countryCode: "LK", label: "Sri Lanka (+94)", flag: "🇱🇰" },
-  { dialCode: "+61", countryCode: "AU", label: "Australia (+61)", flag: "🇦🇺" },
-  { dialCode: "+81", countryCode: "JP", label: "Japan (+81)", flag: "🇯🇵" },
-  { dialCode: "+49", countryCode: "DE", label: "Germany (+49)", flag: "🇩🇪" },
-  { dialCode: "+33", countryCode: "FR", label: "France (+33)", flag: "🇫🇷" },
-  { dialCode: "+39", countryCode: "IT", label: "Italy (+39)", flag: "🇮🇹" },
-  { dialCode: "+34", countryCode: "ES", label: "Spain (+34)", flag: "🇪🇸" },
-  { dialCode: "+31", countryCode: "NL", label: "Netherlands (+31)", flag: "🇳🇱" },
-  { dialCode: "+41", countryCode: "CH", label: "Switzerland (+41)", flag: "🇨🇭" },
-  { dialCode: "+65", countryCode: "SG", label: "Singapore (+65)", flag: "🇸🇬" },
-  { dialCode: "+60", countryCode: "MY", label: "Malaysia (+60)", flag: "🇲🇾" },
-  { dialCode: "+66", countryCode: "TH", label: "Thailand (+66)", flag: "🇹🇭" },
-  { dialCode: "+64", countryCode: "NZ", label: "New Zealand (+64)", flag: "🇳🇿" },
-  { dialCode: "+27", countryCode: "ZA", label: "South Africa (+27)", flag: "🇿🇦" },
-  { dialCode: "+55", countryCode: "BR", label: "Brazil (+55)", flag: "🇧🇷" },
-  { dialCode: "+52", countryCode: "MX", label: "Mexico (+52)", flag: "🇲🇽" },
-  { dialCode: "+86", countryCode: "CN", label: "China (+86)", flag: "🇨🇳" },
-  { dialCode: "+82", countryCode: "KR", label: "South Korea (+82)", flag: "🇰🇷" },
-  { dialCode: "+971", countryCode: "AE", label: "UAE (+971)", flag: "🇦🇪" },
-  { dialCode: "+966", countryCode: "SA", label: "Saudi Arabia (+966)", flag: "🇸🇦" },
-  { dialCode: "+353", countryCode: "IE", label: "Ireland (+353)", flag: "🇮🇪" },
-  { dialCode: "+358", countryCode: "FI", label: "Finland (+358)", flag: "🇫🇮" },
-  { dialCode: "+46", countryCode: "SE", label: "Sweden (+46)", flag: "🇸🇪" },
-  { dialCode: "+47", countryCode: "NO", label: "Norway (+47)", flag: "🇳🇴" },
-  { dialCode: "+45", countryCode: "DK", label: "Denmark (+45)", flag: "🇩🇰" },
-  { dialCode: "+48", countryCode: "PL", label: "Poland (+48)", flag: "🇵🇱" },
-  { dialCode: "+32", countryCode: "BE", label: "Belgium (+32)", flag: "🇧🇪" },
-  { dialCode: "+43", countryCode: "AT", label: "Austria (+43)", flag: "🇦🇹" },
-  { dialCode: "+63", countryCode: "PH", label: "Philippines (+63)", flag: "🇵🇭" },
-  { dialCode: "+62", countryCode: "ID", label: "Indonesia (+62)", flag: "🇮🇩" },
-  { dialCode: "+84", countryCode: "VN", label: "Vietnam (+84)", flag: "🇻🇳" },
-  { dialCode: "+880", countryCode: "BD", label: "Bangladesh (+880)", flag: "🇧🇩" },
-  { dialCode: "+92", countryCode: "PK", label: "Pakistan (+92)", flag: "🇵🇰" },
-  { dialCode: "+20", countryCode: "EG", label: "Egypt (+20)", flag: "🇪🇬" },
-  { dialCode: "+234", countryCode: "NG", label: "Nigeria (+234)", flag: "🇳🇬" },
-  { dialCode: "+254", countryCode: "KE", label: "Kenya (+254)", flag: "🇰🇪" },
-  { dialCode: "+7", countryCode: "RU", label: "Russia (+7)", flag: "🇷🇺" },
-  { dialCode: "+90", countryCode: "TR", label: "Turkey (+90)", flag: "🇹🇷" },
-  { dialCode: "+977", countryCode: "NP", label: "Nepal (+977)", flag: "🇳🇵" },
-];
+/**
+ * Get country flag emoji from country code.
+ * Converts ISO 3166-1 alpha-2 country code to flag emoji.
+ *
+ * @param countryCode - ISO 3166-1 alpha-2 country code (e.g., "US", "GB").
+ * @returns Flag emoji or empty string.
+ */
+function getCountryFlag(countryCode: string): string {
+  if (!countryCode || countryCode.length !== 2) return "";
+  const codePoints = countryCode
+    .toUpperCase()
+    .split("")
+    .map((char) => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+}
+
+/**
+ * Initialize country options dynamically from react-phone-number-input.
+ * Returns formatted list with flags, dial codes, and country labels.
+ *
+ * @returns Array of phone country options.
+ */
+function initializeCountryOptions(): PhoneCountryOption[] {
+  const countries = getCountries() || [];
+  return countries
+    .map((countryCode: string) => {
+      try {
+        const dialCode = getCountryCallingCode(countryCode);
+        if (!dialCode) return null;
+
+        const displayName = new Intl.DisplayNames(["en"], {
+          type: "region",
+        }).of(countryCode);
+
+        return {
+          dialCode: `+${dialCode}`,
+          countryCode,
+          label: `${displayName} (+${dialCode})`,
+          flag: getCountryFlag(countryCode),
+        };
+      } catch {
+        return null;
+      }
+    })
+    .filter((option): option is PhoneCountryOption => option !== null)
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/** Common country options for phone input (E.164) - dynamically loaded. */
+export const PHONE_COUNTRY_OPTIONS: PhoneCountryOption[] =
+  initializeCountryOptions();
 
 /**
  * Format E.164 phone for display (e.g. "+1 555 123 4567").
