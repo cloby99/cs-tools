@@ -3940,6 +3940,14 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
 
         registry:Token|error token = registry:getTokenById(id);
         if token is error {
+            if getStatusCode(token) == http:STATUS_NOT_FOUND {
+                log:printWarn(string `Registry token with ID: ${id} not found for user: ${userInfo.userId}`);
+                return <http:NotFound>{
+                    body: {
+                        message: "The registry token to be deleted is not found!"
+                    }
+                };
+            }
             log:printError("Failed to retrieve registry token details for authorization.", token);
             return <http:InternalServerError>{
                 body: {
@@ -4082,6 +4090,14 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         
         registry:Token|error token = registry:getTokenById(id);
         if token is error {
+            if getStatusCode(token) == http:STATUS_NOT_FOUND {
+                log:printWarn(string `Registry token with ID: ${id} not found for user: ${userInfo.userId}`);
+                return <http:NotFound>{
+                    body: {
+                        message: "The registry token to be deleted is not found!"
+                    }
+                };
+            }
             log:printError("Failed to retrieve registry token details for authorization.", token);
             return <http:InternalServerError>{
                 body: {
