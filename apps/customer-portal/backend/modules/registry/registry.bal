@@ -16,10 +16,9 @@
 
 # Create a registry token.
 #
-# + payload - Robot account creation payload
+# + payload - Token creation payload
 # + return - Created registry token or an error
-public isolated function createToken(TokenCreatePayload payload)
-    returns TokenCreationResponse|error {
+public isolated function createToken(TokenCreatePayload payload) returns TokenCreationResponse|error {
 
     return registryClient->/robot\-accounts.post(payload);
 }
@@ -28,8 +27,7 @@ public isolated function createToken(TokenCreatePayload payload)
 #
 # + payload - Registry token search payload
 # + return - List of registry tokens matching the search criteria or an error
-public isolated function searchTokens(TokenSearchPayload payload)
-    returns Token[]|error {
+public isolated function searchTokens(TokenSearchPayload payload) returns Token[]|error {
 
     return registryClient->/robot\-accounts/search.post(payload);
 }
@@ -50,7 +48,7 @@ public isolated function deleteToken(string tokenId) returns error? {
     return registryClient->/robot\-accounts/[tokenId].delete();
 }
 
-# Regenerate a registry token.
+# Regenerate the secret of a registry token.
 #
 # + tokenId - ID of the registry token to be regenerated
 # + return - Regenerated registry token or an error

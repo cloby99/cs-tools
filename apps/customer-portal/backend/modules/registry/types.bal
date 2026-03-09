@@ -62,15 +62,15 @@ public type TokenCreationResponse record {|
 
 # Registry token response record.
 public type Token record {|
-    # Identifier of the robot account
+    # Identifier of the token
     int id?;
-    # Robot name
+    # Name
     string name;
-    # Robot display name (name provide by the user)
+    # Display name (name provide by the user)
     string displayName?;
-    # Robot description
+    # Description
     string description;
-    # Creation time of the robot account
+    # Creation time of the token
     string creationTime?;
     # Token type
     TokenType tokenType?;
@@ -78,18 +78,18 @@ public type Token record {|
     string createdFor?;
     # Created by
     string createdBy?;
-    # Expiry timestamp of the robot account
+    # Expiry timestamp of the token
     int expiresAt?;
-    # Whether the robot account is disabled
+    # Whether the token is disabled
     boolean disable = false;
-    # Duration for the robot account (-1 for unlimited)
+    # Duration for the token (-1 for unlimited)
     int duration = -1;
-    # Permissions granted to the robot account
+    # Permissions granted to the token
     Permission[] permissions;
     json...;
 |};
 
-# Permission configuration for robot account.
+# Permission configuration for token.
 public type Permission record {|
     # Namespace for the permission
     string namespace;

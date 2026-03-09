@@ -3823,7 +3823,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         };
     }
 
-    # Regenerate a registry token by token ID.
+    # Regenerate the secret of a registry token by token ID.
     #
     # + id - ID of the registry token to be regenerated
     # + return - Regenerated registry token details or an error response
