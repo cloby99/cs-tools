@@ -25,7 +25,12 @@ import { type JSX } from "react";
  */
 export default function LoadingDotsBubble(): JSX.Element {
   return (
-    <Box sx={{ maxWidth: "80%" }}>
+    <Box
+      role="status"
+      aria-live="polite"
+      aria-label="Novera is preparing a response"
+      sx={{ maxWidth: "80%" }}
+    >
       <Box sx={{ mb: 3 }}>
         {/* Header with icon and Novera label */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>

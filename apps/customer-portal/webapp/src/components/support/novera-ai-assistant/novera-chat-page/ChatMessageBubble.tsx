@@ -136,6 +136,7 @@ export default function ChatMessageBubble({
 }: ChatMessageBubbleProps): JSX.Element {
   const isUser = message.sender === "user";
   const [thumbsState, setThumbsState] = useState<"up" | "down" | null>(null);
+  const hasFeedbackSelection = thumbsState !== null;
 
   const displayText = message.isError ? "Something went wrong" : message.text;
 
@@ -260,9 +261,11 @@ export default function ChatMessageBubble({
               <IconButton
                 size="small"
                 onClick={() => {
+                  if (hasFeedbackSelection) return;
                   setThumbsState("up");
                   onThumbsUp?.(message.id);
                 }}
+                aria-pressed={thumbsState === "up"}
                 sx={{
                   p: 0.5,
                   color:
@@ -279,9 +282,11 @@ export default function ChatMessageBubble({
               <IconButton
                 size="small"
                 onClick={() => {
+                  if (hasFeedbackSelection) return;
                   setThumbsState("down");
                   onThumbsDown?.(message.id);
                 }}
+                aria-pressed={thumbsState === "down"}
                 sx={{
                   p: 0.5,
                   color:
