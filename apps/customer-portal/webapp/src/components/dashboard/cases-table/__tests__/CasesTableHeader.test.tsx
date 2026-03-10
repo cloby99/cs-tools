@@ -48,14 +48,8 @@ vi.mock("@components/common/filter-panel/ActiveFilters", () => ({
 describe("CasesTableHeader", () => {
   const mockProps = {
     activeFiltersCount: 0,
-    appliedFilters: {},
-    filterFields: [],
-    onRemoveFilter: vi.fn(),
-    onClearAll: vi.fn(),
-    onUpdateFilter: vi.fn(),
-    onFilterClick: vi.fn(),
-    onAllCases: vi.fn(),
-    onCreateCase: vi.fn(),
+    isFiltersOpen: false,
+    onFilterToggle: vi.fn(),
   };
 
   it("should render title and buttons", () => {
@@ -63,41 +57,19 @@ describe("CasesTableHeader", () => {
 
     expect(screen.getByText("Outstanding Engagements")).toBeInTheDocument();
     expect(screen.getByText("Create")).toBeInTheDocument();
-    expect(screen.getByText("All")).toBeInTheDocument();
     expect(screen.getByText("Filters")).toBeInTheDocument();
   });
 
-  it("should call onCreateCase when button is clicked", () => {
-    render(<CasesTableHeader {...mockProps} />);
-
-    fireEvent.click(screen.getByText("Create"));
-    expect(mockProps.onCreateCase).toHaveBeenCalled();
-  });
-
-  it("should call onAllCases when All button is clicked", () => {
-    render(<CasesTableHeader {...mockProps} />);
-
-    fireEvent.click(screen.getByText("All"));
-    expect(mockProps.onAllCases).toHaveBeenCalled();
-  });
-
-  it("should call onFilterClick when filter button is clicked", () => {
+  it("should call onFilterToggle when filter button is clicked", () => {
     render(<CasesTableHeader {...mockProps} />);
 
     fireEvent.click(screen.getByText("Filters"));
-    expect(mockProps.onFilterClick).toHaveBeenCalled();
+    expect(mockProps.onFilterToggle).toHaveBeenCalled();
   });
 
-  it("should pass active filters to ActiveFilters component", () => {
-    render(
-      <CasesTableHeader
-        {...mockProps}
-        activeFiltersCount={1}
-        appliedFilters={{ status: "Open" }}
-      />,
-    );
+  it("should show Reset Filters when filters are active", () => {
+    render(<CasesTableHeader {...mockProps} activeFiltersCount={1} />);
 
-    expect(screen.getByTestId("active-filters")).toBeInTheDocument();
-    expect(screen.getByText("status")).toBeInTheDocument();
+    expect(screen.getByText("Reset Filters")).toBeInTheDocument();
   });
 });
