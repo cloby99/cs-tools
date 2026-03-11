@@ -28,15 +28,24 @@ body:
     attributes:
       label: Area
       options:
-        - BE
-        - FE
-        - Mobile
+        - Backend
+        - Frontend
         - Docs
         - QA
         - Design
         - Other
     validations:
       required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform (if applicable)
+      description: Specify the frontend platform if relevant.
+      options:
+        - Webapp
+        - Microapp
+        - Other
 
   - type: textarea
     id: current_behavior
