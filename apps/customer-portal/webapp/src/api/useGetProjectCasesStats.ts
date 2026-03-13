@@ -64,7 +64,6 @@ export function useGetProjectCasesStats(
 
         const params = new URLSearchParams();
 
-        // Preferred: explicit case type identifiers.
         if (Array.isArray(caseTypes) && caseTypes.length > 0) {
           caseTypes.forEach((type) => {
             if (type) {
@@ -72,7 +71,6 @@ export function useGetProjectCasesStats(
             }
           });
         } else if (incidentId && queryId) {
-          // Backwards compatibility with filters-based IDs.
           params.append("caseTypes", queryId);
           params.append("caseTypes", incidentId);
         }
