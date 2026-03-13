@@ -332,8 +332,6 @@ public type ProjectsResponse record {|
 
 # Case statistics for a project.
 public type ProjectCaseStats record {|
-    # Total interaction count
-    int totalInteractions;
     # Total cases count(last 30d)
     int totalCases;
     # Active case count (cases that are not in closed state)

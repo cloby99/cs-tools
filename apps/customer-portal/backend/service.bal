@@ -832,8 +832,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             // To return other stats even if change request stats retrieval fails, error will not be returned.
         }
 
-        return mapCaseStats(caseStats,
-                    changeReqStats is entity:ProjectChangeRequestStatsResponse ? changeReqStats : ());
+        return mapCaseStats(caseStats);
     }
 
     # Get conversation statistics for a project by ID.
