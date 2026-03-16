@@ -87,13 +87,11 @@ public isolated function getRecommendation(RecommendationRequest payload) return
 # + caller - The browser WebSocket caller to forward events back to
 # + return - Error if the upstream connection or forwarding fails
 public isolated function streamChat(string sessionId, string payload, websocket:Caller caller) returns error? {
-    log:printInfo(string `Initiating WebSocket connection to AI chat agent for session ID: ${sessionId}`);
-    websocket:Client pyClient = check createAiChatAgentWsClient(sessionId);
-    log:printInfo(string `WebSocket connection established with AI chat agent for session ID: ${sessionId}`);
-    check pyClient->writeTextMessage(payload);
+    websocket:Client agentClient = check createAiChatAgentWsClient(sessionId);
+    check agentClient->writeTextMessage(payload);
     boolean upstreamClosed = false;
     while true {
-        string|error event = pyClient->readTextMessage();
+        string|error event = agentClient->readTextMessage();
         if event is error {
             if event is websocket:ConnectionClosureError {
                 upstreamClosed = true;
@@ -124,7 +122,7 @@ public isolated function streamChat(string sessionId, string payload, websocket:
         }
     }
     if !upstreamClosed {
-        error? closeErr = pyClient->close(1000, "session complete");
+        error? closeErr = agentClient->close(1000, "session complete");
         if closeErr is error {
             log:printError("Failed to close upstream WebSocket connection", closeErr);
         }
