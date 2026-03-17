@@ -21,15 +21,11 @@ import ChatMessageCard from "@case-details-activity/ChatMessageCard";
 
 function renderCard(props: {
   htmlContent?: string;
-  isExpanded?: boolean;
-  onToggleExpand?: () => void;
   isCurrentUser?: boolean;
   primaryBg?: string;
 } = {}) {
   const defaults = {
     htmlContent: "<p>Short message</p>",
-    isExpanded: false,
-    onToggleExpand: () => {},
     isCurrentUser: false,
     primaryBg: "rgba(250,123,63,0.1)",
   };

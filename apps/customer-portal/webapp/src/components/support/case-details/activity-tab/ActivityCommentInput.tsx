@@ -29,7 +29,6 @@ import { CommentType } from "@/constants/supportConstants";
 
 export interface ActivityCommentInputProps {
   caseId: string;
-  focusMode?: boolean;
   caseStatus?: string | null;
 }
 
@@ -42,7 +41,6 @@ export interface ActivityCommentInputProps {
  */
 export default function ActivityCommentInput({
   caseId,
-  focusMode = false,
   caseStatus,
 }: ActivityCommentInputProps): JSX.Element {
   const [value, setValue] = useState("");
@@ -218,7 +216,7 @@ export default function ActivityCommentInput({
             attachments={attachments.map((a) => a.file)}
             onAttachmentRemove={handleAttachmentRemove}
             showKeyboardHint={false}
-            maxHeight={focusMode ? "310px" : "310px"}
+            maxHeight="310px"
           />
           <Box
             sx={{

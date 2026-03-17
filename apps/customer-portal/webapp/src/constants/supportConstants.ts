@@ -98,6 +98,10 @@ export const CaseStatus = {
 
 export type CaseStatus = (typeof CaseStatus)[keyof typeof CaseStatus];
 
+export const SUPPORT_STATE_CLOSED = CaseStatus.CLOSED;
+export const SUPPORT_STATE_AWAITING_INFO = CaseStatus.AWAITING_INFO;
+export const SUPPORT_STATE_WAITING_ON_WSO2 = CaseStatus.WAITING_ON_WSO2;
+
 // Call request status types.
 export const CallRequestStatus = {
   CANCELED: "Canceled",
@@ -159,10 +163,10 @@ export const CASE_ATTACHMENTS_INITIAL_LIMIT = 50;
 // Interface for support statistics card configuration.
 export interface SupportStatConfig<Key = keyof ProjectSupportStats> {
   iconColor: "primary" | "secondary" | "success" | "error" | "info" | "warning";
-  icon: ComponentType;
+  icon: ComponentType<{ size?: number; color?: string }>;
   key: Key;
   label: string;
-  secondaryIcon?: ComponentType;
+  secondaryIcon?: ComponentType<{ size?: number; color?: string }>;
 }
 
 /**

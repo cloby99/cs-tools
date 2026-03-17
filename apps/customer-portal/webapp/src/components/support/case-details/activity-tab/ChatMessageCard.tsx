@@ -20,18 +20,16 @@ import type { JSX } from "react";
 
 export interface ChatMessageCardProps {
   htmlContent: string;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
   isCurrentUser: boolean;
   primaryBg: string;
   onImageClick?: (src: string) => void;
 }
 
 /**
- * Card-style chat message with collapsible long content and "Show more" button.
- * Uses Paper without border or border radius.
+ * Card-style chat message using Paper without border or border radius.
+ * Renders HTML message content with basic styling.
  *
- * @param {ChatMessageCardProps} props - Content, expand state, and styling.
+ * @param {ChatMessageCardProps} props - Content and styling props.
  * @returns {JSX.Element} The chat message card.
  */
 export default function ChatMessageCard({

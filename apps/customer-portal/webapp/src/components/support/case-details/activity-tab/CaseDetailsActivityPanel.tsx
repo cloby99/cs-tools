@@ -136,7 +136,6 @@ export default function CaseDetailsActivityPanel({
       {content}
       <ActivityCommentInput
         caseId={caseId}
-        focusMode={focusMode}
         caseStatus={caseStatus}
       />
     </Box>

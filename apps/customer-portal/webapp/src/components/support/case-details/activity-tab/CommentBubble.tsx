@@ -21,7 +21,7 @@ import {
   alpha,
   useTheme,
 } from "@wso2/oxygen-ui";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { CaseComment } from "@models/responses";
 import {
   getInitials,
@@ -63,7 +63,6 @@ export default function CommentBubble({
   userDetails,
 }: CommentBubbleProps): import("react").JSX.Element {
   const theme = useTheme();
-  const [expanded, setExpanded] = useState(false);
   const rawContent = comment.content ?? "";
   const isFullCodeWrap = hasSingleCodeWrapper(rawContent);
   const codeBlockCount = rawContent.match(/\[code\]/gi)?.length ?? 0;
@@ -74,11 +73,7 @@ export default function CommentBubble({
       : convertCodeTagsToHtml(rawContent);
   const trimmedBr = trimLeadingBr(afterCode);
   const withoutLabel = stripCustomerCommentAddedLabel(trimmedBr);
-  const withImages = replaceInlineImageSources(
-    withoutLabel,
-    comment.inlineAttachments,
-    undefined,
-  );
+  const withImages = replaceInlineImageSources(withoutLabel, comment.inlineAttachments);
   const htmlContent = DOMPurify.sanitize(withImages);
   const displayName = useMemo(() => {
     if (isCurrentUser && userDetails) {
@@ -169,8 +164,6 @@ export default function CommentBubble({
         </Stack>
         <ChatMessageCard
           htmlContent={htmlContent}
-          isExpanded={expanded}
-          onToggleExpand={() => setExpanded((prev) => !prev)}
           isCurrentUser={isCurrentUser}
           primaryBg={primaryBg}
           onImageClick={onImageClick}

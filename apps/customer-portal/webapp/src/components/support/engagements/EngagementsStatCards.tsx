@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { type ComponentType, type JSX, useMemo } from "react";
+import { type JSX, useMemo } from "react";
 import {
   Briefcase,
   Clock,
@@ -24,6 +24,11 @@ import {
 import type { ProjectCasesStats } from "@models/responses";
 import SupportStatGrid from "@components/common/stat-grid/SupportStatGrid";
 import type { SupportStatConfig } from "@constants/supportConstants";
+import {
+  SUPPORT_STATE_AWAITING_INFO,
+  SUPPORT_STATE_CLOSED,
+  SUPPORT_STATE_WAITING_ON_WSO2,
+} from "@constants/supportConstants";
 
 type EngagementsStatKey = "total" | "active" | "completed" | "onHold";
 
@@ -47,25 +52,25 @@ export default function EngagementsStatCards({
   const configs: SupportStatConfig<EngagementsStatKey>[] = useMemo(() => {
     return [
       {
-        icon: Briefcase as unknown as ComponentType,
+        icon: Briefcase,
         iconColor: "primary",
         key: "total",
         label: "Total Engagements",
       },
       {
-        icon: Clock as unknown as ComponentType,
+        icon: Clock,
         iconColor: "info",
         key: "active",
         label: "Active Engagements",
       },
       {
-        icon: CircleCheck as unknown as ComponentType,
+        icon: CircleCheck,
         iconColor: "success",
         key: "completed",
         label: "Completed",
       },
       {
-        icon: CircleAlert as unknown as ComponentType,
+        icon: CircleAlert,
         iconColor: "warning",
         key: "onHold",
         label: "On Hold",
@@ -75,11 +80,13 @@ export default function EngagementsStatCards({
 
   const flattened = useMemo((): Partial<Record<EngagementsStatKey, number>> => {
     const completed =
-      stats?.stateCount?.find((s) => s.label === "Closed")?.count ?? 0;
+      stats?.stateCount?.find((s) => s.label === SUPPORT_STATE_CLOSED)?.count ??
+      0;
     const onHold =
-      (stats?.stateCount?.find((s) => s.label === "Awaiting Info")?.count ?? 0) +
-      (stats?.stateCount?.find((s) => s.label === "Waiting On WSO2")?.count ??
-        0);
+      (stats?.stateCount?.find((s) => s.label === SUPPORT_STATE_AWAITING_INFO)
+        ?.count ?? 0) +
+      (stats?.stateCount?.find((s) => s.label === SUPPORT_STATE_WAITING_ON_WSO2)
+        ?.count ?? 0);
     return {
       total: stats?.totalCount ?? 0,
       active: stats?.activeCount ?? 0,
