@@ -14,8 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, CircularProgress, IconButton } from "@wso2/oxygen-ui";
-import { Send } from "@wso2/oxygen-ui-icons-react";
+import { Box, CircularProgress, IconButton, colors } from "@wso2/oxygen-ui";
+import { ArrowUp } from "@wso2/oxygen-ui-icons-react";
 import { useState, useRef } from "react";
 import { usePostComment } from "@api/usePostComment";
 import { usePostAttachments } from "@api/usePostAttachments";
@@ -47,7 +47,6 @@ export default function ActivityCommentInput({
 }: ActivityCommentInputProps): JSX.Element {
   const [value, setValue] = useState("");
   const [resetTrigger, setResetTrigger] = useState(0);
-  const [isFocused, setIsFocused] = useState(false);
   const postComment = usePostComment();
   const postAttachments = usePostAttachments();
   const { isSignedIn, isLoading: isAuthLoading } = useAsgardeo();
@@ -151,14 +150,17 @@ export default function ActivityCommentInput({
   };
 
   const handleSend = async () => {
-    if (stripHtml(value).trim().length === 0 || isDisabled) return;
+    const hasText = stripHtml(value).trim().length > 0;
+    const hasAttachments = attachments.length > 0;
+    if ((!hasText && !hasAttachments) || isDisabled) return;
 
     // Snapshot attachments before posting
     const attachmentsSnapshot = [...attachments];
     const attachmentNamesSnapshot = new Map(attachmentNamesRef.current);
+    const contentToSend = hasText ? value.trim() : "<p></p>";
 
     postComment.mutate(
-      { caseId, body: { content: value.trim(), type: CommentType.COMMENT } },
+      { caseId, body: { content: contentToSend, type: CommentType.COMMENT } },
       {
         onSuccess: async () => {
           // Clear UI immediately to prevent duplicate posts
@@ -204,7 +206,7 @@ export default function ActivityCommentInput({
             onChange={setValue}
             disabled={isDisabled}
             resetTrigger={resetTrigger}
-            minHeight={isFocused ? 120 : 60}
+            minHeight={120}
             showToolbar={true}
             placeholder={
               isCaseClosed
@@ -216,9 +218,7 @@ export default function ActivityCommentInput({
             attachments={attachments.map((a) => a.file)}
             onAttachmentRemove={handleAttachmentRemove}
             showKeyboardHint={false}
-            maxHeight={isFocused ? "310px" : focusMode ? "120px" : "60px"}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
+            maxHeight={focusMode ? "310px" : "310px"}
           />
           <Box
             sx={{
@@ -231,22 +231,28 @@ export default function ActivityCommentInput({
             }}
           >
             <IconButton
-              disabled={stripHtml(value).trim().length === 0 || isDisabled}
+              disabled={
+                (stripHtml(value).trim().length === 0 &&
+                  attachments.length === 0) ||
+                isDisabled
+              }
               onClick={handleSend}
               color="warning"
               aria-label="Send comment"
               sx={{
-                bgcolor: "background.paper",
-                "&:hover": { bgcolor: "action.hover" },
+                bgcolor: colors.grey[100],
+                "&:hover": { bgcolor: colors.grey[200]},
                 boxShadow: 1,
                 width: 32,
                 height: 32,
+                border: "1px solid",
+                borderColor: "warning.main",
               }}
             >
               {postComment.isPending || isUploadingAttachments ? (
                 <CircularProgress color="inherit" size={18} />
               ) : (
-                <Send size={18} />
+                <ArrowUp size={18} />
               )}
             </IconButton>
           </Box>
