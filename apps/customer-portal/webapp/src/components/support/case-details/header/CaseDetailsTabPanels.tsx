@@ -29,6 +29,7 @@ export interface CaseDetailsTabPanelsProps {
   isError?: boolean;
   projectId?: string;
   focusMode?: boolean;
+  isEngagement?: boolean;
 }
 
 /**
