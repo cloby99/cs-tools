@@ -27,6 +27,9 @@ public isolated  function downloadLicense(LicenseDownloadPayload payload) return
 
     // CREATE APPLICATION
     if status == 1  {
+        if applicationName is () || applicationDescription is () {
+            return error("Application name and description are required for application creation.");
+        }
         ApplicationCreateResponse app =
             check productConsumptionClient->/applications
                 .post({name: applicationName, description: applicationDescription});
