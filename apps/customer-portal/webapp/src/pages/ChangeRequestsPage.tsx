@@ -80,7 +80,7 @@ export default function ChangeRequestsPage(): JSX.Element {
     data: stats,
     isLoading: isStatsLoading,
     isError: isStatsError,
-  } = useGetProjectChangeRequestStats(projectId || "");
+  } = useGetProjectChangeRequestStats(projectId || "", { enabled: !!projectId });
 
   // Build API request (following cases listing pattern)
   const changeRequestSearchRequest = useMemo<
@@ -295,7 +295,7 @@ export default function ChangeRequestsPage(): JSX.Element {
 
       {/* Stat cards */}
       <ChangeRequestsStatCards
-        isLoading={isStatsLoading}
+        isLoading={isStatsLoading || (!stats && !isStatsError)}
         isError={isStatsError}
         stats={stats}
       />
