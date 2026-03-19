@@ -151,6 +151,15 @@ export default function UserProfileModal({
     [],
   );
 
+  const resetPhoneDraft = useCallback(() => {
+    if (userDetails) {
+      const raw = userDetails.phoneNumber ?? "";
+      const { countryCode: cc, nationalNumber: nn } = parseE164ToCountryCode(raw);
+      setCountryCode(cc);
+      setNationalNumber(nn);
+    }
+  }, [userDetails]);
+
   const handleSave = useCallback(() => {
     if (!userDetails) return;
 
@@ -246,6 +255,7 @@ export default function UserProfileModal({
       onClose={handleClose}
       maxWidth="md"
       fullWidth
+      aria-labelledby="profile-dialog-title"
       PaperProps={{
         sx: {
           height: "90vh",
@@ -261,7 +271,7 @@ export default function UserProfileModal({
           overflow: "hidden",
         }}
       >
-        {isLoading || !userDetails ? (
+        {isLoading ? (
           <Box sx={{ p: 4, display: "flex", flexDirection: "column", gap: 4 }}>
             <Box
               sx={{
@@ -289,6 +299,53 @@ export default function UserProfileModal({
             </Box>
             <Skeleton variant="rectangular" width="100%" height={300} />
           </Box>
+        ) : !userDetails ? (
+          <>
+            <Box
+              sx={{
+                p: 3,
+                borderBottom: 1,
+                borderColor: "divider",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <Typography id="profile-dialog-title" variant="h5">
+                Profile
+              </Typography>
+              <IconButton
+                aria-label="Close profile"
+                size="small"
+                onClick={handleClose}
+              >
+                <X size={20} />
+              </IconButton>
+            </Box>
+            <Box
+              sx={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                p: 4,
+                gap: 2,
+              }}
+            >
+              <Typography variant="h6" color="text.secondary">
+                Unable to load profile
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+                We couldn't load your profile information. Please try again.
+              </Typography>
+              <Box sx={{ display: "flex", gap: 2, mt: 2 }}>
+                <Button variant="outlined" onClick={handleClose}>
+                  Close
+                </Button>
+              </Box>
+            </Box>
+          </>
         ) : (
           <>
             <Box
@@ -301,7 +358,9 @@ export default function UserProfileModal({
                 justifyContent: "space-between",
               }}
             >
-              <Typography variant="h5">Profile</Typography>
+              <Typography id="profile-dialog-title" variant="h5">
+                Profile
+              </Typography>
               <IconButton
                 aria-label="Close profile"
                 size="small"
@@ -414,10 +473,13 @@ export default function UserProfileModal({
                             disabled={patchUserMe.isPending}
                           >
                             <Select
+                              labelId="country-code-label"
+                              id="country-code-select"
                               value={countryCode}
                               onChange={handlePhoneCountryChange}
                               displayEmpty
                               size="small"
+                              aria-label="Country code"
                             >
                               {PHONE_COUNTRY_OPTIONS.map((o) => (
                                 <MenuItem
@@ -430,18 +492,22 @@ export default function UserProfileModal({
                             </Select>
                           </FormControl>
                           <TextField
+                            id="phone-number-input"
                             placeholder="Phone number"
                             value={nationalNumber}
                             onChange={handlePhoneNumberChange}
                             size="small"
                             disabled={patchUserMe.isPending}
                             sx={{ minWidth: 250, flex: 1 }}
-                            inputProps={{ inputMode: "tel" }}
+                            inputProps={{ inputMode: "tel", "aria-label": "Phone number" }}
                           />
                           <Button
                             variant="text"
                             size="small"
-                            onClick={() => setIsPhoneEditing(false)}
+                            onClick={() => {
+                              resetPhoneDraft();
+                              setIsPhoneEditing(false);
+                            }}
                             disabled={patchUserMe.isPending}
                           >
                             Cancel
@@ -497,6 +563,7 @@ export default function UserProfileModal({
                           disabled={patchUserMe.isPending}
                         >
                           <Typography
+                            id="timezone-label"
                             variant="body2"
                             fontWeight={500}
                             sx={{ mb: 1 }}
@@ -504,9 +571,12 @@ export default function UserProfileModal({
                             Time Zone
                           </Typography>
                           <Select
+                            labelId="timezone-label"
+                            id="timezone-select"
                             value={timeZoneValue}
                             onChange={handleTimeZoneChange}
                             displayEmpty
+                            aria-label="Time Zone"
                             renderValue={(selected) => {
                               if (!selected) {
                                 return (

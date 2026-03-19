@@ -415,7 +415,7 @@ export default function ChangeRequestDetailsPage(): JSX.Element {
   const testPlanText = stripHtmlTags(changeRequest.testPlan);
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 2, height: "100vh", overflow: "hidden" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2, minHeight: "100vh" }}>
       {/* Fixed Header: Back Button */}
       <Box sx={{ flexShrink: 0 }}>
         <Button
@@ -436,10 +436,12 @@ export default function ChangeRequestDetailsPage(): JSX.Element {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "flex-start",
+              flexDirection: { xs: "column", sm: "row" },
+              gap: 2,
             }}
           >
-            <Box>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+            <Box sx={{ flex: 1 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1, flexWrap: "wrap" }}>
                 <Typography variant="h5" color="text.primary">
                   {changeRequest.title || "Not Available"}
                 </Typography>
@@ -463,6 +465,7 @@ export default function ChangeRequestDetailsPage(): JSX.Element {
                   gap: 1.5,
                   fontSize: "0.875rem",
                   color: "text.secondary",
+                  flexWrap: "wrap",
                 }}
               >
                 <Typography variant="body2" fontWeight={600} color="text.primary">
@@ -483,7 +486,7 @@ export default function ChangeRequestDetailsPage(): JSX.Element {
               </Box>
             </Box>
 
-            <Box sx={{ display: "flex", gap: 1 }}>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
               {changeRequest.impact?.label &&
                 typeof changeRequest.impact.label === "string" && (
                   <Chip
@@ -520,9 +523,17 @@ export default function ChangeRequestDetailsPage(): JSX.Element {
       </Box>
 
       {/* Scrollable 2-Column Layout */}
-      <Box sx={{ display: "flex", gap: 2, flex: 1, overflow: "hidden" }}>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", md: "row" },
+          gap: 2,
+          flex: 1,
+          overflow: { xs: "visible", md: "hidden" },
+        }}
+      >
         {/* Left Column - Scrollable Content */}
-        <Box sx={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
+        <Box sx={{ flex: 1, overflow: { xs: "visible", md: "auto" }, display: "flex", flexDirection: "column", gap: 2 }}>
           {/* Scheduled Maintenance Window Card */}
           <ScheduledMaintenanceWindowCard changeRequest={changeRequest} />
 
@@ -536,7 +547,7 @@ export default function ChangeRequestDetailsPage(): JSX.Element {
             </Box>
 
             <Box sx={{ px: 3, py: 3 }}>
-              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 3 }}>
                 <Box>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     Deployment
@@ -760,7 +771,7 @@ export default function ChangeRequestDetailsPage(): JSX.Element {
           </Paper>
 
           {/* Action Buttons */}
-          <Box sx={{ display: "flex", gap: 2 }}>
+          <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 2 }}>
             <Button
               variant="contained"
               startIcon={<Download size={18} />}
@@ -794,7 +805,7 @@ export default function ChangeRequestDetailsPage(): JSX.Element {
         </Box>
 
         {/* Right Column - Workflow (Fixed Width, Scrollable) */}
-        <Box sx={{ width: 400, flexShrink: 0, overflow: "auto" }}>
+        <Box sx={{ width: { xs: "100%", md: 400 }, flexShrink: 0, overflow: { xs: "visible", md: "auto" } }}>
           <Paper variant="outlined">
             <Box sx={{ px: 3, pt: 3 }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
