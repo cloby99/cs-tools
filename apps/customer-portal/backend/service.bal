@@ -1434,11 +1434,10 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
 
     # Get Conversation summary for a project.
     # 
-    # + projectId - ID of the project
+    # + Id - ID of the project
     # + conversationId - ID of the conversation
     # + return - Conversation summary or error
-    resource function get projects/[entity:IdString projectId]/summary/[entity:IdString conversationId](http:RequestContext ctx)
-    resource function get projects/[entity:IdString projectId]/summary/[entity:IdString conversationId](
+    resource function get projects/[entity:IdString Id]/summary/[entity:IdString conversationId](
             http:RequestContext ctx) returns ai_chat_agent:ConversationSummaryResponse|http:BadRequest|
         http:Unauthorized|http:Forbidden|http:InternalServerError {
 
@@ -1452,7 +1451,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         }
 
         // Verify user has access to the project before returning summary
-        entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, projectId);
+        entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, Id);
         if projectResponse is error {
             if getStatusCode(projectResponse) == http:STATUS_UNAUTHORIZED {
                 log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
@@ -1463,7 +1462,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
                 };
             }
             if getStatusCode(projectResponse) == http:STATUS_FORBIDDEN {
-                log:printWarn(string `User: ${userInfo.userId} is forbidden to access project with ID: ${projectId}!`);
+                log:printWarn(string `User: ${userInfo.userId} is forbidden to access project with ID: ${Id}!`);
                 return <http:Forbidden>{
                     body: {
                         message: "You're not authorized to access the requested project."
@@ -1480,7 +1479,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
 
-        ai_chat_agent:ConversationSummaryResponse|error summaryResponse = ai_chat_agent:getSummary(projectId, conversationId);
+        ai_chat_agent:ConversationSummaryResponse|error summaryResponse = ai_chat_agent:getSummary(Id, conversationId);
         if summaryResponse is error {
             if getStatusCode(summaryResponse) == http:STATUS_UNAUTHORIZED {
                 log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
