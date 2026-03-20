@@ -171,6 +171,11 @@ export interface PatchDeploymentProductRequest {
   tps?: number;
   description?: string;
   active?: boolean;
+  updates?: Array<{
+    date: string;
+    details?: string;
+    updateLevel: number;
+  }>;
 }
 
 // Request body for POST /deployments/:deploymentId/products.
