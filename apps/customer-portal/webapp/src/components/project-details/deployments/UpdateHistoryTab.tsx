@@ -18,6 +18,7 @@ import {
   Box,
   Button,
   IconButton,
+  MenuItem,
   Skeleton,
   TextField,
   Typography,
@@ -26,15 +27,20 @@ import {
 import { SquarePen, Trash2 } from "@wso2/oxygen-ui-icons-react";
 import {
   useCallback,
+  useEffect,
   useMemo,
   useState,
   type ChangeEvent,
   type JSX,
 } from "react";
 import type { ProductUpdate } from "@models/responses";
+import { useGetRecommendedUpdateLevels } from "@api/useGetRecommendedUpdateLevels";
+import { useSearchUpdateLevels } from "@api/useSearchUpdateLevels";
 
 export interface UpdateHistoryTabProps {
   updates: ProductUpdate[];
+  productName: string;
+  productVersion: string;
   isLoading?: boolean;
   onSaveUpdates: (updates: ProductUpdate[]) => Promise<void>;
 }
@@ -54,17 +60,71 @@ const INITIAL_FORM: UpdateFormData = {
 /**
  * Displays update history timeline and allows adding/editing/deleting updates.
  *
- * @param {UpdateHistoryTabProps} props - updates array, loading state, and save callback.
+ * @param {UpdateHistoryTabProps} props - updates array, product info, loading state, and save callback.
  * @returns {JSX.Element} The update history tab component.
  */
 export default function UpdateHistoryTab({
   updates,
+  productName,
+  productVersion,
   isLoading,
   onSaveUpdates,
 }: UpdateHistoryTabProps): JSX.Element {
   const [form, setForm] = useState<UpdateFormData>(INITIAL_FORM);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  const { data: recommendedUpdateLevels = [], isLoading: isLoadingRecommended } =
+    useGetRecommendedUpdateLevels();
+
+  const matchedRecommendation = useMemo(() => {
+    if (!productName || !productVersion || recommendedUpdateLevels.length === 0) {
+      return null;
+    }
+
+    return recommendedUpdateLevels.find(
+      (item) =>
+        item.productName === productName &&
+        item.productBaseVersion === productVersion,
+    );
+  }, [productName, productVersion, recommendedUpdateLevels]);
+
+  const shouldFetchUpdateLevels =
+    !!productName && !!productVersion && !isLoadingRecommended;
+
+  const {
+    data: updateLevelsData,
+    isLoading: isLoadingUpdateLevels,
+  } = useSearchUpdateLevels(
+    {
+      productName,
+      productVersion,
+    },
+    shouldFetchUpdateLevels,
+  );
+
+  const availableUpdateLevels = useMemo(() => {
+    if (!updateLevelsData) return [];
+
+    const levels = Object.keys(updateLevelsData)
+      .map((key) => parseInt(key, 10))
+      .filter((level) => !isNaN(level))
+      .sort((a, b) => b - a);
+
+    return levels;
+  }, [updateLevelsData]);
+
+  const getUpdateDescription = useCallback(
+    (updateLevel: number): string | null => {
+      if (!updateLevelsData) return null;
+
+      const levelData = updateLevelsData[String(updateLevel)];
+      if (!levelData?.updateDescriptionLevels?.[0]) return null;
+
+      return levelData.updateDescriptionLevels[0].description || null;
+    },
+    [updateLevelsData],
+  );
 
   const sortedUpdates = useMemo(() => {
     return [...updates].sort((a, b) => {
@@ -84,7 +144,15 @@ export default function UpdateHistoryTab({
 
   const handleFormChange =
     (field: keyof UpdateFormData) => (e: ChangeEvent<HTMLInputElement>) => {
-      setForm((prev) => ({ ...prev, [field]: e.target.value }));
+      const value = e.target.value;
+      setForm((prev) => ({ ...prev, [field]: value }));
+
+      if (field === "updateLevel" && value) {
+        const description = getUpdateDescription(parseInt(value, 10));
+        if (description && !prev.details) {
+          setForm((p) => ({ ...p, details: description }));
+        }
+      }
     };
 
   const handleAddUpdate = useCallback(async () => {
@@ -226,6 +294,8 @@ export default function UpdateHistoryTab({
                   onCancelEdit={() => setEditingIndex(null)}
                   formatDate={formatDate}
                   isSaving={isSaving}
+                  availableUpdateLevels={availableUpdateLevels}
+                  isLoadingUpdateLevels={isLoadingUpdateLevels}
                 />
               ))}
             </Box>
@@ -257,17 +327,29 @@ export default function UpdateHistoryTab({
           }}
         >
           <TextField
+            select
             id="new-update-level"
             label="Update Level *"
-            placeholder="e.g., U25"
             value={form.updateLevel}
             onChange={handleFormChange("updateLevel")}
             fullWidth
             size="small"
-            disabled={isSaving}
-            type="number"
-            inputProps={{ min: 0 }}
-          />
+            disabled={isSaving || isLoadingUpdateLevels}
+            sx={{
+              "& .MuiSelect-select": {
+                color: !form.updateLevel ? "text.secondary" : undefined,
+              },
+            }}
+          >
+            <MenuItem value="">
+              {isLoadingUpdateLevels ? "Loading..." : "Select Update Level"}
+            </MenuItem>
+            {availableUpdateLevels.map((level) => (
+              <MenuItem key={level} value={level}>
+                U{level}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField
             id="new-applied-on"
             label="Applied On *"
@@ -292,6 +374,22 @@ export default function UpdateHistoryTab({
           rows={2}
           disabled={isSaving}
         />
+        {matchedRecommendation && (
+          <Box
+            sx={{
+              bgcolor: (theme) => alpha(theme.palette.info.main, 0.08),
+              border: 1,
+              borderColor: (theme) => alpha(theme.palette.info.main, 0.3),
+              p: 1.5,
+            }}
+          >
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              Recommended Update Level: U{matchedRecommendation.recommendedUpdateLevel}
+              {matchedRecommendation.availableUpdatesCount > 0 &&
+                ` (${matchedRecommendation.availableUpdatesCount} updates available)`}
+            </Typography>
+          </Box>
+        )}
         <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
           <Button
             variant="contained"
@@ -317,6 +415,8 @@ interface TimelineItemProps {
   onCancelEdit: () => void;
   formatDate: (dateStr: string) => string;
   isSaving: boolean;
+  availableUpdateLevels: number[];
+  isLoadingUpdateLevels: boolean;
 }
 
 /**
@@ -334,6 +434,8 @@ function TimelineItem({
   onCancelEdit,
   formatDate,
   isSaving,
+  availableUpdateLevels,
+  isLoadingUpdateLevels,
 }: TimelineItemProps): JSX.Element {
   const [editForm, setEditForm] = useState<ProductUpdate>(update);
 
@@ -419,18 +521,26 @@ function TimelineItem({
               }}
             >
               <TextField
+                select
                 label="Update Level"
-                type="number"
                 value={editForm.updateLevel}
                 onChange={handleEditChange("updateLevel")}
                 size="small"
                 fullWidth
-                disabled={isSaving}
-                inputProps={{ min: 0 }}
+                disabled={isSaving || isLoadingUpdateLevels}
                 sx={{
                   "& .MuiInputBase-root": { bgcolor: "background.paper" },
                 }}
-              />
+              >
+                <MenuItem value="">
+                  {isLoadingUpdateLevels ? "Loading..." : "Select"}
+                </MenuItem>
+                {availableUpdateLevels.map((level) => (
+                  <MenuItem key={level} value={level}>
+                    U{level}
+                  </MenuItem>
+                ))}
+              </TextField>
               <TextField
                 label="Date"
                 type="date"
