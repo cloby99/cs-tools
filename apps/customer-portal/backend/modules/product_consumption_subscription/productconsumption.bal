@@ -60,7 +60,7 @@ public isolated function downloadLicense(LicenseDownloadPayload payload) returns
     if (status == 2 ) {
         ApplicationSubscriptionResponse _ = check productConsumptionClient->/applications/[applicationId]/subscribe
             .post(<ApplicationSubscriptionPayload>{
-            applicationId: applicationId
+            applicationId
         });
 
         Result _ = check productConsumptionClient->/projects/[payload.projectId]
