@@ -4299,6 +4299,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
                 }
             };
         }
+
         product_consumption_subscription:License|error licenseResponse =
             product_consumption_subscription:processLicenseDownload({email: userInfo.email, deploymentId, projectId});
         if licenseResponse is error {
