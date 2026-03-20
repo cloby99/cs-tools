@@ -22,12 +22,7 @@ public isolated function downloadLicense(LicenseDownloadPayload payload) returns
     // 1. Get current status
     Result statusRes =
         check productConsumptionClient->/projects/[payload.projectId]/consumption/status
-            .post({
-                email: payload.email,
-                deploymentId: payload.deploymentId
-    Result statusRes = check productConsumptionClient->/projects/[payload.projectId]/consumption/status.post({email: payload.email,
-        deploymentId: payload.deploymentId});
-
+            .post({email: payload.email, deploymentId: payload.deploymentId});
 
     int status = statusRes.result.status;
     string? applicationId = statusRes.result.applicationId;
