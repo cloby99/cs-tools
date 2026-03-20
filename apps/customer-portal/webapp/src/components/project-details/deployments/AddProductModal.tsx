@@ -480,53 +480,10 @@ export default function AddProductModal({
           size="small"
           multiline
           rows={2}
-          sx={{ mb: 2 }}
           value={form.description}
           onChange={handleTextChange("description")}
           disabled={isSubmitting}
         />
-
-        <Box sx={{ borderTop: 1, borderColor: "divider", pt: 2, mt: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 2 }}>
-            Initial Update Information
-          </Typography>
-          <Box
-            sx={{
-              bgcolor: "action.hover",
-              p: 2,
-              borderRadius: 1,
-              border: 1,
-              borderColor: "divider",
-            }}
-          >
-            <TextField
-              select
-              fullWidth
-              size="small"
-              id="product-update-level"
-              label="Update Level"
-              value=""
-              disabled
-              sx={{
-                mb: 2,
-                "& .MuiSelect-select": {
-                  color: "text.secondary",
-                },
-              }}
-            >
-              <MenuItem value="">Select</MenuItem>
-            </TextField>
-            <TextField
-              id="product-applied-on"
-              label="Applied On"
-              type="date"
-              fullWidth
-              size="small"
-              slotProps={{ inputLabel: { shrink: true } }}
-              disabled
-            />
-          </Box>
-        </Box>
       </DialogContent>
 
       <DialogActions

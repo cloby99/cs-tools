@@ -72,7 +72,7 @@ export const DASHBOARD_STATS: StatConfigItem[] = [
   },
   {
     id: "resolvedCases",
-    label: "Support Cases (Last 30d)",
+    label: "Resolved Support Cases (Last 30d)",
     icon: CheckCircle,
     iconColor: "success",
     tooltipText: "Successfully closed and resolved cases",
@@ -210,7 +210,8 @@ export const OUTSTANDING_ENGAGEMENTS_CATEGORY_CHART_DATA = [
   { key: "onboarding", name: "Onboarding", color: colors.blue[500] },
   { key: "migration", name: "Migration", color: colors.orange[500] },
   { key: "services", name: "Services", color: colors.green[500] },
-  { key: "improvements", name: "Improvements", color: colors.purple[500] },
+  { key: "follow-up", name: "Follow up", color: colors.purple[500] },
+  { key: "improvements", name: "Improvements", color: colors.brown[500] },
 ] as const;
 
 /**

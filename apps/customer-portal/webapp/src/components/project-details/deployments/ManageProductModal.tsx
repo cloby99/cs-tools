@@ -37,7 +37,8 @@ import {
   type JSX,
 } from "react";
 import { usePatchDeploymentProduct } from "@api/usePatchDeploymentProduct";
-import type { DeploymentProductItem } from "@models/responses";
+import type { DeploymentProductItem, ProductUpdate } from "@models/responses";
+import UpdateHistoryTab from "@components/project-details/deployments/UpdateHistoryTab";
 
 /**
  * Validates and parses a string to a finite non-negative number.
@@ -61,7 +62,7 @@ export interface ManageProductModalProps {
 /**
  * Modal for managing (editing) a deployment product.
  * Product Details tab: Core Count, TPS, and Description are editable.
- * Update History tab disabled.
+ * Update History tab: View, add, edit, and delete product updates.
  *
  * @param {ManageProductModalProps} props - open, deploymentId, product, onClose, optional onSuccess/onError.
  * @returns {JSX.Element | null} The manage product modal or null when product is missing.
@@ -78,6 +79,11 @@ export default function ManageProductModal({
   const [cores, setCores] = useState("");
   const [tps, setTps] = useState("");
   const [description, setDescription] = useState("");
+  const [addUpdateState, setAddUpdateState] = useState<{
+    canAdd: boolean;
+    isSaving: boolean;
+    handleAdd: () => void;
+  } | null>(null);
 
   const patchProduct = usePatchDeploymentProduct();
   const isSubmitting = patchProduct.isPending;
@@ -96,8 +102,7 @@ export default function ManageProductModal({
   }, [onClose]);
 
   const handleTabChange = useCallback((_e: unknown, v: number) => {
-    if (v === 0) setTabValue(0);
-    // Tab 1 (Update History) is disabled, do not switch
+    setTabValue(v);
   }, []);
 
   const handleCoresChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
@@ -175,6 +180,35 @@ export default function ManageProductModal({
     onError,
   ]);
 
+  const handleSaveUpdates = useCallback(
+    async (updates: ProductUpdate[]) => {
+      if (!product?.id) return;
+
+      const normalizedUpdates = updates.map((update) => ({
+        updateLevel: update.updateLevel,
+        date: update.date,
+        details: update.details === null ? undefined : update.details,
+      }));
+
+      try {
+        await patchProduct.mutateAsync({
+          deploymentId,
+          productId: product.id,
+          body: { updates: normalizedUpdates },
+        });
+        onSuccess?.();
+      } catch (error) {
+        onError?.(
+          error instanceof Error
+            ? error.message
+            : "Failed to update product history",
+        );
+        throw error;
+      }
+    },
+    [product?.id, deploymentId, patchProduct, onSuccess, onError],
+  );
+
   if (!product) return null;
 
   return (
@@ -216,11 +250,7 @@ export default function ManageProductModal({
           sx={{ mb: 2, minHeight: 36 }}
         >
           <Tab label="Product Details" id="manage-product-tab-details" />
-          <Tab
-            label="Update History"
-            id="manage-product-tab-history"
-            disabled
-          />
+          <Tab label="Update History" id="manage-product-tab-history" />
         </Tabs>
 
         {tabValue === 0 && (
@@ -271,6 +301,21 @@ export default function ManageProductModal({
             </Box>
           </Box>
         )}
+
+        {tabValue === 1 && (
+          <UpdateHistoryTab
+            updates={product.updates ?? []}
+            productName={product.product?.label || ""}
+            productVersion={
+              typeof product.version === "string"
+                ? product.version
+                : product.version?.label || ""
+            }
+            isLoading={false}
+            onSaveUpdates={handleSaveUpdates}
+            onFormStateChange={setAddUpdateState}
+          />
+        )}
       </DialogContent>
 
       <DialogActions
@@ -279,28 +324,51 @@ export default function ManageProductModal({
         <Button
           variant="outlined"
           onClick={handleClose}
-          disabled={isSubmitting}
+          disabled={isSubmitting || addUpdateState?.isSaving}
         >
           Close
         </Button>
-        {isSubmitting ? (
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<CircularProgress color="inherit" size={16} />}
-            disabled
-          >
-            Saving...
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            variant="contained"
-            color="primary"
-            onClick={handleSave}
-          >
-            Save Changes
-          </Button>
+        {tabValue === 0 &&
+          (isSubmitting ? (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<CircularProgress color="inherit" size={16} />}
+              disabled
+            >
+              Saving...
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="contained"
+              color="primary"
+              onClick={handleSave}
+            >
+              Save Changes
+            </Button>
+          ))}
+        {tabValue === 1 && addUpdateState && (
+          addUpdateState.isSaving ? (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<CircularProgress color="inherit" size={16} />}
+              disabled
+            >
+              Adding...
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="contained"
+              color="primary"
+              onClick={addUpdateState.handleAdd}
+              disabled={!addUpdateState.canAdd}
+            >
+              Add Update
+            </Button>
+          )
         )}
       </DialogActions>
     </Dialog>

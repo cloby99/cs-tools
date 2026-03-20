@@ -26,20 +26,26 @@ import type { FilterField } from "@components/common/filter-panel/FilterPopover"
 import CasesTableHeader from "@components/dashboard/cases-table/CasesTableHeader";
 import CasesFilters from "@components/dashboard/cases-table/CasesFilters";
 import CasesList from "@components/dashboard/cases-table/CasesList";
-import { mapSeverityToDisplay, isS0Case } from "@utils/support";
+import { mapSeverityToDisplay, isS0Case, deriveFilterLabels } from "@utils/support";
 import { isS0SeverityLabel } from "@constants/dashboardConstants";
+import { CaseType, ALL_CASES_FILTER_DEFINITIONS } from "@constants/supportConstants";
 import type { CaseListItem, CaseSearchResponse } from "@models/responses";
 
 const OUTSTANDING_STATUS_IDS = [1, 10, 18, 1003, 1006] as const;
 
+const isClosedStatus = (label?: string): boolean =>
+  label?.trim().toLowerCase() === "closed";
+
 interface CasesTableProps {
   projectId: string;
   excludeS0?: boolean;
+  hasAgent?: boolean;
 }
 
 const CasesTable = ({
   projectId,
   excludeS0 = false,
+  hasAgent = false,
 }: CasesTableProps): JSX.Element => {
   const navigate = useNavigate();
   const { isLoading: isAuthLoading } = useAsgardeo();
@@ -57,67 +63,72 @@ const CasesTable = ({
   // Fetch deployments for the deployment filter
   const { data: deploymentsData } = useGetDeployments(projectId);
 
-  const severityOptions = (filtersMetadata?.severities ?? [])
-    .filter((s) => !excludeS0 || !isS0SeverityLabel(s.label))
-    .map((s) => ({
-      label: mapSeverityToDisplay(s.label),
-      value: s.id,
-    }));
+  const dynamicFilterFields: FilterField[] = useMemo(() => {
+    return ALL_CASES_FILTER_DEFINITIONS.map((def) => {
+      const { label } = deriveFilterLabels(def.id);
 
-  const dynamicFilterFields: FilterField[] = [
-    {
-      id: "statusId",
-      label: "Status",
-      type: "select",
-      options: (
-        filtersMetadata?.caseStates ??
-        filtersMetadata?.statuses ??
-        []
-      ).map((s) => ({ label: s.label, value: s.id })),
-    },
-    {
-      id: "severityId",
-      label: "Severity",
-      type: "select",
-      options: severityOptions,
-    },
-    {
-      id: "issueTypes",
-      label: "Category",
-      type: "select",
-      options:
-        filtersMetadata?.issueTypes?.map((t) => ({
-          label: t.label,
-          value: t.id,
-        })) || [],
-    },
-    {
-      id: "deploymentId",
-      label: "Deployment",
-      type: "select",
-      options:
-        deploymentsData?.deployments?.map((d) => ({
-          label: d.type?.label || d.name,
-          value: d.id,
-        })) || [],
-    },
-  ];
+      const isDeploymentFilter = def.id === "deployment";
+      const options = isDeploymentFilter && deploymentsData
+        ? deploymentsData.deployments?.map((deployment) => ({
+            label: deployment.type?.label || deployment.name,
+            value: deployment.id,
+          })) || []
+        : (() => {
+            const metadataOptions = filtersMetadata?.[def.metadataKey as keyof typeof filtersMetadata];
+            if (!Array.isArray(metadataOptions)) return [];
+            const filtered =
+              def.metadataKey === "severities" && excludeS0
+                ? metadataOptions.filter(
+                    (item: { label: string }) =>
+                      !isS0SeverityLabel(item.label),
+                  )
+                : def.metadataKey === "caseStates"
+                ? (metadataOptions as any[]).filter((s) => !isClosedStatus(s.label))
+                : metadataOptions;
+            return filtered.map((item: { label: string; id: string }) => ({
+              label:
+                def.metadataKey === "severities"
+                  ? mapSeverityToDisplay(item.label)
+                  : item.label,
+              value: item.id,
+            }));
+          })();
+
+      return {
+        id: def.filterKey,
+        label,
+        type: "select" as const,
+        options,
+      };
+    });
+  }, [filtersMetadata, deploymentsData, excludeS0]);
 
   const caseSearchRequest = useMemo(
-    () => ({
-      filters: {
-        statusId: filters.statusId ? Number(filters.statusId) : undefined,
-        statusIds: filters.statusId ? undefined : [...OUTSTANDING_STATUS_IDS],
-        severityId: filters.severityId ? Number(filters.severityId) : undefined,
-        issueId: filters.issueTypes ? Number(filters.issueTypes) : undefined,
-        deploymentId: filters.deploymentId || undefined,
-      },
-      sortBy: {
-        field: "createdOn",
-        order: "desc" as const,
-      },
-    }),
-    [filters],
+    () => {
+      // If no status filter is applied, use all statuses except Closed (id: 3)
+      const defaultStatusIds = filtersMetadata?.caseStates
+        ?.filter((status) => !isClosedStatus(status.label))
+        .map((status) => Number(status.id)) || [];
+      
+      return {
+        filters: {
+          statusIds: filters.statusId 
+            ? [Number(filters.statusId)] 
+            : defaultStatusIds.length > 0 
+              ? defaultStatusIds 
+              : [...OUTSTANDING_STATUS_IDS],
+          caseTypes: filters.caseTypeId ? [filters.caseTypeId] : [CaseType.DEFAULT_CASE],
+          severityId: filters.severityId ? Number(filters.severityId) : undefined,
+          issueId: filters.issueTypes ? Number(filters.issueTypes) : undefined,
+          deploymentId: filters.deploymentId || undefined,
+        },
+        sortBy: {
+          field: "createdOn",
+          order: "desc" as const,
+        },
+      };
+    },
+    [filters, filtersMetadata],
   );
 
   const offset = page * rowsPerPage;
@@ -160,9 +171,8 @@ const CasesTable = ({
       }
       const rawCases = infiniteQuery.data.pages.flatMap((p) => p.cases ?? []);
       const cases = filterS0(rawCases);
-      const totalRecords = excludeS0
-        ? cases.length
-        : (infiniteQuery.data.pages[0]?.totalRecords ?? cases.length);
+      // For showAll mode, use the original total records from API
+      const totalRecords = infiniteQuery.data.pages[0]?.totalRecords ?? 0;
       return {
         cases,
         totalRecords,
@@ -173,9 +183,8 @@ const CasesTable = ({
     const pageData = pageQuery.data;
     const rawCases = (pageData?.cases ?? []) as CaseListItem[];
     const cases = filterS0(rawCases);
-    const totalRecords = excludeS0
-      ? cases.length
-      : (pageData?.totalRecords ?? 0);
+    // For paginated mode, use the original total records from API
+    const totalRecords = pageData?.totalRecords ?? 0;
     return { cases, totalRecords, offset, limit };
   }, [showAll, infiniteQuery.data, pageQuery.data, offset, limit, excludeS0]);
 
@@ -228,6 +237,7 @@ const CasesTable = ({
             setIsFilterOpen(!isFilterOpen);
           }
         }}
+        hasAgent={hasAgent}
       />
 
       {/* Filter dropdowns section */}

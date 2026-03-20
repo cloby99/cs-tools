@@ -21,7 +21,7 @@ import { useAsgardeo } from "@asgardeo/react";
 import { useLogger } from "@hooks/useLogger";
 import { useLoader } from "@context/linear-loader/LoaderContext";
 import { useErrorBanner } from "@context/error-banner/ErrorBannerContext";
-import useGetProjectDetails from "@api/useGetProjectDetails";
+import useInfiniteProjects, { flattenProjectPages } from "@api/useGetProjects";
 import { useGetProjectCasesStats } from "@api/useGetProjectCasesStats";
 import { useGetProjectChangeRequestsStats } from "@api/useGetProjectChangeRequestsStats";
 import {
@@ -47,15 +47,21 @@ export default function DashboardPage(): JSX.Element {
   const { isLoading: isAuthLoading } = useAsgardeo();
 
   const {
-    data: project,
-    isLoading: isProjectLoading,
-  } = useGetProjectDetails(projectId || "");
-  const projectReady = !isProjectLoading && project !== undefined;
+    data: projectsData,
+    isLoading: isProjectsLoading,
+  } = useInfiniteProjects({ pageSize: 20, enabled: !!projectId });
+  const projects = useMemo(() => flattenProjectPages(projectsData), [projectsData]);
+  const project = useMemo(
+    () => projects.find((p) => p.id === projectId),
+    [projects, projectId],
+  );
+  const projectReady = !isProjectsLoading && project !== undefined;
 
   const isManagedCloudSubscription =
     projectReady &&
     project?.type?.label === PROJECT_TYPE_LABELS.MANAGED_CLOUD_SUBSCRIPTION;
   const excludeS0 = projectReady ? !isManagedCloudSubscription : false;
+  const hasAgent = projectReady ? (project?.hasAgent ?? false) : false;
 
   const {
     data: combinedCasesStats,
@@ -105,7 +111,7 @@ export default function DashboardPage(): JSX.Element {
     enabled: !!projectId,
   });
 
-  const isDashboardLoading = isAuthLoading || isProjectLoading;
+  const isDashboardLoading = isAuthLoading || isProjectsLoading;
 
   useEffect(() => {
     if (isDashboardLoading) {
@@ -225,22 +231,20 @@ export default function DashboardPage(): JSX.Element {
     const source = engagementStats;
     const outstanding =
       source?.outstandingEngagementTypeCount ?? [];
+    const normalizeEngagementLabel = (label: string): string => {
+      if (label === "New Feature / Improvement") return "Improvements";
+      if (label === "Consultancy") return "Services";
+      return label;
+    };
 
-    const getCount = (label: string) =>
-      outstanding.find((item) => item.label === label)?.count ?? 0;
-
-    const onboarding = getCount("Onboarding");
-    const migration = getCount("Migration");
-    const improvements = getCount("New Feature / Improvement");
-    const services = getCount("Consultancy");
-
-    const total = onboarding + migration + improvements + services;
+    const categories = outstanding.map((item) => ({
+      name: normalizeEngagementLabel(item.label),
+      value: item.count ?? 0,
+    }));
+    const total = categories.reduce((sum, item) => sum + item.value, 0);
 
     return {
-      onboarding,
-      migration,
-      services,
-      improvements,
+      categories,
       total,
     };
   }, [engagementStats]);
@@ -436,6 +440,7 @@ export default function DashboardPage(): JSX.Element {
           <CasesTable
             projectId={projectId}
             excludeS0={excludeS0}
+            hasAgent={hasAgent}
           />
         </Box>
       )}

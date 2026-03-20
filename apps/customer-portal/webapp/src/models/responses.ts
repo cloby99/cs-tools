@@ -100,6 +100,7 @@ export interface UserDetails {
   phoneNumber?: string | null;
   avatar?: string | null;
   roles?: string[];
+  lastPasswordUpdateTime?: string;
 }
 
 // Project user (invited/registered) for project users list.
@@ -162,8 +163,8 @@ export interface CaseCreationMetadata {
   }[];
   conversationSummary: {
     messagesExchanged: number;
-    troubleshootingAttempts: string;
-    kbArticlesReviewed: string;
+    troubleshootingAttempts: number;
+    kbArticlesReviewed: number;
   };
 }
 
