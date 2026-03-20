@@ -72,6 +72,7 @@ public type CredentialsResponse record {
     string consumerKey;
     # OAuth2 consumer secret
     string consumerSecret;
+    json...;
 };
 
 # Choreo secret keys generation response structure.
