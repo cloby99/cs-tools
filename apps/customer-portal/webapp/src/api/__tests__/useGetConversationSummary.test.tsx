@@ -15,15 +15,30 @@
 // under the License.
 
 import { renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode } from "react";
 import useGetConversationSummary from "@api/useGetConversationSummary";
-import * as apiRequest from "../apiRequest";
 
-vi.mock("@api/apiRequest", () => ({
-  apiRequest: vi.fn(),
+vi.mock("@asgardeo/react", () => ({
+  useAsgardeo: vi.fn(() => ({
+    isSignedIn: true,
+    isLoading: false,
+  })),
 }));
+
+vi.mock("@api/useAuthApiClient", () => ({
+  useAuthApiClient: vi.fn(),
+}));
+
+vi.mock("@hooks/useLogger", () => ({
+  useLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    error: vi.fn(),
+  })),
+}));
+
+const mockAuthFetch = vi.fn();
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
