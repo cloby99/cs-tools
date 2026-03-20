@@ -278,3 +278,18 @@ public type RecommendationRequest record {|
     # Customer question or issue description
     ConversationData conversationData;
 |};
+
+# Conversation summary information.
+public type ConversationSummaryResponse record {|
+    # Account ID
+    string accountId;
+    # Conversation ID
+    string conversationId;
+    # Number of messages exchanged in the conversation
+    int messagesExchanged;
+    # Number of troubleshooting attempts in the conversation
+    int troubleshootingAttempts;
+    # Number of KB articles reviewed in the conversation
+    int kbArticlesReviewed;
+    json...;
+|};

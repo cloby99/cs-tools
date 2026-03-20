@@ -1435,6 +1435,84 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         };
     }
 
+    # Get Conversation summary for a project.
+    # 
+    # + Id - ID of the project
+    # + conversationId - ID of the conversation
+    # + return - Conversation summary or error
+    resource function get projects/[entity:IdString Id]/conversations/[entity:IdString conversationId]/summary(
+            http:RequestContext ctx) returns ai_chat_agent:ConversationSummaryResponse|http:BadRequest|
+        http:Unauthorized|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        // Verify user has access to the project before returning summary
+        entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, Id);
+        if projectResponse is error {
+            if getStatusCode(projectResponse) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+            if getStatusCode(projectResponse) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `User: ${userInfo.userId} is forbidden to access project with ID: ${Id}!`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "You're not authorized to access the requested project."
+                    }
+                };
+            }
+
+            string customError = "Failed to verify project access.";
+            log:printError(customError, projectResponse);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+
+        ai_chat_agent:ConversationSummaryResponse|error summaryResponse = ai_chat_agent:getSummary(Id, conversationId);
+        if summaryResponse is error {
+            if getStatusCode(summaryResponse) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+            if getStatusCode(summaryResponse) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `User: ${userInfo.userId} is forbidden to access conversation summary for conversation ID: ${
+                        conversationId}`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "You're not authorized to access the summary for the requested conversation."
+                    }
+                };
+            }
+
+            string customError = "Failed to retrieve conversation summary.";
+            log:printError(customError, summaryResponse);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+
+        return summaryResponse;
+    }
     # Add a message to an existing conversation and get response using AI chat agent.
     #
     # + projectId - ID of the project
@@ -4329,10 +4407,15 @@ isolated service / on new websocket:Listener(wsPort) {
 
     # Upgrade an HTTP request to WebSocket for a given chat session.
     #
+    # + req - The HTTP request containing JWT headers for authentication
     # + sessionId - Conversation/session ID to route to the upstream Python agent
     # + return - WebSocket service or upgrade error
-    isolated resource function get [string sessionId]() returns websocket:Service|websocket:UpgradeError {
-        log:printInfo(string `Upgrading to WebSocket for session ID: ${sessionId}`);
+    isolated resource function get [string sessionId](http:Request req) returns websocket:Service|websocket:UpgradeError {
+        authorization:UserInfoPayload|error userInfo = authorization:getUserInfoFromRequest(req);
+        if userInfo is error {
+            log:printError("WebSocket upgrade rejected: authorization failed", userInfo.message());
+            return error websocket:UpgradeError(userInfo.message());
+        }
         return new WsProxyService(sessionId);
     }
 }

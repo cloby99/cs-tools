@@ -29,6 +29,50 @@ final jwt:ValidatorConfig & readonly jwtConfig = {
     }
 };
 
+# Extracts and validates user info from JWT headers in an HTTP request.
+# This function is used by both the HTTP interceptor and the WebSocket upgrade resource.
+#
+# + req - The HTTP request containing JWT headers
+# + return - UserInfoPayload on success or error on validation failure
+public isolated function getUserInfoFromRequest(http:Request req) returns UserInfoPayload|error {
+    string|error idToken = req.getHeader(JWT_ASSERTION_HEADER);
+    if idToken is error {
+        string errorMsg = "Missing invoker info header!";
+        log:printError(errorMsg, idToken);
+        return error(errorMsg);
+    }
+
+    // TODO: Remove this if the token issuer issue get resolved.
+    string|error userIdToken = req.getHeader(USER_ID_TOKEN_HEADER);
+    if userIdToken is error {
+        string errorMsg = "Missing user id token info header!";
+        log:printError(errorMsg, userIdToken);
+        return error(errorMsg);
+    }
+
+    // Validate JWT token
+    jwt:Payload|error payload = jwt:validate(idToken, jwtConfig.cloneReadOnly());
+    if payload is error {
+        string errorMsg = "Invalid or expired token!";
+        log:printError(errorMsg, payload);
+        return error(errorMsg);
+    }
+
+    CustomJwtPayload|error payloadData = payload.cloneWithType(CustomJwtPayload);
+    if payloadData is error {
+        string errorMsg = "Malformed JWT payload!";
+        log:printError(errorMsg, payloadData);
+        return error(errorMsg);
+    }
+
+    return {
+        email: payloadData.email,
+        groups: payloadData.groups,
+        userId: payloadData.userid,
+        idToken: userIdToken
+    };
+}
+
 # To handle authorization for each resource function invocation.
 public isolated service class JwtInterceptor {
 
@@ -37,49 +81,10 @@ public isolated service class JwtInterceptor {
     isolated resource function default [string... path](http:RequestContext ctx, http:Request req)
         returns http:NextService|http:Unauthorized|http:InternalServerError|error? {
 
-        string|error idToken = req.getHeader(JWT_ASSERTION_HEADER);
-        if idToken is error {
-            string errorMsg = "Missing invoker info header!";
-            log:printError(errorMsg, idToken);
-            return <http:InternalServerError>{
-                body: {
-                    message: errorMsg
-                }
-            };
+        UserInfoPayload|error userInfo = getUserInfoFromRequest(req);
+        if userInfo is error {
+            return <http:InternalServerError>{body: {message: userInfo.message()}};
         }
-
-        string|error userIdToken = req.getHeader(USER_ID_TOKEN_HEADER);
-        if userIdToken is error {
-            string errorMsg = "Missing user id token info header!";
-            log:printError(errorMsg, userIdToken);
-            return <http:Unauthorized>{
-                body: {
-                    message: errorMsg
-                }
-            };
-        }
-
-        // Validate JWT token
-        jwt:Payload|error payload = jwt:validate(idToken, jwtConfig.cloneReadOnly());
-        if payload is error {
-            string errorMsg = "Invalid or expired token!";
-            log:printError(errorMsg, payload);
-            return <http:Unauthorized>{body: {message: errorMsg}};
-        }
-
-        CustomJwtPayload|error payloadData = payload.cloneWithType(CustomJwtPayload);
-        if payloadData is error {
-            string errorMsg = "Malformed JWT payload!";
-            log:printError(errorMsg, payloadData);
-            return <http:InternalServerError>{body: {message: errorMsg}};
-        }
-
-        UserInfoPayload userInfo = {
-            email: payloadData.email,
-            groups: payloadData.groups,
-            userId: payloadData.userid,
-            idToken: userIdToken
-        };
 
         ctx.set(HEADER_USER_INFO, userInfo);
         return ctx.next();

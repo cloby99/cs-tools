@@ -78,6 +78,15 @@ public isolated function getRecommendation(RecommendationRequest payload) return
     return aiChatAgentClient->/recommendations.post(payload);
 }
 
+# Get summary for a conversation.
+# 
+# + projectId - Project ID
+# + conversationId - Conversation ID
+# + return - Summary response or error
+public isolated function getSummary(string projectId, string conversationId) returns ConversationSummaryResponse|error {
+    return aiChatAgentClient->/chat/summary/[projectId]/[conversationId];
+}
+
 # Stream chat events from the upstream AI chat agent WebSocket back to the browser caller.
 # Opens a dedicated upstream connection per call, sends the payload, then pipes every event
 # verbatim until a "final" or "error" event or the upstream connection closes.
