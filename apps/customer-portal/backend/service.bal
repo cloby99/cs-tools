@@ -17,6 +17,7 @@
 import customer_portal.ai_chat_agent;
 import customer_portal.authorization;
 import customer_portal.entity;
+import customer_portal.product_consumption_subscription;
 import customer_portal.registry;
 import customer_portal.scim;
 import customer_portal.types;
@@ -4400,6 +4401,75 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         }
         return response;
     }
+
+    # Download license for a project deployment.
+    #
+    # + projectId - ID of the project
+    # + deploymentId - ID of the deployment
+    # + return - Change request details object or Error
+    isolated resource function post projects/[string projectId]/deployments/[string deploymentId]/license
+        (http:RequestContext ctx)returns product_consumption_subscription:License|http:InternalServerError
+            |http:Unauthorized|http:Forbidden|http:NotFound {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        entity:ProjectResponse|error projectResponse = entity:getProject(userInfo.idToken, projectId);
+        if projectResponse is error {
+            if getStatusCode(projectResponse) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+            if getStatusCode(projectResponse) == http:STATUS_FORBIDDEN {
+                logForbiddenProjectAccess(projectId, userInfo.userId);
+                return <http:Forbidden>{
+                    body: {
+                        message: ERR_MSG_PROJECT_ACCESS_FORBIDDEN
+                    }
+                };
+            }
+            if getStatusCode(projectResponse) == http:STATUS_NOT_FOUND {
+                log:printWarn(string `Project with ID: ${projectId} not found for user: ${userInfo.userId}`);
+                return <http:NotFound>{
+                    body: {
+                        message: "The requested project does not exist or you don't have access to it."
+                    }
+                };
+            }
+
+            string customError = "Failed to retrieve project details.";
+            log:printError(customError, projectResponse);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+
+        product_consumption_subscription:License|error licenseResponse =
+            product_consumption_subscription:processLicenseDownload({email: userInfo.email, deploymentId, projectId});
+        if licenseResponse is error {
+            string customError = "Failed to retrieve license.";
+            log:printError(customError, licenseResponse);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+        return licenseResponse;
+    }
+
 }
 
 # WebSocket service to proxy messages between the browser and the upstream Python AI chat agent for real-time communication in chat sessions.
