@@ -949,8 +949,8 @@ public type CallRequestCreatePayload record {|
 public type CallRequestUpdatePayload record {|
     # State key
     int stateKey;
-    # Reason for the update
-    string reason;
+    # Reason for the requested call cancellation
+    string cancellationReason?;
     # New preferred UTC times for the call (mandatory when stateKey is 2)
     entity:DateTime[] utcTimes?;
 |};

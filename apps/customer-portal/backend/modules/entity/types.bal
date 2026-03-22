@@ -1205,6 +1205,8 @@ public type CallRequest record {|
     string updatedOn;
     # State information
     ChoiceListItem state;
+    # Cancellation reason
+    string? cancellationReason?;
     json...;
 |};
 
@@ -1267,8 +1269,8 @@ public type CallRequestCreateResponse record {|
 public type CallRequestUpdatePayload record {|
     # State key
     int stateKey;
-    # Reason for the update
-    string reason;
+    # Reason for the requested call cancellation
+    string cancellationReason?;
     # New preferred UTC times for the call (mandatory when stateKey is 2)
     DateTime[] utcTimes?;
 |};
