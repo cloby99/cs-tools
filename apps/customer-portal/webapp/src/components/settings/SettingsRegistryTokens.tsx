@@ -118,6 +118,25 @@ function formatDate(iso?: string): string {
   });
 }
 
+/** Parses the backend metadata description into a human-readable string. */
+function formatTokenDescription(rawDesc?: string): string {
+  if (!rawDesc) return DASH;
+
+  if (rawDesc.includes("##")) {
+    const parts = rawDesc.split("##");
+
+    if (parts.length >= 5) {
+      const tokenType = parts[2];
+      const createdFor = parts[3];
+      return `${tokenType} token for ${createdFor}`;
+    }
+
+    return "System generated token";
+  }
+
+  return rawDesc;
+}
+
 /** Check if a token expires within the next N days. */
 function expiresWithinDays(token: RegistryToken, days: number): boolean {
   if (!token.expiresAt || token.expiresAt <= 0) return false;
@@ -152,9 +171,10 @@ export default function SettingsRegistryTokens({
   const {
     data: allTokens = [],
     isLoading,
+    isFetching,
     error,
   } = useSearchRegistryTokens(projectId);
-
+  const isTableLoading = isLoading || isFetching;
   const userTokens = useMemo(
     () => allTokens.filter((t) => t.tokenType === "User"),
     [allTokens],
@@ -271,7 +291,7 @@ export default function SettingsRegistryTokens({
           const Icon = card.icon;
           return (
             <Grid key={card.label} size={{ xs: 12, sm: 4 }}>
-              {isLoading ? (
+              {isTableLoading ? (
                 <Skeleton variant="rectangular" height={100} sx={{ borderRadius: 1 }} />
               ) : error ? (
                 <StatCard
@@ -374,7 +394,7 @@ export default function SettingsRegistryTokens({
               </TableRow>
             </TableHead>
             <TableBody>
-              {isLoading ? (
+              {isTableLoading ? (
                 skeletonRows(8)
               ) : error ? (
                 <TableRow>
@@ -475,7 +495,7 @@ export default function SettingsRegistryTokens({
               </TableRow>
             </TableHead>
             <TableBody>
-              {isLoading ? (
+              {isTableLoading ? (
                 skeletonRows(8)
               ) : error ? (
                 <TableRow>
@@ -506,7 +526,7 @@ export default function SettingsRegistryTokens({
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
-                          {token.description ?? DASH}
+                          {formatTokenDescription(token.description)}
                         </Typography>
                       </TableCell>
                       <TableCell>
