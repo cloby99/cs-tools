@@ -241,19 +241,19 @@ export default function SettingsRegistryTokens({
       value: stats.total,
       label: "Total Tokens",
       icon: KeyRound,
-      iconColor: theme.palette.warning.main,
+      iconColor: "warning",
     },
     {
       value: stats.active,
       label: "Active Tokens",
       icon: CheckCircle,
-      iconColor: theme.palette.success.main,
+      iconColor: "success",
     },
     {
       value: stats.expiringSoon,
       label: "Expiring Soon",
       icon: AlertCircle,
-      iconColor: theme.palette.error.main,
+      iconColor: "error",
     },
   ];
 
@@ -297,13 +297,15 @@ export default function SettingsRegistryTokens({
                 <StatCard
                   label={card.label}
                   value={DASH}
-                  icon={<Icon color={card.iconColor} />}
+                  icon={<Icon />}
+                  iconColor={card.iconColor as any}
                 />
               ) : (
                 <StatCard
                   label={card.label}
                   value={card.value.toString()}
-                  icon={<Icon color={card.iconColor} />}
+                  icon={<Icon />}
+                  iconColor={card.iconColor as any}
                 />
               )}
             </Grid>
