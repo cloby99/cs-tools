@@ -4523,18 +4523,65 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
 }
 
 # WebSocket service to proxy messages between the browser and the upstream Python AI chat agent for real-time communication in chat sessions.
+# Browsers cannot send custom headers during the WebSocket handshake. The x-user-id-token
+# required for entity API calls is passed as a subprotocol in the Sec-WebSocket-Protocol header.
+# Format: sec-websocket-protocol: WSO2 Developer Platform-oauth2-token, {access token}, {x-user-id-token}
 isolated service / on new websocket:Listener(wsPort) {
 
-    resource function get .() returns websocket:Service {
-        return new ChatService();
+    # Upgrade an HTTP request to WebSocket for a given chat session.
+    #
+    # + req - The HTTP request for the WebSocket upgrade
+    # + sessionId - Account/project ID passed as a query parameter
+    # + return - WebSocket service or upgrade error
+    isolated resource function get ws(http:Request req, string sessionId) returns websocket:Service|websocket:UpgradeError {
+        // Try standard header first (e.g., when Choreo gateway injects it).
+        string|error userIdToken = req.getHeader(authorization:USER_ID_TOKEN_HEADER);
+        if userIdToken is error {
+            // Fallback: extract x-user-id-token from Sec-WebSocket-Protocol header.
+            // Format: "WSO2 Developer Platform-oauth2-token, <accessToken>, <x-user-id-token>"
+            string|error protocolHeader = req.getHeader("Sec-WebSocket-Protocol");
+            if protocolHeader is error {
+                return error websocket:UpgradeError(ERR_MSG_USER_INFO_HEADER_NOT_FOUND);
+            }
+            string[] parts = re `,`.split(protocolHeader);
+            if parts.length() < 3 {
+                return error websocket:UpgradeError(
+                    "Invalid Sec-WebSocket-Protocol format. Expected: WSO2 Developer Platform-oauth2-token, <accessToken>, <x-user-id-token>");
+            }
+            userIdToken = parts[2].trim();
+        }
+        // Decode the user ID token to extract user info (email, userId)
+        authorization:UserInfoPayload|error userInfo = authorization:getUserInfoFromTokens(userIdToken, userIdToken);
+        if userInfo is error {
+            return error websocket:UpgradeError(ERR_MSG_UNAUTHORIZED_ACCESS);
+        }
+        log:printInfo(string `WebSocket upgrade for project: ${sessionId}, user: ${userInfo.email}`);
+        return new WsProxyService(sessionId, userInfo);
     }
 }
 
-# Chat service that proxies messages to the upstream AI chat agent.
-isolated service class ChatService {
+# AI chat agent related service functions that interact with the upstream AI chat agent through the client module.
+isolated service class WsProxyService {
     *websocket:Service;
+    private final string projectId;
+    private final string idToken;
+    private final string userEmail;
+    private string? conversationId = ();
     private boolean streaming = false;
 
+    isolated function init(string projectId, authorization:UserInfoPayload userInfo) {
+        self.projectId = projectId;
+        self.idToken = userInfo.idToken;
+        self.userEmail = userInfo.email;
+    }
+
+    # Handles incoming WebSocket text messages from the browser client.
+    # Responds to ping messages, enforces single-stream concurrency, and proxies
+    # user messages to the upstream AI chat agent via the ai_chat_agent module.
+    #
+    # + caller - The WebSocket caller representing the connected browser client
+    # + data - Raw text message received from the client
+    # + return - Error if message handling or forwarding fails
     remote function onMessage(websocket:Caller caller, string data) returns error? {
         json|error parsed = data.fromJsonString();
         boolean isPing = data.trim().toLowerAscii() == "ping"
@@ -4558,12 +4605,64 @@ isolated service class ChatService {
             return;
         }
 
-        // Extract sessionId from the payload
-        string sessionId = (parsed is map<json> ? (parsed["sessionId"] ?: "").toString() : "");
-        log:printDebug(string `Received message, sessionId: ${sessionId}, payload: ${data}`);
+        log:printDebug(string `Received message for project: ${self.projectId}, payload: ${data}`);
+        string? existingConversationId;
+        lock {
+            existingConversationId = self.conversationId;
+        }
+        if existingConversationId is () {
+            string clientConvId = (parsed is map<json> ? (parsed["conversationId"] ?: "").toString() : "");
+            log:printDebug(string `Parsed conversationId from payload: '${clientConvId}'`);
+            if clientConvId.length() > 0 {
+                lock {
+                    self.conversationId = clientConvId;
+                }
+                log:printInfo(string `Resuming existing conversation: ${clientConvId} for project: ${self.projectId}`);
+            } else {
+                string userMessage = (parsed is map<json> ? (parsed["message"] ?: "").toString() : data);
+                log:printInfo(string `Creating new conversation for project: ${self.projectId}`);
+                entity:ConversationCreateResponse|error conversationResponse = entity:createConversation(
+                        self.idToken,
+                        {
+                            projectId: self.projectId,
+                            initialMessage: userMessage
+                        });
+                if conversationResponse is error {
+                    lock {
+                        self.streaming = false;
+                    }
+                    log:printError("Failed to create a new conversation.", conversationResponse);
+                    json errorPayload = {"type": "error", "message": "Failed to create a new conversation."};
+                    check caller->writeTextMessage(errorPayload.toJsonString());
+                    return;
+                }
+                string convId = conversationResponse.conversation.id;
+                lock {
+                    self.conversationId = convId;
+                }
+                log:printDebug(string `Created conversation with ID: ${convId} for project: ${self.projectId}`);
+                json createdEvent = {"type": "conversation_created", "conversationId": convId};
+                check caller->writeTextMessage(createdEvent.toJsonString());
+            }
+        }
+
+        string conversationId;
+        lock {
+            conversationId = self.conversationId ?: "";
+        }
+        string sessionId = string `${self.projectId}:${conversationId}`;
+        string userMessage = (parsed is map<json> ? (parsed["message"] ?: "").toString() : data);
+        string enrichedPayload;
+
+        if parsed is map<json> {
+            parsed["conversationId"] = conversationId;
+            enrichedPayload = parsed.toJsonString();
+        } else {
+            enrichedPayload = data;
+        }
 
         // Stream the conversation message to the upstream AI chat agent and get the final response
-        map<json>|error result = ai_chat_agent:streamChat(sessionId, data, caller);
+        map<json>|error result = ai_chat_agent:streamChat(sessionId, enrichedPayload, caller);
         lock {
             self.streaming = false;
         }
@@ -4574,13 +4673,75 @@ isolated service class ChatService {
             if writeErr is error {
                 log:printError("Failed to send error to caller (client disconnected)", writeErr);
             }
+            return;
+        }
+        // Post-stream processing: persist conversation comments and update state based on the final AI response
+
+        // Save the user query under comments
+        entity:CommentCreateResponse|error userCommentResponse = entity:createComment(self.idToken,
+                {
+                    referenceId: conversationId,
+                    referenceType: entity:CONVERSATION,
+                    content: userMessage,
+                    'type: entity:COMMENTS,
+                    createdBy: self.userEmail
+                });
+        if userCommentResponse is error {
+            log:printError("Failed to save user message as comment.", userCommentResponse);
+        } else {
+            log:printDebug(string `Saved user message as comment for conversation ID: ${conversationId}`);
+        }
+
+        // Save the AI agent response under comments
+        string responseMessage = (result["message"] ?: "").toString();
+        if responseMessage.length() > 0 {
+            entity:CommentCreateResponse|error agentCommentResponse = entity:createComment(self.idToken,
+                    {
+                        referenceId: conversationId,
+                        referenceType: entity:CONVERSATION,
+                        content: responseMessage,
+                        'type: entity:COMMENTS,
+                        createdBy: entity:CHAT_SENT_AGENT
+                    });
+            if agentCommentResponse is error {
+                log:printError("Failed to save chat response as comment.", agentCommentResponse);
+            } else {
+                log:printDebug(string `Saved AI agent response as comment for conversation ID: ${
+                        conversationId}`);
+            }
+        }
+
+        // Update conversation state if issue is resolved
+        json resolvedVal = result["resolved"] ?: ();
+        if resolvedVal is boolean && resolvedVal {
+            log:printInfo(string `Issue resolved for conversation ID: ${conversationId}, updating state`);
+            entity:ConversationUpdateResponse|error conversationUpdateResponse =
+                    entity:updateConversation(self.idToken, conversationId,
+                    {stateKey: entity:RESOLVED});
+            if conversationUpdateResponse is error {
+                string customError = "Failed to update conversation state to resolved.";
+                log:printError(customError, conversationUpdateResponse);
+            } else {
+                log:printDebug(string `Updated conversation state to resolved for conversation ID: ${
+                        conversationId}`);
+            }
         }
     }
 
+    # Handles WebSocket connection errors on the proxy link.
+    #
+    # + caller - The WebSocket caller representing the connected browser client
+    # + err - The error that occurred on the connection
+    # + return - Error if error handling itself fails
     remote function onError(websocket:Caller caller, error err) returns error? {
         log:printError("WebSocket proxy connection error", err);
     }
 
+    # Handles WebSocket connection closure events.
+    #
+    # + caller - The WebSocket caller representing the connected browser client
+    # + statusCode - WebSocket close status code
+    # + reason - Reason string for the closure
     remote function onClose(websocket:Caller caller, int statusCode, string reason) {
         log:printInfo(string `WebSocket proxy closed [${statusCode}]: ${reason}`);
     }
