@@ -21,7 +21,7 @@ import ballerina/log;
 
 configurable int stateIdOpen = 1;
 configurable types:FeatureFlags featureFlags = {
-    isUsageAndMetricsPageEnabled: true
+    metricsPageEnabled: true
 };
 
 # Search cases for a given project.
