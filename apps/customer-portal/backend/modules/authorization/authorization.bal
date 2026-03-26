@@ -79,6 +79,7 @@ public isolated function getUserInfoFromRequest(http:Request req) returns UserIn
         log:printError(errorMsg, payload);
         return error(errorMsg);
     }
+
     CustomJwtPayload|error payloadData = payload.cloneWithType(CustomJwtPayload);
     if payloadData is error {
         string errorMsg = "Malformed JWT payload!";
