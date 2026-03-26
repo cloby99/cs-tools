@@ -45,3 +45,22 @@ export interface ChatNavState {
   initialEnvProducts?: Record<string, string[]>;
   accountId?: string;
 }
+
+export interface ChatWebSocketEvent {
+  type: string;
+  [key: string]: unknown;
+}
+
+export interface ChatWebSocketPayload {
+  type: "user_message";
+  accountId: string;
+  conversationId: string;
+  message: string;
+  envProducts: Record<string, string[]>;
+}
+
+export interface UseChatWebSocketOptions {
+  onEvent: (event: ChatWebSocketEvent) => void;
+  onClose?: () => void;
+  onError?: (message: string) => void;
+}
