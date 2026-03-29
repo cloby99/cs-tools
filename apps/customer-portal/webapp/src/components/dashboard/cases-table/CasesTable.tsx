@@ -65,6 +65,16 @@ const CasesTable = ({
   // Fetch deployments for the deployment filter
   const { data: deploymentsData } = useGetDeployments(projectId);
 
+  useEffect(() => {
+    if (!includeDeploymentFilter) {
+      setFilters((prev) =>
+        prev.deploymentId != null && prev.deploymentId !== ""
+          ? { ...prev, deploymentId: undefined }
+          : prev,
+      );
+    }
+  }, [includeDeploymentFilter]);
+
   const dynamicFilterFields: FilterField[] = useMemo(() => {
     return ALL_CASES_FILTER_DEFINITIONS
       .filter(
@@ -76,31 +86,36 @@ const CasesTable = ({
       const { label } = deriveFilterLabels(def.id);
 
       const isDeploymentFilter = def.id === "deployment";
-      const options = isDeploymentFilter && deploymentsData
-        ? deploymentsData.deployments?.map((deployment) => ({
+      let options: { label: string; value: string }[];
+      if (isDeploymentFilter) {
+        options =
+          deploymentsData?.deployments?.map((deployment) => ({
             label: deployment.type?.label || deployment.name,
             value: deployment.id,
-          })) || []
-        : (() => {
-            const metadataOptions = filtersMetadata?.[def.metadataKey as keyof typeof filtersMetadata];
-            if (!Array.isArray(metadataOptions)) return [];
-            const filtered =
-              def.metadataKey === "severities" && excludeS0
-                ? metadataOptions.filter(
-                    (item: { label: string }) =>
-                      !isS0SeverityLabel(item.label),
-                  )
-                : def.metadataKey === "caseStates"
+          })) ?? [];
+      } else {
+        const metadataOptions = filtersMetadata?.[def.metadataKey as keyof typeof filtersMetadata];
+        if (!Array.isArray(metadataOptions)) {
+          options = [];
+        } else {
+          const filtered =
+            def.metadataKey === "severities" && excludeS0
+              ? metadataOptions.filter(
+                  (item: { label: string }) =>
+                    !isS0SeverityLabel(item.label),
+                )
+              : def.metadataKey === "caseStates"
                 ? (metadataOptions as any[]).filter((s) => !isClosedStatus(s.label))
                 : metadataOptions;
-            return filtered.map((item: { label: string; id: string }) => ({
-              label:
-                def.metadataKey === "severities"
-                  ? mapSeverityToDisplay(item.label)
-                  : item.label,
-              value: item.id,
-            }));
-          })();
+          options = filtered.map((item: { label: string; id: string }) => ({
+            label:
+              def.metadataKey === "severities"
+                ? mapSeverityToDisplay(item.label)
+                : item.label,
+            value: item.id,
+          }));
+        }
+      }
 
         return {
           id: def.filterKey,
