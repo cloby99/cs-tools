@@ -54,18 +54,20 @@ export default function SideBar({
   const selectedProject = projects.find((project) => project.id === projectId);
 
   const projectTypeLabel = selectedProject?.type?.label;
+  const isProjectTypeResolved =
+    projectTypeLabel != null && String(projectTypeLabel).trim() !== "";
   const permissions = useMemo(
     () => getProjectPermissions(projectTypeLabel),
     [projectTypeLabel],
   );
 
   const navItems = useMemo(() => {
-    if (!permissions.hasOperations) {
+    if (!isProjectTypeResolved || !permissions.hasOperations) {
       return APP_SHELL_NAV_ITEMS.filter((item) => item.id !== "operations");
     }
 
     return APP_SHELL_NAV_ITEMS;
-  }, [permissions.hasOperations]);
+  }, [isProjectTypeResolved, permissions.hasOperations]);
 
   return (
     <Sidebar
