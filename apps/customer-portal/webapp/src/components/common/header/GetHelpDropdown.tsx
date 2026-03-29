@@ -20,6 +20,7 @@ import {
   Divider,
   Menu,
   MenuItem,
+  Skeleton,
   Typography,
 } from "@wso2/oxygen-ui";
 import {
@@ -53,11 +54,18 @@ export default function GetHelpDropdown(): JSX.Element {
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId?: string }>();
 
-  const { data: projectsData } = useInfiniteProjects({ pageSize: 20 });
+  const {
+    data: projectsData,
+    isLoading: isProjectsLoading,
+    isFetching: isProjectsFetching,
+  } = useInfiniteProjects({ pageSize: 20 });
   const projects = useMemo(
     () => flattenProjectPages(projectsData),
     [projectsData],
   );
+  const isProjectsListBusy =
+    isProjectsLoading ||
+    (isProjectsFetching && projects.length === 0);
 
   const selectedProject = useMemo(
     () => projects.find((p) => p.id === projectId),
@@ -176,53 +184,61 @@ export default function GetHelpDropdown(): JSX.Element {
           },
         }}
       >
-        {menuItems.map((item, index) => (
-          <Box key={item.id}>
-            {index > 0 && (
-              <Divider
-                variant="middle"
-                component="li"
-                sx={{ listStyle: "none" }}
-              />
-            )}
-            <MenuItem
-              onClick={item.onClick}
-              sx={{
-                py: 1.5,
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 1.5,
-              }}
-            >
-              <Box
-                component="span"
-                sx={{ display: "flex", flexShrink: 0, alignItems: "center" }}
-              >
-                {item.icon}
-              </Box>
-              <Box
+        {isProjectsListBusy ? (
+          <Box sx={{ px: 2, py: 1.5, width: 224 }}>
+            <Skeleton variant="rounded" height={48} sx={{ mb: 1 }} />
+            <Skeleton variant="rounded" height={48} sx={{ mb: 1 }} />
+            <Skeleton variant="rounded" height={48} />
+          </Box>
+        ) : (
+          menuItems.map((item, index) => (
+            <Box key={item.id}>
+              {index > 0 && (
+                <Divider
+                  variant="middle"
+                  component="li"
+                  sx={{ listStyle: "none" }}
+                />
+              )}
+              <MenuItem
+                onClick={item.onClick}
                 sx={{
+                  py: 1.5,
                   display: "flex",
-                  flexDirection: "column",
-                  gap: 0.25,
-                  minWidth: 0,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 1.5,
                 }}
               >
-                <Typography fontWeight={500} variant="body2" component="div">
-                  {item.label}
-                </Typography>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  component="div"
+                <Box
+                  component="span"
+                  sx={{ display: "flex", flexShrink: 0, alignItems: "center" }}
                 >
-                  {item.description}
-                </Typography>
-              </Box>
-            </MenuItem>
-          </Box>
-        ))}
+                  {item.icon}
+                </Box>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 0.25,
+                    minWidth: 0,
+                  }}
+                >
+                  <Typography fontWeight={500} variant="body2" component="div">
+                    {item.label}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    component="div"
+                  >
+                    {item.description}
+                  </Typography>
+                </Box>
+              </MenuItem>
+            </Box>
+          ))
+        )}
       </Menu>
     </Box>
   );
