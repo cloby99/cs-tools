@@ -57,13 +57,15 @@ export default function ProjectDetails(): JSX.Element {
     () => allProjects.find((p) => p.id === projectId),
     [allProjects, projectId],
   );
-  const projectTypeLabel = currentProject?.type?.label;
 
   const {
     data: project,
     isFetching: isProjectFetching,
     error: projectError,
   } = useGetProjectDetails(projectId || "");
+
+  const projectTypeLabel =
+    currentProject?.type?.label ?? project?.type?.label;
 
   const {
     data: stats,
