@@ -28,7 +28,7 @@ import {
 import { Bot, CircleAlert, Sparkles } from "@wso2/oxygen-ui-icons-react";
 import { useCallback, useState, useMemo, useEffect, type JSX } from "react";
 import useGetProjectDetails from "@api/useGetProjectDetails";
-import useInfiniteProjects, { flattenProjectPages } from "@api/useGetProjects";
+import useInfiniteProjects from "@api/useGetProjects";
 import { usePatchProject } from "@api/usePatchProject";
 import { useSuccessBanner } from "@context/success-banner/SuccessBannerContext";
 import { useErrorBanner } from "@context/error-banner/ErrorBannerContext";
@@ -52,40 +52,33 @@ export default function SettingsAiAssistant({
   const theme = useTheme();
   const { showSuccess } = useSuccessBanner();
   const { showError } = useErrorBanner();
-  const {
-    data: projectsData,
-    isSuccess: isProjectsLoaded,
-    refetch: refetchProjects,
-  } = useInfiniteProjects({ pageSize: 20, enabled: !!projectId });
+  const { refetch: refetchProjects } = useInfiniteProjects({
+    pageSize: 20,
+    enabled: !!projectId,
+  });
   const { data: projectDetails } = useGetProjectDetails(projectId);
   const patchProject = usePatchProject(projectId);
   const [noveraOverride, setNoveraOverride] = useState<boolean | null>(null);
   const [kbOverride, setKbOverride] = useState<boolean | null>(null);
 
   const { projectHasAgent, projectHasKbReferences } = useMemo(() => {
-    const fromList =
-      isProjectsLoaded && projectsData
-        ? flattenProjectPages(projectsData).find((p) => p.id === projectId)
-        : undefined;
-    const agent =
-      fromList?.hasAgent ?? projectDetails?.hasAgent ?? projectDetails?.account?.hasAgent;
-    const kbFromSearch = fromList?.hasKbReferences;
-    const kb =
-      kbFromSearch !== undefined
-        ? kbFromSearch
-        : fromList
-          ? true
-          : true;
+    const detailsAvailable = !!projectDetails;
+    const agent = detailsAvailable
+      ? (projectDetails.hasAgent ?? projectDetails.account?.hasAgent)
+      : undefined;
+    const kb = detailsAvailable
+      ? (projectDetails.hasKbReferences ?? projectDetails.account?.hasKbReferences)
+      : undefined;
     return {
       projectHasAgent: agent,
       projectHasKbReferences: kb,
     };
-  }, [isProjectsLoaded, projectsData, projectId, projectDetails]);
+  }, [projectDetails]);
 
-  const noveraEnabled = noveraOverride ?? projectHasAgent ?? true;
+  const noveraEnabled = noveraOverride ?? projectHasAgent ?? false;
   const kbReferencesEnabled =
     noveraEnabled &&
-    (kbOverride ?? projectHasKbReferences ?? true);
+    (kbOverride ?? projectHasKbReferences ?? false);
 
   useEffect(() => {
     if (projectHasAgent !== undefined) {
@@ -95,9 +88,17 @@ export default function SettingsAiAssistant({
 
   const notifyPatchSuccess = useCallback(
     async (kind: PatchSuccessKind) => {
-      await refetchProjects();
+      const refreshed = await refetchProjects();
+      const refreshedProject = refreshed.data?.pages
+        ?.flatMap((page) => page.projects ?? [])
+        ?.find((p) => p.id === projectId);
       setNoveraOverride(null);
       setKbOverride(null);
+      if (refreshedProject?.hasAgent !== undefined) {
+        setNoveraChatEnabled(refreshedProject.hasAgent);
+      } else if (projectDetails?.hasAgent !== undefined) {
+        setNoveraChatEnabled(projectDetails.hasAgent);
+      }
       const messages: Record<PatchSuccessKind, string> = {
         novera: "AI Chat Assistant (Novera) was updated successfully.",
         kb: "Smart Knowledge Base suggestions were updated successfully.",
@@ -106,7 +107,7 @@ export default function SettingsAiAssistant({
       };
       showSuccess(messages[kind]);
     },
-    [refetchProjects, showSuccess],
+    [projectDetails?.hasAgent, projectId, refetchProjects, showSuccess],
   );
 
   const handlePatchError = useCallback(
@@ -266,7 +267,7 @@ export default function SettingsAiAssistant({
                   }}
                 >
                   <Bot size={20} color={colors.orange[600]} />
-                  <Typography variant="body1">
+                  <Typography variant="body1" id="ai-chat-assistant-label">
                     AI Chat Assistant (Novera)
                   </Typography>
                   <Chip
@@ -289,6 +290,9 @@ export default function SettingsAiAssistant({
                     disabled={patchProject.isPending}
                     onChange={(_, checked) => handleNoveraToggle(checked)}
                     color="warning"
+                    inputProps={{
+                      "aria-labelledby": "ai-chat-assistant-label",
+                    }}
                   />
                 }
                 label=""
@@ -323,7 +327,7 @@ export default function SettingsAiAssistant({
                     }}
                   >
                     <Bot size={20} color={colors.orange[600]} />
-                    <Typography variant="body1">
+                    <Typography variant="body1" id="kb-suggestions-label">
                       Smart Knowledge Base Suggestions
                     </Typography>
                     <Chip
@@ -348,6 +352,9 @@ export default function SettingsAiAssistant({
                       }
                       onChange={(_, checked) => handleKbToggle(checked)}
                       color="warning"
+                      inputProps={{
+                        "aria-labelledby": "kb-suggestions-label",
+                      }}
                     />
                   }
                   label=""

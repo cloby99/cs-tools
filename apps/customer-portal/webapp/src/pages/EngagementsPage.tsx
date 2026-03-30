@@ -154,7 +154,9 @@ export default function EngagementsPage(): JSX.Element {
 
   const filteredCases = useMemo(
     () =>
-      excludeS0 ? currentPageCases.filter((c) => !isS0Case(c)) : currentPageCases,
+      excludeS0
+        ? currentPageCases.filter((c) => !isS0Case(c))
+        : currentPageCases,
     [currentPageCases, excludeS0],
   );
 
@@ -265,19 +267,21 @@ export default function EngagementsPage(): JSX.Element {
             </Select>
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel id="engagements-order-by-label">Order by</InputLabel>
+            <InputLabel id="sort-label">Order By</InputLabel>
             <Select<"desc" | "asc">
-              labelId="engagements-order-by-label"
-              id="engagements-order-by"
+              labelId="sort-label"
+              id="sort"
               value={sortOrder}
-              label="Order by"
-              onChange={(e) => handleSortChange(e.target.value as "desc" | "asc")}
+              label="Sort"
+              onChange={(e) =>
+                handleSortChange(e.target.value as "desc" | "asc")
+              }
             >
               <MenuItem value="desc">
-                <Typography variant="body2">Newest first</Typography>
+                <Typography variant="body2">Newest First</Typography>
               </MenuItem>
               <MenuItem value="asc">
-                <Typography variant="body2">Oldest first</Typography>
+                <Typography variant="body2">Oldest First</Typography>
               </MenuItem>
             </Select>
           </FormControl>
