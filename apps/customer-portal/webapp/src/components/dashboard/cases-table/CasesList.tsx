@@ -124,8 +124,8 @@ const CasesList = ({
                           }}
                         />
                         <Typography variant="body2" color="text.secondary">
-                          No outstanding cases.Try adjusting your filters or
-                          search query
+                          No outstanding cases. Try adjusting your filters or
+                          search query.
                         </Typography>
                       </>
                     ) : (
