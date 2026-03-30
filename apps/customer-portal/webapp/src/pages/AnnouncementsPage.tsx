@@ -151,21 +151,21 @@ export default function AnnouncementsPage(): JSX.Element {
         </Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel id="sort-label">Sort</InputLabel>
+            <InputLabel id="announcements-order-by-label">Order by</InputLabel>
             <Select<"desc" | "asc">
-              labelId="sort-label"
-              id="sort"
+              labelId="announcements-order-by-label"
+              id="announcements-order-by"
               value={sortOrder}
-              label="Sort"
+              label="Order by"
               onChange={(e) =>
                 handleSortChange(e.target.value as "desc" | "asc")
               }
             >
               <MenuItem value="desc">
-                <Typography variant="body2">Newest First</Typography>
+                <Typography variant="body2">Newest first</Typography>
               </MenuItem>
               <MenuItem value="asc">
-                <Typography variant="body2">Oldest First</Typography>
+                <Typography variant="body2">Oldest first</Typography>
               </MenuItem>
             </Select>
           </FormControl>
