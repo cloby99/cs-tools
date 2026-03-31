@@ -48,6 +48,7 @@ import SettingsPage from "@pages/SettingsPage";
 import VulnerabilityDetailsPage from "@pages/VulnerabilityDetailsPage";
 import OperationsPage from "@pages/OperationsPage";
 import EngagementsPage from "@pages/EngagementsPage";
+import UsageMetricsPage from "@pages/UsageMetricsPage";
 import ServiceNowCaseRedirectPage from "@pages/ServiceNowCaseRedirectPage";
 
 export default function App(): JSX.Element {
@@ -175,6 +176,7 @@ export default function App(): JSX.Element {
                   <Route index element={<EngagementsPage />} />
                   <Route path=":caseId" element={<CaseDetailsPage />} />
                 </Route>
+                <Route path="usage-metrics" element={<UsageMetricsPage />} />
                 {/* LegalContracts */}
                 <Route
                   path="legal-contracts"
