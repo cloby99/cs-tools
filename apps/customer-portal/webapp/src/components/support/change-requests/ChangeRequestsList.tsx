@@ -22,13 +22,14 @@ import ChangeRequestsListSkeleton from "@components/support/change-requests/Chan
 import ErrorStateIcon from "@components/common/error-state/ErrorStateIcon";
 import EmptyIcon from "@components/common/empty-state/EmptyIcon";
 import SearchNoResultsIcon from "@components/common/empty-state/SearchNoResultsIcon";
-import { formatDateTime, formatDuration } from "@utils/support";
+import { formatDateTime } from "@utils/support";
+import { formatDuration } from "@utils/changeRequests";
 import {
   getChangeRequestStateColor,
   getChangeRequestStateIcon,
   getChangeRequestImpactColor,
   formatImpactLabel,
-} from "@constants/supportConstants";
+} from "@constants/changeRequestConstants";
 
 export interface ChangeRequestsListProps {
   changeRequests: ChangeRequestItem[];
@@ -119,8 +120,8 @@ export default function ChangeRequestsList({
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       {changeRequests.map((item) => {
-        const statusColor = getChangeRequestStateColor(item.state?.label);
-        const StatusIcon = getChangeRequestStateIcon(item.state?.label);
+        const statusColor = getChangeRequestStateColor(item.state);
+        const StatusIcon = getChangeRequestStateIcon(item.state);
         const impactColor = getChangeRequestImpactColor(item.impact?.label);
 
         // Format dates
