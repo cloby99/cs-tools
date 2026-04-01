@@ -567,6 +567,17 @@ public type AttachmentUpdatePayload record {|
     string? description?;
 |};
 
+# Request payload for searching deployments.
+public type DeploymentSearchPayload record {|
+    # Filter criteria
+    record {|
+        # Consumtion based filters
+        entity:ConsumptionFilter consumption?;
+    |} filters?;
+    # Pagination details
+    entity:Pagination pagination?;
+|};
+
 # Deployment information.
 public type Deployment record {|
     # ID
@@ -585,6 +596,10 @@ public type Deployment record {|
     ReferenceItem? project;
     # Type
     ReferenceItem? 'type;
+    # Count of deployed products associated with the deployment
+    int deployedProductCount?;
+    # Count of instances associated with the deployment
+    int instanceCount?;
 |};
 
 # Deployments response.
@@ -594,6 +609,17 @@ public type DeploymentsResponse record {|
     # Total records count
     int totalRecords;
     *entity:Pagination;
+|};
+
+# Deployed product search payload
+public type DeployedProductSearchPayload record {|
+    # Filters
+    record {
+        # Consumtion based filters
+        entity:ConsumptionFilter consumption?;
+    } filters?;
+    # Pagination details
+    entity:Pagination pagination?;
 |};
 
 # Deployed product data.
@@ -624,6 +650,10 @@ public type DeployedProduct record {|
     string? releasedOn;
     # End of life date of the product
     string? endOfLifeOn;
+    # Instances of the deployed product
+    int instanceCount?;
+    # Details of the instances
+    entity:Instance[]? instances?;
 |};
 
 # Deployed products response.

@@ -258,7 +258,9 @@ public isolated function mapDeployments(entity:DeploymentsResponse response) ret
             description: deployment.description,
             url: deployment.url,
             project: project != () ? {id: project.id, label: project.name} : (),
-            'type: 'type != () ? {id: 'type.id.toString(), label: 'type.label} : ()
+            'type: 'type != () ? {id: 'type.id.toString(), label: 'type.label} : (),
+            deployedProductCount: deployment.deployedProductCount,
+            instanceCount: deployment.instanceCount
         };
     return {deployments, totalRecords: response.totalRecords, offset: response.offset, 'limit: response.'limit};
 }
@@ -275,6 +277,7 @@ public isolated function mapDeployedProducts(entity:DeployedProductsResponse res
         let entity:ReferenceTableItem? deployment = product.deployment
         let entity:ReferenceTableItem? version = product.version
         let entity:ReferenceTableItem? category = product.category
+        let entity:Instance[]? instances = product?.instances
         select {
             id: product.id,
             createdOn: product.createdOn,
@@ -292,7 +295,20 @@ public isolated function mapDeployedProducts(entity:DeployedProductsResponse res
                 } : (),
             deployment: deployment != () ? {id: deployment.id, label: deployment.name} : (),
             version: version != () ? {id: version.id, label: version.name} : (),
-            category: category != () ? {id: category.id, label: category.name} : ()
+            category: category != () ? {id: category.id, label: category.name} : (),
+            instanceCount: product.instanceCount,
+            instances: instances != () ? from entity:Instance instance in instances
+                    select {
+                        id: instance.id,
+                        instance: instance.instance,
+                        coreUsageCount: instance.coreUsageCount,
+                        updates: instance.updates,
+                        jdkVersion: instance.jdkVersion,
+                        createdOn: instance.createdOn,
+                        updatedOn: instance.updatedOn,
+                        customCreatedOn: instance.customCreatedOn,
+                        customUpdatedOn: instance.customUpdatedOn
+                    } : ()
         };
 
     return {

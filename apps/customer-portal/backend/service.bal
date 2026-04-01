@@ -245,7 +245,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
                 error? cacheInvalidate = userCache.invalidate(string `${userInfo.email}:userinfo`);
                 if cacheInvalidate is error {
                     log:printWarn(string `Error invalidating user: ${userInfo.userId} information from cache`,
-                        cacheInvalidate);
+                            cacheInvalidate);
                 }
                 updatedUserResponse.phoneNumber = scim:processPhoneNumber(updatedUser);
             }
@@ -264,7 +264,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
                 error? cacheInvalidate = userCache.invalidate(string `${userInfo.email}:userinfo`);
                 if cacheInvalidate is error {
                     log:printWarn(string `Error invalidating user: ${userInfo.userId} information from cache`,
-                        cacheInvalidate);
+                            cacheInvalidate);
                 }
                 updatedUserResponse.timeZone = timeZone;
             }
@@ -442,12 +442,14 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         return response.project;
     }
 
-    # Get deployments of a project by ID.
+    # Search deployments of a project.
     #
     # + id - ID of the project
+    # + payload - Payload for searching deployments of the project
     # + return - Deployments response or error response
-    resource function get projects/[entity:IdString id]/deployments(http:RequestContext ctx)
-        returns types:DeploymentsResponse|http:BadRequest|http:Forbidden|http:InternalServerError {
+    resource function post projects/[entity:IdString id]/deployments/search(http:RequestContext ctx,
+            types:DeploymentSearchPayload payload)
+        returns http:Ok|http:BadRequest|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -458,7 +460,18 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
 
-        entity:DeploymentsResponse|error deploymentsResponse = entity:getDeployments(userInfo.idToken, id);
+        entity:DeploymentsResponse|error deploymentsResponse = entity:searchDeployments(userInfo.idToken,
+                {
+                    filters: {
+                        projectIds: [id],
+                        consumption: {
+                            include: payload.filters?.consumption?.include,
+                            startDate: payload.filters?.consumption?.startDate,
+                            endDate: payload.filters?.consumption?.endDate
+                        }
+                    },
+                    pagination: payload.pagination
+                });
         if deploymentsResponse is error {
             if getStatusCode(deploymentsResponse) == http:STATUS_FORBIDDEN {
                 logForbiddenProjectAccess(id, userInfo.userId);
@@ -477,7 +490,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
                 }
             };
         }
-        return mapDeployments(deploymentsResponse);
+        return <http:Ok>{body: mapDeployments(deploymentsResponse)};
     }
 
     # Create a new deployment for a project.
@@ -793,7 +806,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     # + id - ID of the project
     # + return - Project statistics response or error
     resource function get projects/[entity:IdString id]/stats(http:RequestContext ctx, entity:CaseType[]? caseTypes,
-        entity:StatsFilter? createdBy)
+            entity:StatsFilter? createdBy)
         returns types:ProjectStatsResponse|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
@@ -899,7 +912,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     # + id - ID of the project
     # + return - Conversation statistics overview or error response
     resource function get projects/[entity:IdString id]/stats/conversations(http:RequestContext ctx,
-        entity:StatsFilter? createdBy)
+            entity:StatsFilter? createdBy)
         returns types:ConversationStats|http:Unauthorized|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
@@ -2214,15 +2227,13 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         };
     }
 
-    # Get products of a deployment by deployment ID.
+    # Search products of a deployment.
     #
-    # + id - ID of the deployment
-    # + offset - Offset for pagination
-    # + limit - Number of products to retrieve
+    # + payload - Deployed product search payload
     # + return - Deployed products response or error response
-    resource function get deployments/[entity:IdString id]/products(http:RequestContext ctx,
-            int offset = DEFAULT_OFFSET, int 'limit = DEFAULT_LIMIT)
-        returns types:DeployedProductsResponse|http:BadRequest|http:Forbidden|http:InternalServerError {
+    resource function post deployments/[entity:IdString id]/products/search(http:RequestContext ctx,
+            types:DeployedProductSearchPayload payload)
+        returns http:Ok|http:BadRequest|http:Forbidden|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -2233,8 +2244,17 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
 
-        entity:DeployedProductsResponse|error productsResponse =
-            entity:getDeployedProducts(userInfo.idToken, id, offset, 'limit);
+        entity:DeployedProductsResponse|error productsResponse = entity:searchDeployedProducts(userInfo.idToken,
+                {
+                    deploymentId: id,
+                    filters: {
+                        consumption: {
+                            startDate: payload.filters?.consumption?.startDate,
+                            endDate: payload.filters?.consumption?.endDate
+                        }
+                    },
+                    pagination: payload.pagination
+                });
         if productsResponse is error {
             if getStatusCode(productsResponse) == http:STATUS_FORBIDDEN {
                 log:printWarn(string `Access to deployment ID: ${id} is forbidden for user: ${userInfo.userId}`);
@@ -2254,7 +2274,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
 
-        return mapDeployedProducts(productsResponse);
+        return <http:Ok>{body: mapDeployedProducts(productsResponse)};
     }
 
     # Add a product to a deployment by deployment ID.
@@ -4534,7 +4554,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     }
 
     # Get usage stats for a specific project.
-    # 
+    #
     # + id - ID of the project
     # + return - Project stats response or error
     resource function get projects/[entity:IdString id]/stats/usage(http:RequestContext ctx)
@@ -4730,7 +4750,7 @@ isolated service class WsProxyService {
         } else {
             enrichedPayload = data;
         }
-        
+
         // Stream the conversation message to the upstream AI chat agent and get the final response
         map<json>|error result = ai_chat_agent:streamChat(sessionId, enrichedPayload, caller);
         lock {
