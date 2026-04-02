@@ -2,8 +2,7 @@
 //
 // WSO2 LLC. licenses this file to you under the Apache License,
 // Version 2.0 (the "License"); you may not use this file except
-// in compliance with the License.
-// You may obtain a copy of the License at
+// in compliance with the License. You may obtain a copy of the License at
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
@@ -23,8 +22,17 @@ import AddDeploymentModal from "@components/project-details/deployments/AddDeplo
 import DeploymentCard from "@components/project-details/deployments/DeploymentCard";
 import DeploymentCardSkeleton from "@components/project-details/deployments/DeploymentCardSkeleton";
 import DeploymentHeader from "@components/project-details/deployments/DeploymentHeader";
-import { Box, Grid, Typography } from "@wso2/oxygen-ui";
+import {
+  Box,
+  Button,
+  Grid,
+  Skeleton,
+  Typography,
+} from "@wso2/oxygen-ui";
+import type { SelectedDeploymentProduct } from "@components/project-details/deployments/deploymentSelectionTypes";
+import { Plus, Server } from "@wso2/oxygen-ui-icons-react";
 import { useCallback, useState, type JSX } from "react";
+import { useNavigate } from "react-router";
 
 export interface ProjectDeploymentsProps {
   projectId: string;
@@ -39,12 +47,15 @@ export interface ProjectDeploymentsProps {
 export default function ProjectDeployments({
   projectId,
 }: ProjectDeploymentsProps): JSX.Element {
+  const navigate = useNavigate();
   const { data, isLoading, isPending, isError } = useGetDeployments(projectId);
   const showLoading = isLoading || isPending;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] =
+    useState<SelectedDeploymentProduct | null>(null);
 
   const deployments = data?.deployments ?? [];
 
@@ -58,6 +69,32 @@ export default function ProjectDeployments({
     (message: string) => setErrorMessage(message),
     [],
   );
+
+  const handleToggleProductSelect = useCallback(
+    (deploymentId: string, productItemId: string) => {
+      setSelectedProduct((prev) => {
+        if (
+          prev?.deploymentId === deploymentId &&
+          prev.productItemId === productItemId
+        ) {
+          return null;
+        }
+        return { deploymentId, productItemId };
+      });
+    },
+    [],
+  );
+
+  const handleCreateServiceRequest = useCallback(() => {
+    if (!selectedProduct || !projectId) return;
+    const q = new URLSearchParams({
+      deploymentId: selectedProduct.deploymentId,
+      productId: selectedProduct.productItemId,
+    });
+    navigate(
+      `/projects/${projectId}/support/service-requests/create?${q.toString()}`,
+    );
+  }, [navigate, projectId, selectedProduct]);
 
   if (!projectId) {
     return (
@@ -84,15 +121,70 @@ export default function ProjectDeployments({
     </>
   );
 
+  const deploymentsToolbar = (count: number, loading: boolean) => (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        mb: 2,
+        flexWrap: "wrap",
+        gap: 1,
+      }}
+    >
+      {loading ? (
+        <Skeleton variant="text" width={200} height={24} />
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          {count} deployment environment{count !== 1 ? "s" : ""}
+          {selectedProduct ? (
+            <Typography
+              component="span"
+              sx={{ color: "primary.main", ml: 1 }}
+            >
+              · 1 product selected
+            </Typography>
+          ) : null}
+        </Typography>
+      )}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        {loading ? (
+          <>
+            <Skeleton variant="rounded" width={200} height={32} />
+            <Skeleton variant="rounded" width={140} height={32} />
+          </>
+        ) : (
+          <>
+            <Button
+              variant="contained"
+              color="warning"
+              size="small"
+              disabled={!selectedProduct}
+              startIcon={<Server size={16} aria-hidden />}
+              onClick={handleCreateServiceRequest}
+            >
+              {`Create Service Request${selectedProduct ? " (1)" : ""}`}
+            </Button>
+            <Button
+              variant="contained"
+              color="warning"
+              size="small"
+              startIcon={<Plus size={16} aria-hidden />}
+              onClick={handleOpenModal}
+            >
+              Add Deployment
+            </Button>
+          </>
+        )}
+      </Box>
+    </Box>
+  );
+
   const renderContent = () => {
     if (showLoading) {
       return (
         <>
-          <DeploymentHeader
-            count={0}
-            onAddClick={handleOpenModal}
-            isLoading
-          />
+          {deploymentsToolbar(0, true)}
           <Grid container spacing={3}>
             {[1, 2, 3].map((i) => (
               <Grid key={i} size={12}>
@@ -131,14 +223,15 @@ export default function ProjectDeployments({
 
     return (
       <>
-        <DeploymentHeader
-          count={deployments.length}
-          onAddClick={handleOpenModal}
-        />
+        {deploymentsToolbar(deployments.length, false)}
         <Grid container spacing={3}>
           {deployments.map((deployment) => (
             <Grid key={deployment.id} size={12}>
-              <DeploymentCard deployment={deployment} />
+              <DeploymentCard
+                deployment={deployment}
+                selectedProduct={selectedProduct}
+                onToggleProductSelect={handleToggleProductSelect}
+              />
             </Grid>
           ))}
         </Grid>
