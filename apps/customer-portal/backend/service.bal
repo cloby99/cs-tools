@@ -463,12 +463,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         entity:DeploymentsResponse|error deploymentsResponse = entity:searchDeployments(userInfo.idToken,
                 {
                     filters: {
-                        projectIds: [id],
-                        consumption: {
-                            include: payload.filters?.consumption?.include,
-                            startDate: payload.filters?.consumption?.startDate,
-                            endDate: payload.filters?.consumption?.endDate
-                        }
+                        projectIds: [id]
                     },
                     pagination: payload.pagination
                 });
@@ -608,6 +603,69 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
         return response.deployment;
+    }
+
+    # Search instances of a project.
+    #
+    # + id - ID of the project
+    # + payload - Payload for searching instances of the project
+    # + return - Instances response or error response
+    resource function post projects/[entity:IdString id]/instances/search(http:RequestContext ctx,
+            types:InstanceSearchPayload payload)
+        returns http:Ok|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+        entity:InstancesResponse|error instances = entity:searchInstances(userInfo.idToken,
+                {
+                    filters: {projectIds: [id]},
+                    pagination: payload.pagination
+                });
+        if instances is error {
+            if getStatusCode(instances) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `User: ${
+                        userInfo.userId} is forbidden to search instances for project with ID: ${id}!`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "You're not authorized to search instances for the project. " +
+                        "Please check your access permissions or contact support."
+                    }
+                };
+            }
+            if getStatusCode(instances) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+            if getStatusCode(instances) == http:STATUS_BAD_REQUEST {
+                string customError = "Invalid request parameters for searching instances for the project.";
+                log:printWarn(customError, instances);
+                return <http:BadRequest>{
+                    body: {
+                        message: customError
+                    }
+                };
+            }
+
+            string customError = "Failed to search instances for the project.";
+            log:printError(customError, instances);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+
+        return <http:Ok>{body: mapInstancesResponse(instances)};
     }
 
     # Get attachments for a specific deployment.
@@ -799,6 +857,69 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
         return response.attachment;
+    }
+
+    # Search instances of a deployment.
+    #
+    # + id - ID of the deployment
+    # + payload - Payload for searching instances of the deployment
+    # + return - Instances response or error response
+    resource function post deployments/[entity:IdString id]/instances/search(http:RequestContext ctx,
+            types:InstanceSearchPayload payload)
+        returns http:Ok|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+        entity:InstancesResponse|error instances = entity:searchInstances(userInfo.idToken,
+                {
+                    filters: {deploymentIds: [id]},
+                    pagination: payload.pagination
+                });
+        if instances is error {
+            if getStatusCode(instances) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `User: ${
+                        userInfo.userId} is forbidden to search instances for deployment with ID: ${id}!`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "You're not authorized to search instances for the deployment. " +
+                        "Please check your access permissions or contact support."
+                    }
+                };
+            }
+            if getStatusCode(instances) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+            if getStatusCode(instances) == http:STATUS_BAD_REQUEST {
+                string customError = "Invalid request parameters for searching instances for the deployment.";
+                log:printWarn(customError, instances);
+                return <http:BadRequest>{
+                    body: {
+                        message: customError
+                    }
+                };
+            }
+
+            string customError = "Failed to search instances for the deployment.";
+            log:printError(customError, instances);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+
+        return <http:Ok>{body: mapInstancesResponse(instances)};
     }
 
     # Get overall project statistics by ID.
@@ -2247,12 +2368,6 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         entity:DeployedProductsResponse|error productsResponse = entity:searchDeployedProducts(userInfo.idToken,
                 {
                     deploymentId: id,
-                    filters: {
-                        consumption: {
-                            startDate: payload.filters?.consumption?.startDate,
-                            endDate: payload.filters?.consumption?.endDate
-                        }
-                    },
                     pagination: payload.pagination
                 });
         if productsResponse is error {
@@ -2469,6 +2584,70 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
         return <http:Ok>{body: mapCatalogSearchResponse(searchResponse)};
+    }
+
+    # Search instances for a specific deployed product with filters and pagination.
+    #
+    # + id - ID of the deployed product
+    # + payload - Instance search request body
+    # + return - Paginated instances or error
+    resource function post deployments/products/[entity:IdString id]/instances/search(http:RequestContext ctx,
+            types:InstanceSearchPayload payload)
+        returns http:Ok|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
+
+        authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
+        if userInfo is error {
+            return <http:InternalServerError>{
+                body: {
+                    message: ERR_MSG_USER_INFO_HEADER_NOT_FOUND
+                }
+            };
+        }
+
+        entity:InstancesResponse|error instances = entity:searchInstances(userInfo.idToken,
+                {
+                    filters: {deployedProductIds: [id]},
+                    pagination: payload.pagination
+                });
+        if instances is error {
+            if getStatusCode(instances) == http:STATUS_FORBIDDEN {
+                log:printWarn(string `User: ${
+                        userInfo.userId} is forbidden to search instances for deployed product with ID: ${id}!`);
+                return <http:Forbidden>{
+                    body: {
+                        message: "You're not authorized to search instances for the deployed product. " +
+                        "Please check your access permissions or contact support."
+                    }
+                };
+            }
+            if getStatusCode(instances) == http:STATUS_UNAUTHORIZED {
+                log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
+                return <http:Unauthorized>{
+                    body: {
+                        message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+            if getStatusCode(instances) == http:STATUS_BAD_REQUEST {
+                string customError = "Invalid request parameters for searching instances for the deployed product.";
+                log:printWarn(customError, instances);
+                return <http:BadRequest>{
+                    body: {
+                        message: customError
+                    }
+                };
+            }
+
+            string customError = "Failed to search instances for the deployed product.";
+            log:printError(customError, instances);
+            return <http:InternalServerError>{
+                body: {
+                    message: customError
+                }
+            };
+        }
+
+        return <http:Ok>{body: mapInstancesResponse(instances)};
     }
 
     # Get catalog item variables by catalog ID and item ID.

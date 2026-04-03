@@ -569,11 +569,6 @@ public type AttachmentUpdatePayload record {|
 
 # Request payload for searching deployments.
 public type DeploymentSearchPayload record {|
-    # Filter criteria
-    record {|
-        # Consumtion based filters
-        entity:ConsumptionFilter consumption?;
-    |} filters?;
     # Pagination details
     entity:Pagination pagination?;
 |};
@@ -613,11 +608,6 @@ public type DeploymentsResponse record {|
 
 # Deployed product search payload
 public type DeployedProductSearchPayload record {|
-    # Filters
-    record {
-        # Consumtion based filters
-        entity:ConsumptionFilter consumption?;
-    } filters?;
     # Pagination details
     entity:Pagination pagination?;
 |};
@@ -652,8 +642,51 @@ public type DeployedProduct record {|
     string? endOfLifeOn;
     # Instances of the deployed product
     int instanceCount?;
-    # Details of the instances
-    entity:Instance[]? instances?;
+|};
+
+# Instance search filters.
+public type InstanceSearchPayload record {|
+    # Filter criteria
+    record {|
+        # Start date of consumption
+        entity:Date startDate?;
+        # End date of consumption
+        entity:Date endDate?;
+    |} filters?;
+    # Pagination details
+    entity:Pagination pagination?;
+|};
+
+# Instance data.
+public type Instance record {|
+    # ID
+    entity:IdString id;
+    # Instance name
+    string instance;
+    # Associated project information
+    ReferenceItem? project;
+    # Associated deployment information
+    ReferenceItem? deployment;
+    # Associated product information
+    ReferenceItem? product;
+    # Associated deployed product information
+    ReferenceItem? deployedProduct;
+    # Created date and time
+    string createdOn;
+    # Updated date and time
+    string updatedOn;
+    # Instance metadata
+    entity:InstanceMetadata? metadata;
+    json...;
+|};
+
+# Instances response.
+public type InstancesResponse record {|
+    # List of instances
+    Instance[] instances;
+    # Total records count
+    int totalRecords;
+    *entity:Pagination;
 |};
 
 # Deployed products response.

@@ -554,3 +554,14 @@ public isolated function getProjectChangeRequestStats(string idToken, string pro
 
     return csEntityClient->/projects/[projectId]/change\-requests/stats.get(generateHeaders(idToken));
 }
+
+# Search instances by criteria.
+# 
+# + idToken - ID token for authorization
+# + payload - Instance search payload containing search criteria for instances
+# + return - Instances response containing matching instances or error
+public isolated function searchInstances(string idToken, InstanceSearchPayload payload) 
+    returns InstancesResponse|error {
+
+    return csEntityClient->/instances/search.post(payload, generateHeaders(idToken));
+}
