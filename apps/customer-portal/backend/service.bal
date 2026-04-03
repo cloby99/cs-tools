@@ -624,7 +624,11 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         }
         entity:InstancesResponse|error instances = entity:searchInstances(userInfo.idToken,
                 {
-                    filters: {projectIds: [id]},
+                    filters: {
+                        projectIds: [id],
+                        startDate: payload.filters?.startDate,
+                        endDate: payload.filters?.endDate
+                    },
                     pagination: payload.pagination
                 });
         if instances is error {
@@ -878,7 +882,11 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
         }
         entity:InstancesResponse|error instances = entity:searchInstances(userInfo.idToken,
                 {
-                    filters: {deploymentIds: [id]},
+                    filters: {
+                        deploymentIds: [id],
+                        startDate: payload.filters?.startDate,
+                        endDate: payload.filters?.endDate
+                    },
                     pagination: payload.pagination
                 });
         if instances is error {
@@ -2606,7 +2614,11 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
 
         entity:InstancesResponse|error instances = entity:searchInstances(userInfo.idToken,
                 {
-                    filters: {deployedProductIds: [id]},
+                    filters: {
+                        deployedProductIds: [id],
+                        startDate: payload.filters?.startDate,
+                        endDate: payload.filters?.endDate
+                    },
                     pagination: payload.pagination
                 });
         if instances is error {

@@ -1048,6 +1048,7 @@ public type InstancesResponse record {|
     # Total records count
     int totalRecords;
     *Pagination;
+    json...;
 |};
 
 # Deployment data.
