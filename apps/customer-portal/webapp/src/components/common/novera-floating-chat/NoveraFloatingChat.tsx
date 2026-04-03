@@ -1,0 +1,484 @@
+// Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
+//
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Divider,
+  IconButton,
+  TextField,
+  Tooltip,
+  Typography,
+} from "@wso2/oxygen-ui";
+import {
+  Bot,
+  ChevronUp,
+  Minus,
+  Send,
+  Sparkles,
+  X,
+} from "@wso2/oxygen-ui-icons-react";
+import {
+  type JSX,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useNavigate, useParams } from "react-router";
+import useGetProjectDetails from "@api/useGetProjectDetails";
+import { usePostProjectDeploymentsSearchAll } from "@api/usePostProjectDeploymentsSearch";
+import { useAllDeploymentProducts } from "@hooks/useAllDeploymentProducts";
+import { useChatWebSocket } from "@api/useChatWebSocket";
+import type { Message } from "@models/chatTypes";
+import { buildEnvProducts } from "@utils/caseCreation";
+import { getFinalMessageFromPayload } from "@utils/chat";
+import {
+  CHAT_SENDER_BOT,
+  CHAT_SENDER_USER,
+  NOVERA_ANALYZING_PLACEHOLDER_TEXT,
+} from "@constants/chatConstants";
+import ChatMessageBubble from "@components/support/novera-ai-assistant/novera-chat-page/ChatMessageBubble";
+import LoadingDotsBubble from "@components/support/novera-ai-assistant/novera-chat-page/LoadingDotsBubble";
+
+const WELCOME_MESSAGE =
+  "Hello! I'm Novera, your AI support assistant. How can I help you today?";
+
+/**
+ * Floating Novera chat widget rendered across project pages.
+ *
+ * @returns {JSX.Element | null} Floating widget, or null when not applicable.
+ */
+export default function NoveraFloatingChat(): JSX.Element | null {
+  const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId: string }>();
+  const [isOpen, setIsOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [conversationId, setConversationId] = useState<string>("");
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: "welcome",
+      text: WELCOME_MESSAGE,
+      sender: CHAT_SENDER_BOT,
+      timestamp: new Date(),
+    },
+  ]);
+  const botMessageIdRef = useRef<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  const { data: projectDetails } = useGetProjectDetails(projectId || "");
+  const hasAgent =
+    projectDetails?.hasAgent ?? projectDetails?.account?.hasAgent ?? false;
+  const accountId = projectDetails?.account?.id ?? projectId ?? "";
+
+  const { data: projectDeployments } = usePostProjectDeploymentsSearchAll(
+    projectId || "",
+  );
+  const { productsByDeploymentId } =
+    useAllDeploymentProducts(projectDeployments);
+  const envProducts = useMemo(
+    () => buildEnvProducts(productsByDeploymentId, projectDeployments),
+    [productsByDeploymentId, projectDeployments],
+  );
+
+  const updateActiveBotMessage = useCallback((nextText: string) => {
+    const activeId = botMessageIdRef.current;
+    if (!activeId) return;
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === activeId
+          ? { ...msg, text: nextText, isLoading: false }
+          : msg,
+      ),
+    );
+  }, []);
+
+  const upsertActiveBotMessage = useCallback(
+    (updater: (message: Message) => Message, fallback?: () => Message) => {
+      setMessages((prev) => {
+        const activeId = botMessageIdRef.current;
+        if (!activeId) return prev;
+        let found = false;
+        const next = prev.map((msg) => {
+          if (msg.id !== activeId) return msg;
+          found = true;
+          return updater(msg);
+        });
+        if (!found && fallback) {
+          next.push(fallback());
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const { connect, sendUserMessage } = useChatWebSocket({
+    onEvent: (event) => {
+      if (event.type === "conversation_created") {
+        const nextConversationId = String(event.conversationId ?? "");
+        if (nextConversationId) {
+          setConversationId(nextConversationId);
+        }
+        return;
+      }
+
+      if (event.type === "thinking_start") {
+        upsertActiveBotMessage(
+          (msg) => ({
+            ...msg,
+            isLoading: false,
+            text: NOVERA_ANALYZING_PLACEHOLDER_TEXT,
+            thinkingSteps: [],
+            thinkingLabel: null,
+            isStreaming: false,
+          }),
+          () => ({
+            id: `bot-${Date.now()}`,
+            sender: CHAT_SENDER_BOT,
+            timestamp: new Date(),
+            text: NOVERA_ANALYZING_PLACEHOLDER_TEXT,
+            thinkingSteps: [],
+            thinkingLabel: null,
+            isStreaming: false,
+          }),
+        );
+        return;
+      }
+
+      if (event.type === "thinking_step") {
+        const label = String(event.label ?? event.step ?? "Working...");
+        upsertActiveBotMessage((msg) => ({
+          ...msg,
+          isLoading: false,
+          thinkingSteps: [...(msg.thinkingSteps ?? []), label],
+          thinkingLabel: label,
+        }));
+        return;
+      }
+
+      if (event.type === "thinking_end") {
+        upsertActiveBotMessage((msg) => ({
+          ...msg,
+          isLoading: false,
+          thinkingLabel: msg.thinkingLabel,
+        }));
+        return;
+      }
+
+      if (event.type === "token") {
+        const token = String(event.content ?? "");
+        if (!token) return;
+        const activeId = botMessageIdRef.current;
+        if (!activeId) return;
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === activeId
+              ? {
+                  ...msg,
+                  text: `${msg.text ?? ""}${token}`,
+                  isLoading: false,
+                  isStreaming: true,
+                }
+              : msg,
+          ),
+        );
+        return;
+      }
+
+      if (event.type === "final") {
+        const payload = (event.payload ?? {}) as Record<string, unknown>;
+        const finalMessage = getFinalMessageFromPayload(payload);
+        const nextConversationId = String(payload.conversationId ?? "");
+        if (nextConversationId) {
+          setConversationId(nextConversationId);
+        }
+        upsertActiveBotMessage((msg) => ({
+          ...msg,
+          isLoading: false,
+          isError: false,
+          text: finalMessage || msg.text,
+          thinkingSteps: [],
+          thinkingLabel: null,
+          isStreaming: false,
+        }));
+        setIsSending(false);
+        return;
+      }
+
+      if (event.type === "error") {
+        upsertActiveBotMessage((msg) => ({
+          ...msg,
+          isLoading: false,
+          isError: true,
+          text: String(
+            event.message ?? "Something went wrong. Please try again.",
+          ),
+          thinkingSteps: [],
+          thinkingLabel: null,
+          isStreaming: false,
+        }));
+        setIsSending(false);
+      }
+    },
+    onError: () => {
+      upsertActiveBotMessage((msg) => ({
+        ...msg,
+        isLoading: false,
+        isError: true,
+        text: "WebSocket connection error. Please try again.",
+        thinkingSteps: [],
+        thinkingLabel: null,
+        isStreaming: false,
+      }));
+      setIsSending(false);
+    },
+  });
+
+  const handleSend = useCallback(async () => {
+    const text = input.trim();
+    if (!text || !projectId || !accountId || isSending) return;
+
+    const userMessage: Message = {
+      id: `user-${Date.now()}`,
+      text,
+      sender: CHAT_SENDER_USER,
+      timestamp: new Date(),
+    };
+    const botMessageId = `bot-${Date.now()}`;
+    botMessageIdRef.current = botMessageId;
+    const botLoadingMessage: Message = {
+      id: botMessageId,
+      text: "",
+      sender: CHAT_SENDER_BOT,
+      timestamp: new Date(),
+      isLoading: true,
+    };
+
+    setMessages((prev) => [...prev, userMessage, botLoadingMessage]);
+    setInput("");
+    setIsSending(true);
+
+    try {
+      await connect(projectId);
+      await sendUserMessage({
+        type: "user_message",
+        accountId,
+        conversationId,
+        message: text,
+        envProducts,
+      });
+    } catch {
+      updateActiveBotMessage("Unable to send message. Please try again.");
+      setIsSending(false);
+    }
+  }, [
+    accountId,
+    connect,
+    conversationId,
+    envProducts,
+    input,
+    isSending,
+    projectId,
+    sendUserMessage,
+    updateActiveBotMessage,
+  ]);
+
+  const handleCreateCase = useCallback(() => {
+    if (!projectId) return;
+    navigate(`/projects/${projectId}/support/chat/create-case`, {
+      state: { messages, conversationId },
+    });
+  }, [conversationId, messages, navigate, projectId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  if (!projectId || !hasAgent) {
+    return null;
+  }
+
+  if (!isOpen) {
+    return (
+      <Box sx={{ position: "fixed", right: 24, bottom: 60, zIndex: 1300 }}>
+        <Tooltip title="Chat with Novera AI" placement="left">
+          <IconButton
+            onClick={() => {
+              setIsOpen(true);
+              setIsMinimized(false);
+            }}
+            sx={{
+              width: 56,
+              height: 56,
+              boxShadow: 3,
+              bgcolor: "primary.main",
+              color: "common.white",
+              "&:hover": {
+                // Keep a yellow hover instead of transparent fade.
+                bgcolor: "warning.main",
+              },
+            }}
+          >
+            <Bot size={24} color="white" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ position: "fixed", right: 24, bottom: 60, zIndex: 1300 }}>
+      <Card sx={{ width: isMinimized ? 320 : 420 }}>
+        <Box
+          sx={{
+            px: 2,
+            py: 1.5,
+            color: "common.white",
+            background: "linear-gradient(90deg, #ff8f00 0%, #f57c00 100%)",
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Box
+                sx={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  bgcolor: "common.white",
+                  color: "warning.main",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Bot size={18} />
+              </Box>
+              <Box>
+                <Typography
+                  variant="body2"
+                  sx={{ fontWeight: 600, color: "inherit" }}
+                >
+                  Novera AI <Sparkles size={14} />
+                </Typography>
+                <Typography variant="caption" sx={{ color: "inherit" }}>
+                  Always here to help
+                </Typography>
+              </Box>
+            </Box>
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <IconButton
+                size="small"
+                sx={{ color: "common.white" }}
+                onClick={() => setIsMinimized((v) => !v)}
+              >
+                {isMinimized ? <ChevronUp size={16} /> : <Minus size={16} />}
+              </IconButton>
+              <IconButton
+                size="small"
+                sx={{ color: "common.white" }}
+                onClick={() => setIsOpen(false)}
+              >
+                <X size={16} />
+              </IconButton>
+            </Box>
+          </Box>
+        </Box>
+
+        {isMinimized ? (
+          <CardContent sx={{ p: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Chat with Novera AI - Click to expand
+            </Typography>
+          </CardContent>
+        ) : (
+          <>
+            <Box
+              sx={{
+                height: 420,
+                overflowY: "auto",
+                p: 2,
+                bgcolor: "background.default",
+              }}
+            >
+              {messages.map((msg) =>
+                msg.isLoading ? (
+                  <LoadingDotsBubble key={msg.id} />
+                ) : (
+                  <ChatMessageBubble key={msg.id} message={msg} />
+                ),
+              )}
+              <div ref={messagesEndRef} />
+            </Box>
+
+            <Divider />
+            <Box sx={{ p: 1.5, bgcolor: "background.paper" }}>
+              <Box sx={{ mb: 1, display: "flex", justifyContent: "flex-end" }}>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="primary"
+                  onClick={handleCreateCase}
+                >
+                  Create Case
+                </Button>
+              </Box>
+              <Box sx={{ display: "flex", gap: 1, alignItems: "flex-end" }}>
+                <TextField
+                  fullWidth
+                  placeholder="Ask Novera anything..."
+                  multiline
+                  minRows={2}
+                  maxRows={4}
+                  size="small"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleSend();
+                    }
+                  }}
+                />
+                <IconButton
+                  color="primary"
+                  onClick={() => void handleSend()}
+                  disabled={!input.trim() || isSending}
+                >
+                  <Send size={16} />
+                </IconButton>
+              </Box>
+              <Typography variant="caption" color="text.secondary">
+                Press Enter to send, Shift+Enter for new line
+              </Typography>
+            </Box>
+          </>
+        )}
+      </Card>
+    </Box>
+  );
+}
