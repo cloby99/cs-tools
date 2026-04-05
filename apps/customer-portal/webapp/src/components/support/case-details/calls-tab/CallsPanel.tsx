@@ -98,14 +98,28 @@ export default function CallsPanel({
   const {
     data: userDetails,
     refetch: refetchUserDetails,
-    isLoading: isUserDetailsLoading,
+    isPending: isUserDetailsPending,
+    isFetching: isUserDetailsFetching,
+    isError: isUserDetailsError,
   } = useGetUserDetails();
-  const userTimeZone = userDetails?.timeZone || undefined;
+
+  const resolvedUserTimeZone =
+    userDetails?.timeZone?.trim() ||
+    (userDetails as { timezone?: string } | undefined)?.timezone?.trim() ||
+    "";
+
+  const userTimeZone = resolvedUserTimeZone || undefined;
+
+  /** True while GET /users/me has not returned usable profile data for this panel. */
+  const isUserMeLoading =
+    !isUserDetailsError &&
+    (isUserDetailsPending ||
+      (isUserDetailsFetching && userDetails === undefined));
 
   const needsTimeZone =
-    !isUserDetailsLoading &&
+    !isUserMeLoading &&
     !!userDetails &&
-    !userDetails.timeZone?.trim();
+    !resolvedUserTimeZone;
 
   // Derive filtered state keys from project filters (all non-Canceled states for search body)
   const callRequestStateKeys = useMemo<number[] | undefined>(() => {
@@ -404,8 +418,15 @@ export default function CallsPanel({
         />
       )}
 
-      {isUserDetailsLoading ? (
-        <CallsListSkeleton />
+      {isUserMeLoading ? (
+        <Box
+          role="status"
+          aria-busy="true"
+          aria-label="Loading your profile for call scheduling"
+          sx={{ width: "100%" }}
+        >
+          <CallsListSkeleton />
+        </Box>
       ) : needsTimeZone ? (
         <Box
           sx={{
