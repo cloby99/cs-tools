@@ -51,10 +51,11 @@ export default function UserProfile(): JSX.Element {
   };
 
   const isProfilePending = isLoading || isAuthLoading;
+  const useErrorFallback = isError && !userDetails;
 
   const name = isProfilePending
     ? ""
-    : isError
+    : useErrorFallback
       ? "Unknown User"
       : userDetails?.firstName || userDetails?.lastName
         ? `${userDetails.firstName || ""} ${userDetails.lastName || ""}`.trim()
@@ -62,7 +63,7 @@ export default function UserProfile(): JSX.Element {
 
   const email = isProfilePending
     ? "\u00a0"
-    : isError
+    : useErrorFallback
       ? "--"
       : userDetails?.email || "--";
 
