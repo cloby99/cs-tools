@@ -258,9 +258,7 @@ public isolated function mapDeployments(entity:DeploymentsResponse response) ret
             description: deployment.description,
             url: deployment.url,
             project: project != () ? {id: project.id, label: project.name} : (),
-            'type: 'type != () ? {id: 'type.id.toString(), label: 'type.label} : (),
-            deployedProductCount: deployment.deployedProductCount,
-            instanceCount: deployment.instanceCount
+            'type: 'type != () ? {id: 'type.id.toString(), label: 'type.label} : ()
         };
     return {deployments, totalRecords: response.totalRecords, offset: response.offset, 'limit: response.'limit};
 }
@@ -277,7 +275,6 @@ public isolated function mapDeployedProducts(entity:DeployedProductsResponse res
         let entity:ReferenceTableItem? deployment = product.deployment
         let entity:ReferenceTableItem? version = product.version
         let entity:ReferenceTableItem? category = product.category
-        let entity:Instance[]? instances = product?.instances
         select {
             id: product.id,
             createdOn: product.createdOn,
@@ -295,20 +292,7 @@ public isolated function mapDeployedProducts(entity:DeployedProductsResponse res
                 } : (),
             deployment: deployment != () ? {id: deployment.id, label: deployment.name} : (),
             version: version != () ? {id: version.id, label: version.name} : (),
-            category: category != () ? {id: category.id, label: category.name} : (),
-            instanceCount: product.instanceCount,
-            instances: instances != () ? from entity:Instance instance in instances
-                    select {
-                        id: instance.id,
-                        instance: instance.instance,
-                        coreUsageCount: instance.coreUsageCount,
-                        updates: instance.updates,
-                        jdkVersion: instance.jdkVersion,
-                        createdOn: instance.createdOn,
-                        updatedOn: instance.updatedOn,
-                        customCreatedOn: instance.customCreatedOn,
-                        customUpdatedOn: instance.customUpdatedOn
-                    } : ()
+            category: category != () ? {id: category.id, label: category.name} : ()
         };
 
     return {
@@ -925,4 +909,29 @@ public isolated function mapUsageStats(entity:ProjectStatsResponse response) ret
         deployedProductCount: response.deployedProductCount,
         instanceCount: response.instanceCount
     };
+}
+
+# Map instances response to the desired structure.
+#
+# + response - Instances response from the entity service
+# + return - Mapped instances response
+public isolated function mapInstancesResponse(entity:InstancesResponse response) returns types:InstancesResponse {
+    types:Instance[] instances = from entity:Instance instance in response.instances
+        let entity:ReferenceTableItem? project = instance.project
+        let entity:ReferenceTableItem? deployedProduct = instance.deployedProduct
+        let entity:ReferenceTableItem? deployment = instance.deployment
+        let entity:ReferenceTableItem? product = instance.product
+        select {
+            id: instance.id,
+            instance: instance.instance,
+            createdOn: instance.createdOn,
+            updatedOn: instance.updatedOn,
+            project: project != () ? {id: project.id, label: project.name} : (),
+            deployedProduct: deployedProduct != () ? {id: deployedProduct.id, label: deployedProduct.name} : (),
+            deployment: deployment != () ? {id: deployment.id, label: deployment.name} : (),
+            product: product != () ? {id: product.id, label: product.name} : (),
+            metadata: instance.metadata
+        };
+
+    return {instances, totalRecords: response.totalRecords, 'limit: response.'limit, offset: response.offset};
 }
