@@ -31,28 +31,33 @@ export default function AuthGuard(): JSX.Element {
   const { isSignedIn, isLoading: isAuthLoading, signIn } = useAsgardeo();
   const location = useLocation();
   const navigate = useNavigate();
-  const silentAttempted = useRef(false);
+  const [authCheckPending, setAuthCheckPending] = useState(true);
+  const signInInitiated = useRef(false);
 
   useEffect(() => {
-    if (isAuthLoading || isSignedIn) return;
-    if (silentAttempted.current) return;
+    if (isAuthLoading) return;
 
-    silentAttempted.current = true;
-
-    const intended = location.pathname + location.search;
-    if (intended !== "/" && intended !== "/home") {
-      sessionStorage.setItem(POST_LOGIN_REDIRECT_KEY, intended);
+    if (isSignedIn) {
+      setAuthCheckPending(false);
+      return;
     }
 
-    void signInSilently().then((success) => {
-      if (!success) {
-        void signIn();
+    if (!signInInitiated.current) {
+      signInInitiated.current = true;
+
+      const intended = location.pathname + location.search;
+      if (intended !== "/" && intended !== "/home") {
+        sessionStorage.setItem(POST_LOGIN_REDIRECT_KEY, intended);
       }
-    });
-  }, [isSignedIn, isAuthLoading, signIn, signInSilently, location]);
+
+      void signIn();
+    }
+  }, [isSignedIn, isAuthLoading, signIn, location]);
 
   useEffect(() => {
     if (!isSignedIn) return;
+
+    setAuthCheckPending(false);
 
     const redirect = sessionStorage.getItem(POST_LOGIN_REDIRECT_KEY);
     if (redirect) {
@@ -68,5 +73,5 @@ export default function AuthGuard(): JSX.Element {
     }
   }, [isSignedIn, navigate, location.pathname]);
 
-  return <AppLayout />;
+  return <AppLayout authCheckPending={authCheckPending} />;
 }
