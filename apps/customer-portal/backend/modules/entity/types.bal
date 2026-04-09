@@ -1510,6 +1510,8 @@ public type CallRequestUpdatePayload record {|
     string cancellationReason?;
     # New preferred UTC times for the call (mandatory when stateKey is 2)
     DateTime[] utcTimes?;
+    # Duration in minutes
+    int durationInMinutes?;
 |};
 
 # Updated call request details.
