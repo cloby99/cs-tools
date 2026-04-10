@@ -57,6 +57,10 @@ import {
   refreshCaseQueriesAfterCreation,
   triggerPostCreationApiCalls,
 } from "@utils/caseRefresh";
+import {
+  filterDeploymentsForCaseCreation,
+  shouldRestrictToPrimaryProductionDeployments,
+} from "@utils/subscriptionUtils";
 import { htmlToPlainText } from "@utils/richTextEditor";
 import type { CreateServiceRequestPayload } from "@models/requests";
 import CatalogSelector from "@components/support/service-requests/CatalogSelector";
@@ -103,9 +107,20 @@ export default function CreateServiceRequestPage(): JSX.Element {
     pageSize: 10,
     enabled: !!projectId,
   });
-  const projectDeployments = useMemo(
+  const allProjectDeployments = useMemo(
     () => deploymentsQuery.data?.pages.flatMap((p) => p.deployments ?? []) ?? [],
     [deploymentsQuery.data],
+  );
+  const isPrimaryProductionOnly = shouldRestrictToPrimaryProductionDeployments(
+    projectDetails?.type?.label,
+  );
+  const projectDeployments = useMemo(
+    () =>
+      filterDeploymentsForCaseCreation(
+        allProjectDeployments,
+        projectDetails?.type?.label,
+      ),
+    [allProjectDeployments, projectDetails?.type?.label],
   );
   const isDeploymentsLoading = deploymentsQuery.isLoading;
 
@@ -197,6 +212,18 @@ export default function CreateServiceRequestPage(): JSX.Element {
     setVariableValues({});
     setAttachments([]);
   }, []);
+
+  // For Cloud Support / Cloud Evaluation Support: auto-pick the first primary
+  // production deployment so the hidden field still resolves to a valid value.
+  useEffect(() => {
+    if (!isPrimaryProductionOnly) return;
+    if (!baseDeploymentOptions.length) return;
+    const first = baseDeploymentOptions[0];
+    if (!first) return;
+    setDeployment((prev) =>
+      baseDeploymentOptions.includes(prev) ? prev : first,
+    );
+  }, [isPrimaryProductionOnly, baseDeploymentOptions]);
 
   const handleProductChange = useCallback((value: string) => {
     setProduct(value);
@@ -410,6 +437,7 @@ export default function CreateServiceRequestPage(): JSX.Element {
           isProductAutoDetected={false}
           isDeploymentAutoDetected={false}
           isRelatedCaseMode
+          hideDeploymentField={isPrimaryProductionOnly}
           metadata={{ deploymentTypes: baseDeploymentOptions }}
           isDeploymentLoading={isProjectLoading || isDeploymentsLoading}
           isProductDropdownDisabled={isProductDropdownDisabled}
