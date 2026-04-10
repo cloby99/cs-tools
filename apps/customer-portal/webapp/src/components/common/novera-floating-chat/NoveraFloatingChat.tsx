@@ -47,6 +47,7 @@ import { useAllDeploymentProducts } from "@hooks/useAllDeploymentProducts";
 import { useChatWebSocket } from "@api/useChatWebSocket";
 import type { Message } from "@models/chatTypes";
 import { buildEnvProducts } from "@utils/caseCreation";
+import { filterDeploymentsForCaseCreation } from "@utils/subscriptionUtils";
 import { getFinalMessageFromPayload } from "@utils/chat";
 import {
   CHAT_SENDER_BOT,
@@ -89,8 +90,16 @@ export default function NoveraFloatingChat(): JSX.Element | null {
     projectDetails?.hasAgent ?? projectDetails?.account?.hasAgent ?? false;
   const accountId = projectDetails?.account?.id ?? projectId ?? "";
 
-  const { data: projectDeployments } = usePostProjectDeploymentsSearchAll(
+  const { data: allProjectDeployments } = usePostProjectDeploymentsSearchAll(
     projectId || "",
+  );
+  const projectDeployments = useMemo(
+    () =>
+      filterDeploymentsForCaseCreation(
+        allProjectDeployments,
+        projectDetails?.type?.label,
+      ),
+    [allProjectDeployments, projectDetails?.type?.label],
   );
   const { productsByDeploymentId } =
     useAllDeploymentProducts(projectDeployments);
