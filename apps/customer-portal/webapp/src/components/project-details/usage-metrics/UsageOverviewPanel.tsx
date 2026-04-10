@@ -27,6 +27,8 @@ import {
   Typography,
   alpha,
   colors,
+  useTheme,
+  useMediaQuery,
 } from "@wso2/oxygen-ui";
 import {
   ChevronDown,
@@ -59,6 +61,26 @@ const GREEN_STROKE = oxygenColors.green?.[500] ?? "#22C55E";
 const CYAN_STROKE = oxygenColors.cyan?.[500] ?? "#06B6D4";
 const AMBER_STROKE = oxygenColors.amber?.[500] ?? "#F59E0B";
 
+/** Format ISO date (YYYY-MM-DD) to date format for the chart, responsive to screen size. */
+function formatDateForChart(isoDate: string, isSmallScreen: boolean = false): string {
+  try {
+    const date = new Date(`${isoDate}T00:00:00Z`);
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const month = monthNames[date.getUTCMonth()];
+    const day = date.getUTCDate();
+    const year = date.getUTCFullYear();
+    
+    // Small screens: show only month-day (MM-DD format)
+    if (isSmallScreen) {
+      return `${month} ${day}`;
+    }
+    // Large screens: show month-day with year on new line
+    return `${month} ${day}\n${year}`;
+  } catch {
+    return isoDate.slice(5); // Fallback to MM-DD
+  }
+}
+
 /** Format a raw transaction count to a human-readable label. */
 function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -88,7 +110,7 @@ function buildTrendFromUsages(
   }
   return Array.from(periodMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([period, value]) => ({ name: period.slice(5), value })); // "MM-DD" label
+    .map(([period, value]) => ({ name: formatDateForChart(period), value }));
 }
 
 /** Compute headline value (last point) and delta % vs previous point. */
@@ -123,7 +145,7 @@ function buildDailyCoreTrend(metrics: InstanceMetricEntry[]): UsageTrendRow[] {
   return Array.from(dayMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, total]) => ({
-      name: date.slice(5),
+      name: formatDateForChart(date),
       value: total,
     }));
 }
