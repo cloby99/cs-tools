@@ -14,8 +14,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-export { default as ErrorPage } from "./ErrorPage";
-export { default as Error401Page } from "./Error401Page";
-export { default as Error403Page } from "./Error403Page";
-export { default as Error404Page } from "./Error404Page";
-export { default as Error500Page } from "./Error500Page";
+import type { ImgHTMLAttributes, JSX } from "react";
+import illustration from "@assets/error/error-500.svg";
+
+/**
+ * Error500Page component for displaying a full-page error state.
+ * Used when data fails to load (e.g. projects in Project Hub).
+ */
+const Error500Page = (
+  props: ImgHTMLAttributes<HTMLImageElement>,
+): JSX.Element => (
+  <img
+    src={illustration}
+    alt=""
+    aria-hidden="true"
+    width={268}
+    height={191}
+    {...props}
+  />
+);
+
+export default Error500Page;
