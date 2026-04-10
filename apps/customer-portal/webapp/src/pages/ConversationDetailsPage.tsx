@@ -98,11 +98,9 @@ export default function ConversationDetailsPage(): JSX.Element {
   );
 
   const conversationStatus = summary?.status ?? "Open";
-  const initialMessage = summary?.title ?? "";
   const startedTime = summary?.startedTime ?? "";
   const messageCount = summary?.messages;
   const kbArticles = summary?.kbArticles;
-  const chatNumber = summary?.chatNumber;
 
   const statusLower = conversationStatus.toLowerCase();
   let StatusIcon = Clock;
@@ -156,7 +154,7 @@ export default function ConversationDetailsPage(): JSX.Element {
             sx={{ mb: 1 }}
           >
             <Typography variant="h4" color="text.primary">
-              {chatNumber ? `Chat Session ${chatNumber}` : "Chat Session"}
+              Chat Session
             </Typography>
             <Chip
               size="small"
@@ -180,11 +178,6 @@ export default function ConversationDetailsPage(): JSX.Element {
               }}
             />
           </Stack>
-          {initialMessage && (
-            <Typography variant="body2" color="text.secondary">
-              {initialMessage}
-            </Typography>
-          )}
         </Box>
       </Box>
 
