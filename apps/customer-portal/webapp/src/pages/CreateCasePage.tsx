@@ -189,7 +189,8 @@ export default function CreateCasePage(): JSX.Element {
     () => resolveDeploymentMatch(deployment, projectDeployments, undefined),
     [deployment, projectDeployments],
   );
-  const selectedDeploymentId = selectedDeploymentMatch?.id ?? "";
+  const selectedDeploymentId =
+    selectedDeploymentMatch?.id ?? relatedCase?.deploymentId ?? "";
   const deploymentProductsQuery = usePostDeploymentProductsSearchInfinite(
     selectedDeploymentId,
     { pageSize: 10, enabled: !!selectedDeploymentId },
@@ -692,7 +693,9 @@ export default function CreateCasePage(): JSX.Element {
       projectDeployments,
       undefined,
     );
-    if (!deploymentMatch) {
+    const resolvedDeploymentId =
+      deploymentMatch?.id ?? relatedCase?.deploymentId ?? "";
+    if (!resolvedDeploymentId) {
       showError("Please select a deployment type.");
       return;
     }
@@ -751,7 +754,7 @@ export default function CreateCasePage(): JSX.Element {
       type: isSecurityReport
         ? CaseType.SECURITY_REPORT_ANALYSIS
         : CaseType.DEFAULT_CASE,
-      deploymentId: String(deploymentMatch.id),
+      deploymentId: String(resolvedDeploymentId),
       description,
       issueTypeKey,
       deployedProductId: String(productId),
