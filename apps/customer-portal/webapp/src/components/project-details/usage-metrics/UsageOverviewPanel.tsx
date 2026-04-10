@@ -100,6 +100,7 @@ function sumTransactions(entry: InstanceUsageEntry): number {
 function buildTrendFromUsages(
   usages: InstanceUsageEntry[],
   countKey: string,
+  isSmallScreen: boolean = false,
 ): UsageTrendRow[] {
   const periodMap = new Map<string, number>();
   for (const entry of usages) {
@@ -110,7 +111,7 @@ function buildTrendFromUsages(
   }
   return Array.from(periodMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([period, value]) => ({ name: formatDateForChart(period), value }));
+    .map(([period, value]) => ({ name: formatDateForChart(period, isSmallScreen), value }));
 }
 
 /** Compute headline value (last point) and delta % vs previous point. */
@@ -128,7 +129,7 @@ function computeHeadlineDelta(trend: UsageTrendRow[]): {
 }
 
 /** Build a daily trend of summed cores across all instance metrics. */
-function buildDailyCoreTrend(metrics: InstanceMetricEntry[]): UsageTrendRow[] {
+function buildDailyCoreTrend(metrics: InstanceMetricEntry[], isSmallScreen: boolean = false): UsageTrendRow[] {
   const dayMap = new Map<string, number>();
 
   for (const m of metrics) {
@@ -145,18 +146,18 @@ function buildDailyCoreTrend(metrics: InstanceMetricEntry[]): UsageTrendRow[] {
   return Array.from(dayMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, total]) => ({
-      name: formatDateForChart(date),
+      name: formatDateForChart(date, isSmallScreen),
       value: total,
     }));
 }
 
 /** Derive the 5 aggregated metric cards from project usages and metrics. */
-function deriveAggregatedMetrics(usages: InstanceUsageEntry[], metrics: InstanceMetricEntry[]): UsageAggregatedMetricDefinition[] {
-  const txTrend = buildTrendFromUsages(usages, "TRANSACTION_COUNT");
-  const apiTrend = buildTrendFromUsages(usages, "API_COUNT");
-  const userTrend = buildTrendFromUsages(usages, "TOTAL_USERS");
-  const b2bTrend = buildTrendFromUsages(usages, "TOTAL_B2B_ORGS");
-  const coreTrend = buildDailyCoreTrend(metrics);
+function deriveAggregatedMetrics(usages: InstanceUsageEntry[], metrics: InstanceMetricEntry[], isSmallScreen: boolean = false): UsageAggregatedMetricDefinition[] {
+  const txTrend = buildTrendFromUsages(usages, "TRANSACTION_COUNT", isSmallScreen);
+  const apiTrend = buildTrendFromUsages(usages, "API_COUNT", isSmallScreen);
+  const userTrend = buildTrendFromUsages(usages, "TOTAL_USERS", isSmallScreen);
+  const b2bTrend = buildTrendFromUsages(usages, "TOTAL_B2B_ORGS", isSmallScreen);
+  const coreTrend = buildDailyCoreTrend(metrics, isSmallScreen);
 
   const txHD = computeHeadlineDelta(txTrend);
   const apiHD = computeHeadlineDelta(apiTrend);
@@ -612,6 +613,9 @@ export default function UsageOverviewPanel({
   onToggleEnvironment,
   timeRangeSelector,
 }: UsageOverviewPanelProps): JSX.Element {
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
+
   const metricsPayload = useMemo(
     () => ({ filters: { startDate: dateRange.startDate, endDate: dateRange.endDate } }),
     [dateRange],
@@ -700,8 +704,8 @@ export default function UsageOverviewPanel({
 
   // ── Aggregated metric trend cards ─────────────────────────────────────────
   const aggregatedMetrics = useMemo((): UsageAggregatedMetricDefinition[] => {
-    return deriveAggregatedMetrics(usagesData?.usages ?? [], metricsData?.metrics ?? []);
-  }, [usagesData, metricsData]);
+    return deriveAggregatedMetrics(usagesData?.usages ?? [], metricsData?.metrics ?? [], isSmallScreen);
+  }, [usagesData, metricsData, isSmallScreen]);
 
   if (isError) {
     return (
