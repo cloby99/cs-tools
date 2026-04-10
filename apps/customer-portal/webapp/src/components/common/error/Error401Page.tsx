@@ -18,13 +18,16 @@ import { type JSX } from "react";
 import ErrorPage from "./ErrorPage";
 import illustration from "@assets/error/error-401.svg";
 
-export default function Error401Page(): JSX.Element {
+interface Error401PageProps {
+  message?: string;
+}
+
+export default function Error401Page({ message }: Error401PageProps): JSX.Element {
   return (
     <ErrorPage
       illustration={illustration}
       illustrationAlt="401 unauthorized illustration"
-      title="401 - Unauthorized"
-      description="You need to sign in to view this page. Please authenticate and try again."
+      description={message ?? "You need to sign in to view this page. Please authenticate and try again."}
     />
   );
 }
