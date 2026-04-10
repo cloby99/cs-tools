@@ -52,6 +52,7 @@ export interface BasicInformationSectionProps {
   extraProductOptions?: string[];
   isRelatedCaseMode?: boolean;
   isDeploymentDisabled?: boolean;
+  hideDeploymentField?: boolean;
   onLoadMoreDeployments?: () => void;
   hasMoreDeployments?: boolean;
   isFetchingMoreDeployments?: boolean;
@@ -82,6 +83,7 @@ export function BasicInformationSection({
   extraProductOptions,
   isRelatedCaseMode = false,
   isDeploymentDisabled = false,
+  hideDeploymentField = false,
   onLoadMoreDeployments,
   hasMoreDeployments = false,
   isFetchingMoreDeployments = false,
@@ -177,6 +179,7 @@ export function BasicInformationSection({
         </Grid>
 
         {/* deployment selection field wrapper */}
+        {!hideDeploymentField && (
         <Grid size={{ xs: 12 }}>
           {/* deployment field label container */}
           <Box sx={{ mb: 1, display: "flex", alignItems: "center", gap: 1 }}>
@@ -241,6 +244,7 @@ export function BasicInformationSection({
             </FormControl>
           )}
         </Grid>
+        )}
 
         {/* product selection field wrapper */}
         <Grid size={{ xs: 12 }}>
