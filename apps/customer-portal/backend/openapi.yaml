@@ -2840,10 +2840,6 @@ components:
           description: New preferred UTC times for the call
           items:
             $ref: '#/components/schemas/DateTime'
-        durationInMinutes:
-          type: integer
-          description: New duration in minutes for the call
-          format: int64
       additionalProperties: false
       description: Request payload for updating a call request.
     Case:
@@ -4329,6 +4325,7 @@ components:
       description: Pagination information.
     Product:
       required:
+      - class
       - id
       - name
       type: object
@@ -4338,6 +4335,9 @@ components:
         name:
           type: string
           description: Name
+        class:
+          type: string
+          description: "Product class (product_model)"
       description: Product data.
     ProductUpdate:
       required:
