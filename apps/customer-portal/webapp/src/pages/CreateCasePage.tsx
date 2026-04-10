@@ -30,9 +30,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import useGetProjectFilters from "@api/useGetProjectFilters";
 import useGetProjectDetails from "@api/useGetProjectDetails";
 import { useAuthApiClient } from "@api/useAuthApiClient";
-import {
-  usePostProjectDeploymentsSearchInfinite,
-} from "@api/usePostProjectDeploymentsSearch";
+import { usePostProjectDeploymentsSearchInfinite } from "@api/usePostProjectDeploymentsSearch";
 import {
   extractDeploymentProducts,
   usePostDeploymentProductsSearchInfinite,
@@ -163,14 +161,17 @@ export default function CreateCasePage(): JSX.Element {
   const attachmentNamesRef = useRef<Map<string, string>>(new Map());
   const attachmentIdCounterRef = useRef(0);
   const [isPreparingAttachments, setIsPreparingAttachments] = useState(false);
-  const [isSubmitLocked, setIsSubmitLocked] = useState(false);
   const [isAttachmentModalOpen, setIsAttachmentModalOpen] = useState(false);
-  const deploymentsQuery = usePostProjectDeploymentsSearchInfinite(projectId || "", {
-    pageSize: 10,
-    enabled: !!projectId,
-  });
+  const deploymentsQuery = usePostProjectDeploymentsSearchInfinite(
+    projectId || "",
+    {
+      pageSize: 10,
+      enabled: !!projectId,
+    },
+  );
   const allProjectDeployments = useMemo(
-    () => deploymentsQuery.data?.pages.flatMap((p) => p.deployments ?? []) ?? [],
+    () =>
+      deploymentsQuery.data?.pages.flatMap((p) => p.deployments ?? []) ?? [],
     [deploymentsQuery.data],
   );
   const isPrimaryProductionOnly = shouldRestrictToPrimaryProductionDeployments(
@@ -199,14 +200,13 @@ export default function CreateCasePage(): JSX.Element {
   const deploymentProductsLoading = deploymentProductsQuery.isLoading;
   const deploymentProductsError = deploymentProductsQuery.isError;
   const allDeploymentProducts = useMemo(() => {
-    const items = deploymentProductsQuery.data?.pages.flatMap((page) =>
-      extractDeploymentProducts(page),
-    ) ?? [];
+    const items =
+      deploymentProductsQuery.data?.pages.flatMap((page) =>
+        extractDeploymentProducts(page),
+      ) ?? [];
     return items.filter((item) => {
       const label = getDeploymentProductDisplayLabel(item);
-      return (
-        Boolean(label.trim()) && !isUnknownPlaceholderProductLabel(label)
-      );
+      return Boolean(label.trim()) && !isUnknownPlaceholderProductLabel(label);
     });
   }, [deploymentProductsQuery.data]);
   const baseProductOptions = getBaseProductOptions(allDeploymentProducts);
@@ -669,33 +669,23 @@ export default function CreateCasePage(): JSX.Element {
       reader.readAsDataURL(file);
     });
 
-  const failSubmit = useCallback(
-    (message: string) => {
-      showError(message);
-      setIsSubmitLocked(false);
-    },
-    [showError],
-  );
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!projectId) return;
-    if (isSubmitLocked) return;
-    setIsSubmitLocked(true);
 
     const titlePlain = htmlToPlainText(title).trim();
     const descriptionPlain = htmlToPlainText(description).trim();
     if (!titlePlain) {
-      failSubmit("Please enter a case title.");
+      showError("Please enter a case title.");
       return;
     }
     if (!descriptionPlain) {
-      failSubmit("Please enter a description.");
+      showError("Please enter a description.");
       return;
     }
 
     if (isSecurityReport && attachments.length === 0) {
-      failSubmit("Please attach at least one security report file.");
+      showError("Please attach at least one security report file.");
       return;
     }
 
@@ -704,14 +694,16 @@ export default function CreateCasePage(): JSX.Element {
       projectDeployments,
       undefined,
     );
-    if (!deploymentMatch) {
-      failSubmit("Please select a deployment type.");
+    const resolvedDeploymentId =
+      deploymentMatch?.id ?? relatedCase?.deploymentId ?? "";
+    if (!resolvedDeploymentId) {
+      showError("Please select a deployment type.");
       return;
     }
 
     const productId = resolveProductId(product, allDeploymentProducts);
     if (!productId) {
-      failSubmit("Please select a product version.");
+      showError("Please select a product version.");
       return;
     }
 
@@ -722,12 +714,12 @@ export default function CreateCasePage(): JSX.Element {
     if (!isSecurityReport) {
       issueTypeKey = resolveIssueTypeKey(issueType, filters?.issueTypes);
       if (!issueTypeKey) {
-        failSubmit("Please select an issue type.");
+        showError("Please select an issue type.");
         return;
       }
       const parsedSeverity = parseInt(severity, 10);
       if (Number.isNaN(parsedSeverity)) {
-        failSubmit("Please select a severity.");
+        showError("Please select a severity.");
         return;
       }
       severityKey = parsedSeverity;
@@ -751,7 +743,7 @@ export default function CreateCasePage(): JSX.Element {
           error instanceof Error && error.message
             ? error.message
             : "Failed to process attachments. Please try again.";
-        failSubmit(message);
+        showError(message);
         return;
       } finally {
         setIsPreparingAttachments(false);
@@ -793,23 +785,20 @@ export default function CreateCasePage(): JSX.Element {
 
         showSuccess("Case created successfully");
 
-        try {
-          if (projectId) {
-            await triggerPostCreationApiCalls(
-              authFetch,
-              projectId,
-              CaseType.DEFAULT_CASE,
-            );
-            await refreshCaseQueriesAfterCreation(
-              queryClient,
-              projectId,
-              CaseType.DEFAULT_CASE,
-            );
-          }
-        } catch (err) {
-          logger.error("Failed to refresh case queries after creation", err);
+        if (projectId) {
+          await triggerPostCreationApiCalls(
+            authFetch,
+            projectId,
+            CaseType.DEFAULT_CASE,
+          );
+          await refreshCaseQueriesAfterCreation(
+            queryClient,
+            projectId,
+            CaseType.DEFAULT_CASE,
+          );
         }
 
+        // Clean up sessionStorage safely
         try {
           sessionStorage.removeItem(STORAGE_KEY);
           sessionStorage.removeItem(CONVERSATION_ID_STORAGE_KEY);
@@ -820,16 +809,13 @@ export default function CreateCasePage(): JSX.Element {
           );
         }
 
-        try {
-          if (isCreatedSecurityReport) {
-            navigate(
-              `/projects/${projectId}/security-center/security-report-analysis/${caseId}?tab=${SecurityTab.VULNERABILITIES}`,
-            );
-          } else {
-            navigate(`/projects/${projectId}/support/cases/${caseId}`);
-          }
-        } finally {
-          setIsSubmitLocked(false);
+        // Refetch security vulnerabilities if this was a security report
+        if (isCreatedSecurityReport) {
+          navigate(
+            `/projects/${projectId}/security-center/security-report-analysis/${caseId}?tab=${SecurityTab.VULNERABILITIES}`,
+          );
+        } else {
+          navigate(`/projects/${projectId}/support/cases/${caseId}`);
         }
       },
       onError: (error) => {
@@ -837,7 +823,6 @@ export default function CreateCasePage(): JSX.Element {
           error?.message?.trim() ||
           "We couldn't create your case. Please check required fields and try again.";
         showError(msg);
-        setIsSubmitLocked(false);
       },
     });
   };
@@ -902,7 +887,10 @@ export default function CreateCasePage(): JSX.Element {
             isDeploymentDisabled={!!relatedCase}
             hideDeploymentField={isPrimaryProductionOnly}
             onLoadMoreDeployments={() => {
-              if (deploymentsQuery.hasNextPage && !deploymentsQuery.isFetchingNextPage) {
+              if (
+                deploymentsQuery.hasNextPage &&
+                !deploymentsQuery.isFetchingNextPage
+              ) {
                 void deploymentsQuery.fetchNextPage();
               }
             }}
@@ -960,7 +948,6 @@ export default function CreateCasePage(): JSX.Element {
                 isFiltersLoading ||
                 isCreatePending ||
                 isPreparingAttachments ||
-                isSubmitLocked ||
                 !projectId ||
                 !selectedDeploymentId ||
                 deploymentProductsLoading ||
