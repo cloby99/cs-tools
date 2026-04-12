@@ -35,7 +35,7 @@ import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router";
 import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import useGetProjectCases from "@api/useGetProjectCases";
-import type { CaseListItem } from "@models/responses";
+import type { CaseListItem } from "@/types/cases";
 import AllCasesList from "@components/support/all-cases/AllCasesList";
 import AllCasesListSkeleton from "@components/support/all-cases/AllCasesListSkeleton";
 import SearchNoResultsIcon from "@components/common/empty-state/SearchNoResultsIcon";

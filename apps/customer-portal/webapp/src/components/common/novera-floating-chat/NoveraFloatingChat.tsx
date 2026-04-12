@@ -45,7 +45,7 @@ import useGetProjectDetails from "@api/useGetProjectDetails";
 import { usePostProjectDeploymentsSearchAll } from "@api/usePostProjectDeploymentsSearch";
 import { useAllDeploymentProducts } from "@hooks/useAllDeploymentProducts";
 import { useChatWebSocket } from "@api/useChatWebSocket";
-import type { Message } from "@models/chatTypes";
+import type { Message } from "@/types/conversations";
 import { buildEnvProducts } from "@utils/caseCreation";
 import { filterDeploymentsForCaseCreation } from "@utils/subscriptionUtils";
 import { getFinalMessageFromPayload } from "@utils/chat";
