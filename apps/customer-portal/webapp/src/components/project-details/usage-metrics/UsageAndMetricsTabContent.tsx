@@ -23,7 +23,7 @@ import TabBar from "@components/common/tab-bar/TabBar";
 import UsageOverviewPanel from "@components/project-details/usage-metrics/UsageOverviewPanel";
 import UsageEnvironmentProductsPanel from "@components/project-details/usage-metrics/UsageEnvironmentProductsPanel";
 import { USAGE_TIME_RANGE_LABELS } from "@constants/usageMetricsConstants";
-import type { UsageTimeRangePreset } from "@models/usageMetrics.types";
+import type { UsageTimeRangePreset } from "@/types/usage";
 import type { TabOption } from "@components/common/tab-bar/TabBar";
 import { usePostProjectDeploymentsSearchAll } from "@api/usePostProjectDeploymentsSearch";
 
