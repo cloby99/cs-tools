@@ -19,7 +19,7 @@ import { useAsgardeo } from "@asgardeo/react";
 import { useAuthApiClient } from "@api/useAuthApiClient";
 import { useLogger } from "@hooks/useLogger";
 import { ApiQueryKeys } from "@constants/apiConstants";
-import type { ProductUpdateLevelsResponse } from "@models/responses";
+import type { ProductUpdateLevelsResponse } from "@/types/updates";
 
 /**
  * Fetches product update levels from GET /updates/product-update-levels.
