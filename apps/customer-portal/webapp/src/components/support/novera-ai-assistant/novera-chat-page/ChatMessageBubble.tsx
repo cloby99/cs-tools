@@ -18,7 +18,7 @@ import { Box, Paper, Typography, IconButton, alpha } from "@wso2/oxygen-ui";
 import { Bot, User, ThumbsUp, ThumbsDown } from "@wso2/oxygen-ui-icons-react";
 import ReactMarkdown from "react-markdown";
 import { type JSX, useEffect, useRef, useState } from "react";
-import type { Message } from "@models/chatTypes";
+import type { Message } from "@/types/conversations";
 import {
   NOVERA_ANALYZING_PLACEHOLDER_TEXT,
   NOVERA_DISPLAY_NAME,

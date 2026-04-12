@@ -46,8 +46,8 @@ import { useSuccessBanner } from "@context/success-banner/SuccessBannerContext";
 import useGetCaseComments from "@api/useGetCaseComments";
 import useGetUserDetails from "@api/useGetUserDetails";
 import { usePostComment } from "@api/usePostComment";
-import type { CaseDetails } from "@models/responses";
-import type { CaseComment } from "@models/responses";
+import type { CaseDetails } from "@/types/cases";
+import type { CaseComment } from "@/types/cases";
 import {
   formatDateTime,
   formatRelativeTime,
