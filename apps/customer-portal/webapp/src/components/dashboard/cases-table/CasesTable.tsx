@@ -30,6 +30,7 @@ import { mapSeverityToDisplay, isS0Case, deriveFilterLabels } from "@utils/suppo
 import { isS0SeverityLabel } from "@constants/dashboardConstants";
 import { CaseType, ALL_CASES_FILTER_DEFINITIONS } from "@constants/supportConstants";
 import type { CaseListItem, CaseSearchResponse } from "@/types/cases";
+import { SortOrder } from "@/types/common";
 
 const OUTSTANDING_STATUS_IDS = [1, 10, 18, 1003, 1006] as const;
 
@@ -180,7 +181,7 @@ const CasesTable = ({
         },
         sortBy: {
           field: "createdOn",
-          order: "desc" as const,
+          order: SortOrder.DESC,
         },
       };
     },
