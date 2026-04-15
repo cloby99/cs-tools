@@ -16,7 +16,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { useAuthApiClient } from "@api/useAuthApiClient";
+import { useAuthApiClient } from "@/utils/useAuthApiClient";
 import type { AttachmentDownloadResponse } from "@features/support/types/attachments";
 
 /** Input for GET /attachments/:id or inline list payload. */

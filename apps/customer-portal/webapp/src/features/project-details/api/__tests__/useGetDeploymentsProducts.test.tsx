@@ -19,7 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { usePostDeploymentProductsSearchAll } from "@features/project-details/api/usePostDeploymentProductsSearch";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useAuthApiClient } from "@api/useAuthApiClient";
+import { useAuthApiClient } from "@/utils/useAuthApiClient";
 
 const mockDeploymentProductsResponse = [
   {
@@ -108,9 +108,12 @@ describe("usePostDeploymentProductsSearchAll", () => {
   });
 
   it("should be disabled when deploymentId is empty", () => {
-    const { result } = renderHook(() => usePostDeploymentProductsSearchAll(""), {
-      wrapper,
-    });
+    const { result } = renderHook(
+      () => usePostDeploymentProductsSearchAll(""),
+      {
+        wrapper,
+      },
+    );
 
     expect(result.current.isFetching).toBe(false);
     expect(result.current.data).toBeUndefined();

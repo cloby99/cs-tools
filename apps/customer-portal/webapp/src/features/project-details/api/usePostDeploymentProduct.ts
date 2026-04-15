@@ -20,9 +20,9 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
-import { useAuthApiClient } from "@api/useAuthApiClient";
+import { useAuthApiClient } from "@/utils/useAuthApiClient";
 import { useLogger } from "@hooks/useLogger";
-import { ApiQueryKeys } from "@api/apiConstants";
+import { ApiQueryKeys } from "@/constants/apiConstants";
 import type { PostDeploymentProductRequest } from "@features/project-details/types/deployments";
 
 export interface PostDeploymentProductVariables {

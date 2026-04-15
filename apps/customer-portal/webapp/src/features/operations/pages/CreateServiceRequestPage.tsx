@@ -37,7 +37,7 @@ import {
   extractDeploymentProducts,
   usePostDeploymentProductsSearchInfinite,
 } from "@features/project-details/api/usePostDeploymentProductsSearch";
-import { useAuthApiClient } from "@api/useAuthApiClient";
+import { useAuthApiClient } from "@/utils/useAuthApiClient";
 import { useSearchCatalogs } from "@features/operations/api/useSearchCatalogs";
 import { useGetCatalogItemVariables } from "@features/operations/api/useGetCatalogItemVariables";
 import { usePostCase } from "@features/operations/api/usePostCase";

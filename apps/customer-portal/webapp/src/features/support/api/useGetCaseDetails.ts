@@ -16,10 +16,10 @@
 
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
-import { useAuthApiClient } from "@api/useAuthApiClient";
-import { ApiError } from "@api/ApiError";
+import { useAuthApiClient } from "@/utils/useAuthApiClient";
+import { ApiError } from "@/utils/ApiError";
 import { useLogger } from "@hooks/useLogger";
-import { ApiQueryKeys } from "@api/apiConstants";
+import { ApiQueryKeys } from "@/constants/apiConstants";
 import type { CaseDetails } from "@features/support/types/cases";
 
 /**

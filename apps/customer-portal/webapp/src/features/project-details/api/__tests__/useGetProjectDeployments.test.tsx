@@ -19,7 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { usePostProjectDeploymentsSearchAll } from "@api/usePostProjectDeploymentsSearch";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useAuthApiClient } from "@api/useAuthApiClient";
+import { useAuthApiClient } from "@/utils/useAuthApiClient";
 
 const mockProjectDeploymentsResponse = {
   deployments: [
@@ -108,14 +108,19 @@ describe("usePostProjectDeploymentsSearchAll", () => {
       "https://api.test/projects/project-123/deployments/search",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(result.current.data).toEqual(mockProjectDeploymentsResponse.deployments);
+    expect(result.current.data).toEqual(
+      mockProjectDeploymentsResponse.deployments,
+    );
     expect(result.current.data?.[0].type.label).toBe("Primary Production");
   });
 
   it("should be disabled when projectId is empty", () => {
-    const { result } = renderHook(() => usePostProjectDeploymentsSearchAll(""), {
-      wrapper,
-    });
+    const { result } = renderHook(
+      () => usePostProjectDeploymentsSearchAll(""),
+      {
+        wrapper,
+      },
+    );
 
     expect(result.current.isFetching).toBe(false);
     expect(result.current.data).toBeUndefined();

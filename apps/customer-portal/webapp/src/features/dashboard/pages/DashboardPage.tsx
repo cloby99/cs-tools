@@ -23,7 +23,7 @@ import { useLoader } from "@context/linear-loader/LoaderContext";
 import { useErrorBanner } from "@context/error-banner/ErrorBannerContext";
 import useInfiniteProjects, { flattenProjectPages } from "@api/useGetProjects";
 import useGetProjectDetails from "@api/useGetProjectDetails";
-import { isForbiddenError, getForbiddenMessage } from "@api/ApiError";
+import { isForbiddenError, getForbiddenMessage } from "@/utils/ApiError";
 import Error403Page from "@components/error/Error403Page";
 import { useGetProjectCasesStats } from "@features/dashboard/api/useGetProjectCasesStats";
 import { useGetProjectChangeRequestsStats } from "@features/dashboard/api/useGetProjectChangeRequestsStats";
@@ -63,7 +63,10 @@ export default function DashboardPage(): JSX.Element {
     isLoading: isProjectsLoading,
     error: projectsError,
   } = useInfiniteProjects({ pageSize: 20, enabled: !!projectId });
-  const projects = useMemo(() => flattenProjectPages(projectsData), [projectsData]);
+  const projects = useMemo(
+    () => flattenProjectPages(projectsData),
+    [projectsData],
+  );
   const projectFromList = useMemo(
     () => projects.find((p) => p.id === projectId),
     [projects, projectId],
@@ -77,7 +80,8 @@ export default function DashboardPage(): JSX.Element {
   const isForbidden =
     isForbiddenError(projectsError) || isForbiddenError(projectDetailsError);
   const forbiddenMessage =
-    getForbiddenMessage(projectsError) ?? getForbiddenMessage(projectDetailsError);
+    getForbiddenMessage(projectsError) ??
+    getForbiddenMessage(projectDetailsError);
   const resolvedProject = projectFromList ?? projectDetails ?? undefined;
 
   const awaitingProjectContext =
@@ -209,25 +213,15 @@ export default function DashboardPage(): JSX.Element {
     const outstanding = source?.outstandingSeverityCount ?? [];
 
     const catastrophicCount =
-      outstanding.find(
-        (s) => s.label === SEVERITY_API_LABELS[0],
-      )?.count ?? 0;
+      outstanding.find((s) => s.label === SEVERITY_API_LABELS[0])?.count ?? 0;
     const critical =
-      outstanding.find(
-        (s) => s.label === SEVERITY_API_LABELS[1],
-      )?.count ?? 0;
+      outstanding.find((s) => s.label === SEVERITY_API_LABELS[1])?.count ?? 0;
     const high =
-      outstanding.find(
-        (s) => s.label === SEVERITY_API_LABELS[2],
-      )?.count ?? 0;
+      outstanding.find((s) => s.label === SEVERITY_API_LABELS[2])?.count ?? 0;
     const medium =
-      outstanding.find(
-        (s) => s.label === SEVERITY_API_LABELS[3],
-      )?.count ?? 0;
+      outstanding.find((s) => s.label === SEVERITY_API_LABELS[3])?.count ?? 0;
     const low =
-      outstanding.find(
-        (s) => s.label === SEVERITY_API_LABELS[4],
-      )?.count ?? 0;
+      outstanding.find((s) => s.label === SEVERITY_API_LABELS[4])?.count ?? 0;
 
     const catastrophic = permissions.includeS0InSupportMetrics
       ? catastrophicCount
@@ -245,18 +239,17 @@ export default function DashboardPage(): JSX.Element {
   }, [defaultCaseStats, permissions.includeS0InSupportMetrics]);
 
   const outstandingOperations = useMemo(() => {
-    const hasServiceRequests =
-      !!serviceRequestStats && !isErrorServiceRequest;
+    const hasServiceRequests = !!serviceRequestStats && !isErrorServiceRequest;
     const hasChangeRequests =
       includeCrStats && !!changeRequestStats && !isErrorChangeRequestStats;
 
     const serviceRequestsCount = hasServiceRequests
-      ? serviceRequestStats?.totalCount ??
+      ? (serviceRequestStats?.totalCount ??
         serviceRequestStats?.totalCases ??
-        0
+        0)
       : 0;
     const changeRequestsCount = hasChangeRequests
-      ? changeRequestStats?.totalCount ?? 0
+      ? (changeRequestStats?.totalCount ?? 0)
       : 0;
 
     return calculateProjectStats(
@@ -275,8 +268,7 @@ export default function DashboardPage(): JSX.Element {
 
   const outstandingEngagements = useMemo(() => {
     const source = engagementStats;
-    const outstanding =
-      source?.outstandingEngagementTypeCount ?? [];
+    const outstanding = source?.outstandingEngagementTypeCount ?? [];
     const normalizeEngagementLabel = (label: string): string => {
       if (label === "New Feature / Improvement") return "Improvements";
       if (label === "Consultancy") return "Services";
@@ -359,16 +351,18 @@ export default function DashboardPage(): JSX.Element {
               isCardError = crBranchState.isCardError;
 
               const combinedTotal = crBranchState.hasCombined
-                ? combinedCasesStats?.totalCount ??
+                ? (combinedCasesStats?.totalCount ??
                   combinedCasesStats?.totalCases ??
-                  0
+                  0)
                 : 0;
               const changeTotal = crBranchState.hasChange
-                ? changeRequestStats?.totalCount ?? 0
+                ? (changeRequestStats?.totalCount ?? 0)
                 : 0;
 
               value = includeCrStats
-                ? !isCardError && crBranchState.hasCombined && crBranchState.hasChange
+                ? !isCardError &&
+                  crBranchState.hasCombined &&
+                  crBranchState.hasChange
                   ? combinedTotal + changeTotal
                   : 0
                 : combinedTotal;
@@ -379,65 +373,61 @@ export default function DashboardPage(): JSX.Element {
               isCardError = crBranchState.isCardError;
 
               const combinedActive = crBranchState.hasCombined
-                ? combinedCasesStats?.activeCount ??
+                ? (combinedCasesStats?.activeCount ??
                   combinedCasesStats?.stateCount
                     ?.filter((state) => state.label !== "Closed")
                     .reduce((sum, state) => sum + state.count, 0) ??
-                  0
+                  0)
                 : 0;
 
               const changeActive = crBranchState.hasChange
-                ? changeRequestStats?.activeCount ??
+                ? (changeRequestStats?.activeCount ??
                   changeRequestStats?.stateCount
                     ?.filter(
                       (state) =>
-                        state.label !== "Closed" &&
-                        state.label !== "Canceled",
+                        state.label !== "Closed" && state.label !== "Canceled",
                     )
                     .reduce((sum, state) => sum + state.count, 0) ??
-                  0
+                  0)
                 : 0;
 
               value = includeCrStats
-                ? !isCardError && crBranchState.hasCombined && crBranchState.hasChange
+                ? !isCardError &&
+                  crBranchState.hasCombined &&
+                  crBranchState.hasChange
                   ? combinedActive + changeActive
                   : 0
                 : combinedActive;
               break;
             }
             case "resolvedCases": {
-              const hasDefault =
-                !!defaultCaseStats && !isErrorDefaultCase;
+              const hasDefault = !!defaultCaseStats && !isErrorDefaultCase;
               const resolved =
                 hasDefault && defaultCaseStats
-                  ? defaultCaseStats.resolvedCases.pastThirtyDays ??
+                  ? (defaultCaseStats.resolvedCases.pastThirtyDays ??
                     defaultCaseStats.resolvedCases.currentMonth ??
-                    0
+                    0)
                   : 0;
 
               value = resolved;
               isCardError = isErrorDefaultCase;
               isCardLoading =
-                !isCardError &&
-                isDefaultCaseLoading &&
-                !defaultCaseStats;
+                !isCardError && isDefaultCaseLoading && !defaultCaseStats;
 
               const changeRate = defaultCaseStats?.changeRate;
-              if (
-                typeof changeRate?.resolvedEngagements === "number"
-              ) {
+              if (typeof changeRate?.resolvedEngagements === "number") {
                 const rate = changeRate.resolvedEngagements;
                 trend = {
                   value: `${rate >= 0 ? "+" : ""}${rate}%`,
-                  direction: rate >= 0 ? TrendDirection.UP : TrendDirection.DOWN,
+                  direction:
+                    rate >= 0 ? TrendDirection.UP : TrendDirection.DOWN,
                   color: rate >= 0 ? TrendColor.SUCCESS : TrendColor.ERROR,
                 };
               }
               break;
             }
             case "avgResponseTime": {
-              const hasCombined =
-                !!combinedCasesStats && !isErrorCombinedCases;
+              const hasCombined = !!combinedCasesStats && !isErrorCombinedCases;
               const avg =
                 hasCombined && combinedCasesStats
                   ? combinedCasesStats.averageResponseTime
@@ -446,18 +436,15 @@ export default function DashboardPage(): JSX.Element {
               value = `${avg} hrs`;
               isCardError = isErrorCombinedCases;
               isCardLoading =
-                !isCardError &&
-                isCombinedCasesLoading &&
-                !combinedCasesStats;
+                !isCardError && isCombinedCasesLoading && !combinedCasesStats;
 
               const changeRate = combinedCasesStats?.changeRate;
-              if (
-                typeof changeRate?.averageResponseTime === "number"
-              ) {
+              if (typeof changeRate?.averageResponseTime === "number") {
                 const rate = changeRate.averageResponseTime;
                 trend = {
                   value: `${rate >= 0 ? "+" : ""}${rate}%`,
-                  direction: rate >= 0 ? TrendDirection.UP : TrendDirection.DOWN,
+                  direction:
+                    rate >= 0 ? TrendDirection.UP : TrendDirection.DOWN,
                   color: TrendColor.SUCCESS,
                 };
               }

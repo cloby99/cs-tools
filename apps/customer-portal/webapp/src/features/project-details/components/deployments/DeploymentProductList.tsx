@@ -16,7 +16,10 @@
 
 import type { SelectedDeploymentProduct } from "@features/project-details/components/deployments/deploymentSelectionTypes";
 import type { DeploymentProductItem } from "@features/project-details/types/deployments";
-import { displayValue, formatProjectDate } from "@features/project-details/utils/projectDetails";
+import {
+  displayValue,
+  formatProjectDate,
+} from "@features/project-details/utils/projectDetails";
 import {
   Box,
   Button,
@@ -42,7 +45,7 @@ import { useMemo, useState, type JSX } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePostDeploymentProductsSearchAll } from "@features/project-details/api/usePostDeploymentProductsSearch";
 import { usePatchDeploymentProduct } from "@features/project-details/api/usePatchDeploymentProduct";
-import { ApiQueryKeys } from "@api/apiConstants";
+import { ApiQueryKeys } from "@/constants/apiConstants";
 import ErrorIndicator from "@components/error-indicator/ErrorIndicator";
 import ErrorBanner from "@components/error-banner/ErrorBanner";
 import AddProductModal from "@features/project-details/components/deployments/AddProductModal";

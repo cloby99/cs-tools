@@ -22,10 +22,10 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
-import { useAuthApiClient } from "@api/useAuthApiClient";
+import { useAuthApiClient } from "@/utils/useAuthApiClient";
 import { useLogger } from "@hooks/useLogger";
-import { ApiQueryKeys } from "@api/apiConstants";
-import { addApiHeaders } from "@api/apiUtils";
+import { ApiQueryKeys } from "@/constants/apiConstants";
+import { addApiHeaders } from "@/utils/apiUtils";
 import type { DeployedProductSearchRequest } from "@features/project-details/types/deployments";
 import type {
   DeploymentProductItem,

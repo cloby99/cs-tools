@@ -16,8 +16,8 @@
 
 import { useAsgardeo } from "@asgardeo/react";
 import { useQuery } from "@tanstack/react-query";
-import { useAuthApiClient } from "@api/useAuthApiClient";
-import { ApiQueryKeys } from "@api/apiConstants";
+import { useAuthApiClient } from "@/utils/useAuthApiClient";
+import { ApiQueryKeys } from "@/constants/apiConstants";
 import type { InstanceMetricsRequest } from "@features/project-details/types/usage";
 import type { InstanceUsageResponse } from "@features/project-details/types/usage";
 

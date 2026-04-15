@@ -22,7 +22,7 @@ import {
   isUnauthorizedError,
   isNotFoundError,
   getApiErrorMessage,
-} from "@api/ApiError";
+} from "@/utils/ApiError";
 import Error401Page from "@components/error/Error401Page";
 import Error403Page from "@components/error/Error403Page";
 import Error404Page from "@components/error/Error404Page";
@@ -56,4 +56,3 @@ export default function ProjectGuard(): JSX.Element {
 
   return <Outlet />;
 }
-

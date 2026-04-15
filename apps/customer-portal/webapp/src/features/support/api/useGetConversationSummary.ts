@@ -16,9 +16,9 @@
 
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
-import { useAuthApiClient } from "@api/useAuthApiClient";
+import { useAuthApiClient } from "@/utils/useAuthApiClient";
 import { useLogger } from "@hooks/useLogger";
-import { ApiQueryKeys } from "@api/apiConstants";
+import { ApiQueryKeys } from "@/constants/apiConstants";
 
 /**
  * Response type for conversation summary API.
@@ -47,11 +47,7 @@ export default function useGetConversationSummary(
   const authFetch = useAuthApiClient();
 
   return useQuery<ConversationSummaryResponse, Error>({
-    queryKey: [
-      ApiQueryKeys.CONVERSATION_SUMMARY,
-      projectId,
-      conversationId,
-    ],
+    queryKey: [ApiQueryKeys.CONVERSATION_SUMMARY, projectId, conversationId],
     queryFn: async (): Promise<ConversationSummaryResponse> => {
       logger.debug(
         `Fetching conversation summary for project: ${projectId}, conversation: ${conversationId}`,

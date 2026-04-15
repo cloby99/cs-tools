@@ -20,9 +20,9 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
-import { useAuthApiClient } from "@api/useAuthApiClient";
+import { useAuthApiClient } from "@/utils/useAuthApiClient";
 import { useLogger } from "@hooks/useLogger";
-import { ApiQueryKeys, ApiMutationKeys } from "@api/apiConstants";
+import { ApiQueryKeys, ApiMutationKeys } from "@/constants/apiConstants";
 import { CommentType } from "@features/support/constants/supportConstants";
 
 export interface PostCommentRequest {

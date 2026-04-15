@@ -56,7 +56,7 @@ import {
   flattenDeploymentDocuments,
 } from "@features/project-details/api/useInfiniteDeploymentDocuments";
 import { useQueryClient } from "@tanstack/react-query";
-import { ApiQueryKeys } from "@api/apiConstants";
+import { ApiQueryKeys } from "@/constants/apiConstants";
 
 interface DeploymentDocumentListProps {
   deploymentId: string;

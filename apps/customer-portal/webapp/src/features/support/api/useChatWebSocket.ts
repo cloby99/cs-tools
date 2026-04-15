@@ -18,8 +18,12 @@ import {
   CONNECT_HANDSHAKE_TIMEOUT_MS,
   WS_CHOREO_OAUTH2_TOKEN,
   WS_CUSTOMER_PORTAL,
-} from "@api/apiConstants";
-import type { ChatWebSocketEvent, ChatWebSocketPayload, UseChatWebSocketOptions } from "@features/support/types/conversations";
+} from "@/constants/apiConstants";
+import type {
+  ChatWebSocketEvent,
+  ChatWebSocketPayload,
+  UseChatWebSocketOptions,
+} from "@features/support/types/conversations";
 import { useAsgardeo } from "@asgardeo/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 

@@ -22,9 +22,9 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
-import { useAuthApiClient } from "@api/useAuthApiClient";
+import { useAuthApiClient } from "@/utils/useAuthApiClient";
 import { useLogger } from "@hooks/useLogger";
-import { ApiQueryKeys } from "@api/apiConstants";
+import { ApiQueryKeys } from "@/constants/apiConstants";
 import type { DeploymentSearchRequest } from "@features/project-details/types/deployments";
 import type {
   ProjectDeploymentItem,

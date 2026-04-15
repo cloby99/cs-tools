@@ -19,7 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { usePostProjectDeploymentsSearchAll } from "@api/usePostProjectDeploymentsSearch";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useAuthApiClient } from "@api/useAuthApiClient";
+import { useAuthApiClient } from "@/utils/useAuthApiClient";
 
 const mockDeploymentsResponse = {
   deployments: [
@@ -97,7 +97,7 @@ describe("usePostProjectDeploymentsSearchAll", () => {
     const { result } = renderHook(
       () => usePostProjectDeploymentsSearchAll("project-123"),
       {
-      wrapper,
+        wrapper,
       },
     );
 
@@ -124,7 +124,7 @@ describe("usePostProjectDeploymentsSearchAll", () => {
     const { result } = renderHook(
       () => usePostProjectDeploymentsSearchAll("project-123"),
       {
-      wrapper,
+        wrapper,
       },
     );
 
@@ -144,7 +144,7 @@ describe("usePostProjectDeploymentsSearchAll", () => {
     const { result } = renderHook(
       () => usePostProjectDeploymentsSearchAll("project-123"),
       {
-      wrapper,
+        wrapper,
       },
     );
 
@@ -155,9 +155,12 @@ describe("usePostProjectDeploymentsSearchAll", () => {
   });
 
   it("should not be enabled when projectId is empty", () => {
-    const { result } = renderHook(() => usePostProjectDeploymentsSearchAll(""), {
-      wrapper,
-    });
+    const { result } = renderHook(
+      () => usePostProjectDeploymentsSearchAll(""),
+      {
+        wrapper,
+      },
+    );
 
     expect(result.current.isPending).toBe(true);
     expect(result.current.fetchStatus).toBe("idle");

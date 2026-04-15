@@ -29,7 +29,7 @@ import { useLocation, useNavigate, useParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import useGetProjectFilters from "@api/useGetProjectFilters";
 import useGetProjectDetails from "@api/useGetProjectDetails";
-import { useAuthApiClient } from "@api/useAuthApiClient";
+import { useAuthApiClient } from "@/utils/useAuthApiClient";
 import { usePostProjectDeploymentsSearchInfinite } from "@api/usePostProjectDeploymentsSearch";
 import {
   extractDeploymentProducts,
@@ -76,7 +76,10 @@ import {
   shouldExcludeS0,
   shouldRestrictToPrimaryProductionDeployments,
 } from "@features/project-details/utils/permissions";
-import { escapeHtml, htmlToPlainText } from "@features/support/utils/richTextEditor";
+import {
+  escapeHtml,
+  htmlToPlainText,
+} from "@features/support/utils/richTextEditor";
 import UploadAttachmentModal from "@features/support/components/case-details/attachments-tab/UploadAttachmentModal";
 import { ROUTE_PREVIOUS_PAGE } from "@features/project-hub/constants/navigationConstants";
 import type { ProjectDeploymentItem } from "@features/project-details/types/deployments";

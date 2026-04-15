@@ -15,12 +15,17 @@
 // under the License.
 
 import type { QueryClient } from "@tanstack/react-query";
-import { ApiQueryKeys } from "@api/apiConstants";
+import { ApiQueryKeys } from "@/constants/apiConstants";
 import { CaseType } from "@features/support/constants/supportConstants";
 
-type AuthFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+type AuthFetch = (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => Promise<Response>;
 
-type RefreshCaseType = typeof CaseType.DEFAULT_CASE | typeof CaseType.SERVICE_REQUEST;
+type RefreshCaseType =
+  | typeof CaseType.DEFAULT_CASE
+  | typeof CaseType.SERVICE_REQUEST;
 
 /**
  * Calls backend endpoints required after successful case/service request creation.
@@ -116,4 +121,3 @@ export async function refreshCaseQueriesAfterCreation(
     }),
   ]);
 }
-

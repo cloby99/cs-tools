@@ -17,7 +17,7 @@
 import { useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
-import { ApiQueryKeys } from "@api/apiConstants";
+import { ApiQueryKeys } from "@/constants/apiConstants";
 import {
   createFetchWithMergedAuthHeaders,
   fetchDeploymentProductsAll,
