@@ -27,7 +27,7 @@ import {
   DEPLOYMENT_STATUS,
   PRODUCT_SUPPORT_STATUS,
   type ProjectStatusChipColor,
-} from "@constants/projectDetailsConstants";
+} from "@features/project-details/constants/projectDetailsConstants";
 
 /**
  * Get the theme color path for a time card state chip (e.g. Approved, Submitted).

@@ -14,18 +14,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { UsageTimeRange } from "@features/project-details/types/usage";
+// Idle timeout in ms (default 15 minutes).
+export const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 
-export const USAGE_LINE_CHART_MARGIN = {
-  top: 5,
-  right: 40,
-  left: 20,
-  bottom: 40,
-};
+// Show "Are you still there?" this many ms before idle timeout.
+export const IDLE_PROMPT_BEFORE_MS = 4_000;
 
-export const USAGE_TIME_RANGE_LABELS: Record<UsageTimeRange, string> = {
-  [UsageTimeRange.THREE_MONTHS]: "Last 3 months",
-  [UsageTimeRange.SIX_MONTHS]: "Last 6 months",
-  [UsageTimeRange.TWELVE_MONTHS]: "Last 12 months",
-  [UsageTimeRange.CUSTOM]: "Custom range",
-};
+// Throttle for idle timer updates (ms).
+export const IDLE_THROTTLE_MS = 500;

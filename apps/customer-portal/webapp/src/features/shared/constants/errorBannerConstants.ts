@@ -14,20 +14,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { DeployedProductsResponse } from "@/types/deployments";
+// Auto-dismiss timeout in milliseconds (error and success banners).
+export const ERROR_BANNER_TIMEOUT_MS = 5000;
 
-/**
- * Type guard for DeployedProductsResponse.
- *
- * @param {unknown} payload - The payload to check.
- * @returns {payload is DeployedProductsResponse} True if the payload is a DeployedProductsResponse.
- */
-export function isDeployedProductsResponse(
-  payload: unknown,
-): payload is DeployedProductsResponse {
-  return (
-    typeof payload === "object" &&
-    payload !== null &&
-    Array.isArray((payload as { deployedProducts?: unknown }).deployedProducts)
-  );
-}
+// Footer height in pixels.
+export const FOOTER_HEIGHT_PX = 64;
+
+// Header height in pixels.
+export const HEADER_HEIGHT_PX = 64;
+
+// Vertical gap in pixels.
+export const BANNER_FOOTER_GAP_PX = 24;
+
+// Vertical gap from the top in pixels.
+export const BANNER_HEADER_GAP_PX = 24;
+
+// Horizontal gap in pixels.
+export const BANNER_RIGHT_GAP_PX = 24;
