@@ -94,8 +94,6 @@ function ExpandedProductCard({
       sx={{
         p: 2,
         height: "100%",
-        border: "1px solid",
-        borderColor: alpha(a.main, 0.15),
       }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.5 }}>
