@@ -472,7 +472,8 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     # + return - Created deployment or error response
     resource function post projects/[entity:IdString id]/deployments(http:RequestContext ctx,
             types:DeploymentCreatePayload payload)
-        returns entity:CreatedDeployment|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
+        returns entity:CreatedDeployment|http:BadRequest|http:Unauthorized|http:Forbidden|http:Conflict|
+        http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -522,7 +523,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             if getStatusCode(deploymentResponse) == http:STATUS_CONFLICT {
                 string customError = "A deployment with the same name already exists for the project.";
                 log:printWarn(customError, deploymentResponse);
-                return <http:BadRequest>{
+                return <http:Conflict>{
                     body: {
                         message: customError
                     }
