@@ -863,6 +863,20 @@ describe("support utils", () => {
       expect(result).toContain("https://cdn.example.com/att.png");
     });
 
+    it("should prefer previewUrl over downloadUrl for inline image rendering", () => {
+      const html = '<img src="/att456.iix">';
+      const attachments = [
+        {
+          id: "att456",
+          previewUrl: "https://cdn.example.com/att-preview.png",
+          downloadUrl: "https://cdn.example.com/att-download.png",
+        },
+      ];
+      const result = replaceInlineImageSources(html, attachments);
+      expect(result).toContain("https://cdn.example.com/att-preview.png");
+      expect(result).not.toContain("https://cdn.example.com/att-download.png");
+    });
+
     it("should use same-origin .iix as img src without adding a download URL fallback attr", () => {
       const html =
         '<img src="https://wso2sndev.wso2.com/att456.iix" alt="inline">';

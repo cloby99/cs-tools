@@ -20,7 +20,8 @@
  */
 export type InlineAttachment = {
   id?: string;
-  downloadUrl?: string;
-  sys_id?: string;
-  url?: string;
+  downloadUrl?: string | null;
+  previewUrl?: string | null;
+  sys_id?: string | null;
+  url?: string | null;
 };

@@ -22,6 +22,7 @@ export type CaseCommentInlineAttachment = AuditMetadata & {
   fileName: string;
   contentType: string;
   downloadUrl: string;
+  previewUrl?: string | null;
   sys_id?: string;
   url?: string;
 };
@@ -35,6 +36,7 @@ export type AttachmentDownloadResponse = AuditMetadata & {
   type: string;
   sizeBytes?: number;
   downloadUrl?: string | null;
+  previewUrl?: string | null;
   description?: string | null;
 };
 

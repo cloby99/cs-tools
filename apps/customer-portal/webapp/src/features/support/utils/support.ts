@@ -1279,7 +1279,7 @@ function resolveInlineImageDisplaySrc(
   if (originMatch && id) {
     return `${originMatch[1]}/${id}.iix`;
   }
-  return attachment.downloadUrl ?? attachment.url ?? originalSrc;
+  return attachment.previewUrl ?? attachment.downloadUrl ?? attachment.url ?? originalSrc;
 }
 
 /**

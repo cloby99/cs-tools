@@ -290,6 +290,7 @@ export type CaseAttachment = AuditMetadata & {
   sizeBytes?: string;
   content?: string | null;
   downloadUrl?: string | null;
+  previewUrl?: string | null;
 };
 
 // Response type for case attachments list.
