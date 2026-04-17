@@ -22,6 +22,7 @@ import {
   Box,
   StatCard,
   Divider,
+  Skeleton,
 } from "@wso2/oxygen-ui";
 import { Activity } from "@wso2/oxygen-ui-icons-react";
 import type { JSX } from "react";
@@ -40,6 +41,7 @@ const ProjectStatisticsCard = ({
   const visibleStats = showDeploymentsStat
     ? statItems
     : statItems.filter((s) => s.key !== "deployments");
+  const isStatLoading = isLoading || (!isError && !stats);
   return (
     <Card sx={{ height: "100%" }}>
       <CardContent sx={{ p: 3 }}>
@@ -57,8 +59,10 @@ const ProjectStatisticsCard = ({
                 <StatCard
                   label={stat.label}
                   value={
-                    isLoading
-                      ? "Loading..."
+                    isStatLoading
+                      ? (((
+                          <Skeleton variant="rounded" width={60} height={24} />
+                        ) as unknown) as string)
                       : isError
                         ? "Error"
                         : (stats?.[stat.key] ?? "--").toString()

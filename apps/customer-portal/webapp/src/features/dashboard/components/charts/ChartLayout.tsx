@@ -46,9 +46,13 @@ const ChartLayout = ({
   showOperationsChart = true,
   operationsChartMode = OperationsChartMode.SrAndCr,
 }: ChartLayoutProps): JSX.Element => {
+  const chartSpan = showOperationsChart
+    ? DASHBOARD_CHART_SPAN
+    : { xs: 12 as const, md: 6 as const };
+
   return (
     <Grid container spacing={3} sx={{ mb: 3 }}>
-      <Grid size={DASHBOARD_CHART_SPAN}>
+      <Grid size={chartSpan}>
         <OutstandingIncidentsChart
           data={outstandingCases}
           isLoading={isLoading}
@@ -68,7 +72,7 @@ const ChartLayout = ({
         </Grid>
       )}
 
-      <Grid size={DASHBOARD_CHART_SPAN}>
+      <Grid size={chartSpan}>
         <CasesTrendChart
           data={engagements}
           isLoading={isLoading}
