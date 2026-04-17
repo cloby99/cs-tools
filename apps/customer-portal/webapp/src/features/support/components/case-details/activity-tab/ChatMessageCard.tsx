@@ -103,15 +103,22 @@ export default function ChatMessageCard({
             whiteSpace: "pre",
             wordBreak: "normal",
             display: "block",
-            width: "100%",
+            width: "max-content",
+            minWidth: "100%",
             boxSizing: "border-box",
           },
           "& pre": {
             overflowX: "auto",
             maxWidth: "100%",
             whiteSpace: "pre",
-            width: "100%",
+            width: "max-content",
+            minWidth: "100%",
+            backgroundColor: "action.disabledBackground",
+            boxSizing: "border-box",
             m: 0,
+          },
+          "& pre code": {
+            backgroundColor: "transparent",
           },
         }}
         ref={contentRef}
