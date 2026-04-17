@@ -276,6 +276,16 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
                 };
             }
 
+            if getStatusCode(projectsList) == http:STATUS_BAD_REQUEST {
+                string customError = "Invalid request parameters for searching projects.";
+                log:printWarn(customError, projectsList);
+                return <http:BadRequest>{
+                    body: {
+                        message: customError
+                    }
+                };
+            }
+
             string customError = "Failed to retrieve project list.";
             log:printError(customError, projectsList);
             return <http:InternalServerError>{
@@ -462,7 +472,8 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     # + return - Created deployment or error response
     resource function post projects/[entity:IdString id]/deployments(http:RequestContext ctx,
             types:DeploymentCreatePayload payload)
-        returns entity:CreatedDeployment|http:BadRequest|http:Unauthorized|http:Forbidden|http:InternalServerError {
+        returns entity:CreatedDeployment|http:BadRequest|http:Unauthorized|http:Forbidden|http:Conflict|
+        http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);
         if userInfo is error {
@@ -495,6 +506,26 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
                 return <http:Unauthorized>{
                     body: {
                         message: ERR_MSG_UNAUTHORIZED_ACCESS
+                    }
+                };
+            }
+
+            if getStatusCode(deploymentResponse) == http:STATUS_BAD_REQUEST {
+                string customError = "Invalid request parameters for creating deployment for the project.";
+                log:printWarn(customError, deploymentResponse);
+                return <http:BadRequest>{
+                    body: {
+                        message: customError
+                    }
+                };
+            }
+
+            if getStatusCode(deploymentResponse) == http:STATUS_CONFLICT {
+                string customError = "A deployment with the same name already exists for the project.";
+                log:printWarn(customError, deploymentResponse);
+                return <http:Conflict>{
+                    body: {
+                        message: customError
                     }
                 };
             }
@@ -1189,6 +1220,15 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
                     body: {
                         message: "You're not authorized to create a case for the selected project. " +
                         "Please check your access permissions or contact support."
+                    }
+                };
+            }
+            if getStatusCode(createdCaseResponse) == http:STATUS_BAD_REQUEST {
+                string customError = "Invalid request parameters for creating case for the project.";
+                log:printWarn(customError, createdCaseResponse);
+                return <http:BadRequest>{
+                    body: {
+                        message: customError
                     }
                 };
             }
@@ -2026,7 +2066,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
 
-        entity:CommentCreateResponse|error createdCaseResponse = entity:createComment(userInfo.idToken,
+        entity:CommentCreateResponse|error createdCommentResponse = entity:createComment(userInfo.idToken,
                 {
                     referenceId: id,
                     referenceType: entity:CASE,
@@ -2034,8 +2074,8 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
                     'type: entity:COMMENTS,
                     createdBy: userInfo.email
                 });
-        if createdCaseResponse is error {
-            if getStatusCode(createdCaseResponse) == http:STATUS_UNAUTHORIZED {
+        if createdCommentResponse is error {
+            if getStatusCode(createdCommentResponse) == http:STATUS_UNAUTHORIZED {
                 log:printWarn(string `User: ${userInfo.userId} is not authorized to access the customer portal!`);
                 return <http:Unauthorized>{
                     body: {
@@ -2044,7 +2084,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
                 };
             }
 
-            if getStatusCode(createdCaseResponse) == http:STATUS_FORBIDDEN {
+            if getStatusCode(createdCommentResponse) == http:STATUS_FORBIDDEN {
                 log:printWarn(string `User: ${userInfo.userId} is forbidden to comment on case with ID: ${id}!`);
                 return <http:Forbidden>{
                     body: {
@@ -2054,8 +2094,18 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
                 };
             }
 
+            if getStatusCode(createdCommentResponse) == http:STATUS_BAD_REQUEST {
+                string customError = "Invalid request parameters for creating comment for the case.";
+                log:printWarn(customError, createdCommentResponse);
+                return <http:BadRequest>{
+                    body: {
+                        message: customError
+                    }
+                };
+            }
+
             string customError = "Failed to create a new comment.";
-            log:printError(customError, createdCaseResponse);
+            log:printError(customError, createdCommentResponse);
             return <http:InternalServerError>{
                 body: {
                     message: customError
@@ -2063,7 +2113,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
 
-        return createdCaseResponse.comment;
+        return createdCommentResponse.comment;
     }
 
     # Create a new attachment for a specific case.
