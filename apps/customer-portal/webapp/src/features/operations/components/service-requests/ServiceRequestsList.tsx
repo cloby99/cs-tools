@@ -25,7 +25,6 @@ import {
 } from "@wso2/oxygen-ui";
 import { Calendar, Layers, Package, Users } from "@wso2/oxygen-ui-icons-react";
 import type { JSX } from "react";
-import type { CaseListItem } from "@features/support/types/cases";
 import {
   formatDateTime,
   getAssignedEngineerLabel,
@@ -36,21 +35,22 @@ import {
   resolveColorFromTheme,
   stripHtml,
 } from "@features/support/utils/support";
-import ServiceRequestsListSkeleton from "@features/support/components/service-requests/ServiceRequestsListSkeleton";
+import ServiceRequestsListSkeleton from "@features/operations/components/service-requests/ServiceRequestsListSkeleton";
 import EmptyIcon from "@components/empty-state/EmptyIcon";
 import SearchNoResultsIcon from "@components/empty-state/SearchNoResultsIcon";
-
-export interface ServiceRequestsListProps {
-  serviceRequests: CaseListItem[];
-  isLoading: boolean;
-  hasListRefinement?: boolean;
-  onServiceRequestClick?: (sr: CaseListItem) => void;
-}
+import type { ServiceRequestsListProps } from "@features/operations/types/serviceRequests";
+import {
+  OPERATIONS_LIST_EMPTY_CONTAINER_PY,
+  OPERATIONS_LIST_EMPTY_ICON_MARGIN_BOTTOM_PX,
+  OPERATIONS_LIST_EMPTY_ILLUSTRATION_WIDTH_PX,
+  SERVICE_REQUESTS_LIST_EMPTY_DEFAULT_MESSAGE,
+  SERVICE_REQUESTS_LIST_EMPTY_REFINED_MESSAGE,
+} from "@features/operations/constants/operationsConstants";
 
 /**
  * Component to display service requests as cards.
  *
- * @param {ServiceRequestsListProps} props - Service requests array and loading state.
+ * @param props - Service requests array and loading state.
  * @returns {JSX.Element} The rendered service request cards list.
  */
 export default function ServiceRequestsList({
@@ -65,6 +65,13 @@ export default function ServiceRequestsList({
     return <ServiceRequestsListSkeleton />;
   }
 
+  const emptyIconStyle = {
+    width: OPERATIONS_LIST_EMPTY_ILLUSTRATION_WIDTH_PX,
+    maxWidth: "100%",
+    height: "auto",
+    marginBottom: OPERATIONS_LIST_EMPTY_ICON_MARGIN_BOTTOM_PX,
+  };
+
   if (serviceRequests.length === 0) {
     if (hasListRefinement) {
       return (
@@ -73,20 +80,12 @@ export default function ServiceRequestsList({
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            py: 6,
+            py: OPERATIONS_LIST_EMPTY_CONTAINER_PY,
           }}
         >
-          <SearchNoResultsIcon
-            style={{
-              width: 200,
-              maxWidth: "100%",
-              height: "auto",
-              marginBottom: 16,
-            }}
-          />
+          <SearchNoResultsIcon style={emptyIconStyle} />
           <Typography variant="body1" color="text.secondary">
-            No service requests found. Try adjusting your filters or search
-            query.
+            {SERVICE_REQUESTS_LIST_EMPTY_REFINED_MESSAGE}
           </Typography>
         </Box>
       );
@@ -97,19 +96,12 @@ export default function ServiceRequestsList({
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          py: 6,
+          py: OPERATIONS_LIST_EMPTY_CONTAINER_PY,
         }}
       >
-        <EmptyIcon
-          style={{
-            width: 200,
-            maxWidth: "100%",
-            height: "auto",
-            marginBottom: 16,
-          }}
-        />
+        <EmptyIcon style={emptyIconStyle} />
         <Typography variant="body1" color="text.secondary">
-          No service requests yet.
+          {SERVICE_REQUESTS_LIST_EMPTY_DEFAULT_MESSAGE}
         </Typography>
       </Box>
     );
