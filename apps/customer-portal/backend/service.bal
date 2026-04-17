@@ -3514,7 +3514,7 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
     # + payload - Call request update payload
     # + return - Updated call request details or an error
     resource function patch cases/[entity:IdString caseId]/call\-requests/[entity:IdString callRequestId](
-            http:RequestContext ctx, types:CallRequestUpdatePayload payload)
+            http:RequestContext ctx, entity:CallRequestUpdatePayload payload)
         returns entity:UpdatedCallRequest|http:BadRequest|http:Forbidden|http:NotFound|http:InternalServerError {
 
         authorization:UserInfoPayload|error userInfo = ctx.getWithType(authorization:HEADER_USER_INFO);

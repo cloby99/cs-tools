@@ -1034,16 +1034,6 @@ public type CallRequestCreatePayload record {|
     int durationInMinutes;
 |};
 
-# Request payload for updating a call request.
-public type CallRequestUpdatePayload record {|
-    # State key
-    int stateKey;
-    # Reason for the requested call cancellation
-    string cancellationReason?;
-    # New preferred UTC times for the call (mandatory when stateKey is 2)
-    entity:DateTime[] utcTimes?;
-|};
-
 # Product version data.
 public type ProductVersion record {|
     # ID
