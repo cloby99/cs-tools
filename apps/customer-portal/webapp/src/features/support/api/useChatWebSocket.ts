@@ -18,7 +18,7 @@ import {
   CONNECT_HANDSHAKE_TIMEOUT_MS,
   WS_CHOREO_OAUTH2_TOKEN,
   WS_CUSTOMER_PORTAL,
-} from "@/constants/apiConstants";
+} from "@constants/apiConstants";
 import type {
   ChatWebSocketEvent,
   ChatWebSocketPayload,

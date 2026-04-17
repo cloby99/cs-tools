@@ -21,7 +21,7 @@ import {
 } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
 import { useAuthApiClient } from "@/utils/useAuthApiClient";
-import { ApiQueryKeys } from "@/constants/apiConstants";
+import { ApiQueryKeys } from "@constants/apiConstants";
 import { useLogger } from "@hooks/useLogger";
 import type { CallRequestsResponse } from "@features/support/types/calls";
 

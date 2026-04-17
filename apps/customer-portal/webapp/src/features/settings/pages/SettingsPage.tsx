@@ -18,6 +18,7 @@ import { Box, Typography } from "@wso2/oxygen-ui";
 import { useParams } from "react-router";
 import { useState, useMemo, type JSX } from "react";
 import useGetUserDetails from "@features/settings/api/useGetUserDetails";
+import useGetProjectDetails from "@api/useGetProjectDetails";
 import TabBar from "@components/tab-bar/TabBar";
 import SettingsAiAssistant from "@features/settings/components/SettingsAiAssistant";
 import SettingsUserManagement from "@features/settings/components/SettingsUserManagement";
@@ -29,6 +30,7 @@ import {
 } from "@features/settings/constants/settingsConstants";
 import { SettingsPageTabId } from "@features/settings/types/settings";
 import { resolveSettingsPageTabId } from "@features/settings/utils/settingsPage";
+import { ProjectType } from "@/types/permission";
 
 /**
  * Settings page with User Management and AI Assistant tabs.
@@ -39,17 +41,47 @@ export default function SettingsPage(): JSX.Element {
   const { projectId } = useParams<{ projectId: string }>();
   const [activeTab, setActiveTab] = useState<string>(SettingsPageTabId.USERS);
   const { data: userDetails } = useGetUserDetails();
+  const { data: projectDetails } = useGetProjectDetails(projectId || "");
 
   const isCustomerAdmin = useMemo(
     () => (userDetails?.roles ?? []).includes(SETTINGS_CUSTOMER_ADMIN_ROLE),
     [userDetails?.roles],
   );
 
-  const tabs = useMemo(() => [...SETTINGS_PAGE_TABS], []);
+  const hideRestrictedTabs = useMemo(() => {
+    const projectTypeLabel = projectDetails?.type?.label;
+    return (
+      projectTypeLabel === ProjectType.CLOUD_SUPPORT ||
+      projectTypeLabel === ProjectType.CLOUD_EVALUATION_SUPPORT
+    );
+  }, [projectDetails?.type?.label]);
+
+  const tabs = useMemo(
+    () =>
+      hideRestrictedTabs
+        ? SETTINGS_PAGE_TABS.filter(
+            (tab) =>
+              tab.id !== SettingsPageTabId.USERS &&
+              tab.id !== SettingsPageTabId.REGISTRY_TOKENS,
+          )
+        : [...SETTINGS_PAGE_TABS],
+    [hideRestrictedTabs],
+  );
+
+  const safeActiveTab = useMemo(() => {
+    if (
+      hideRestrictedTabs &&
+      (resolveSettingsPageTabId(activeTab) === SettingsPageTabId.USERS ||
+        resolveSettingsPageTabId(activeTab) === SettingsPageTabId.REGISTRY_TOKENS)
+    ) {
+      return SettingsPageTabId.AI;
+    }
+    return activeTab;
+  }, [activeTab, hideRestrictedTabs]);
 
   const displayTab = useMemo(
-    () => resolveSettingsPageTabId(activeTab),
-    [activeTab],
+    () => resolveSettingsPageTabId(safeActiveTab),
+    [safeActiveTab],
   );
 
   if (!projectId) {

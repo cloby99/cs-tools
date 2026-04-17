@@ -29,9 +29,10 @@ import {
   SettingsPageTabId,
   SettingsRoleInfoId,
 } from "@features/settings/types/settings";
+import { NULL_PLACEHOLDER as COMMON_NULL_PLACEHOLDER } from "@constants/common";
 
 /** Placeholder for empty/null values in user management UI. */
-export const NULL_PLACEHOLDER = "--";
+export const NULL_PLACEHOLDER = COMMON_NULL_PLACEHOLDER;
 
 /** @deprecated Use NULL_PLACEHOLDER — same value for registry token tables. */
 export const SETTINGS_NULL_PLACEHOLDER = NULL_PLACEHOLDER;
@@ -123,8 +124,7 @@ export const SETTINGS_USER_ROLE_PERMISSIONS_TITLE = "Role Permissions";
 
 export const SETTINGS_USER_INVITE_SUCCESS = "Invitation sent successfully";
 
-export const SETTINGS_USER_ADD_ERROR =
-  "Failed to add user. Please try again.";
+export const SETTINGS_USER_ADD_ERROR = "Failed to add user. Please try again.";
 
 export const SETTINGS_USER_REMOVE_SUCCESS = "User removed successfully";
 
@@ -134,8 +134,7 @@ export const SETTINGS_USER_REMOVE_ERROR =
 export const SETTINGS_USER_SYSTEM_NOT_SECURITY_ERROR =
   "System Users cannot be security contacts.";
 
-export const SETTINGS_USER_SECURITY_UPDATE_SUCCESS =
-  "Security contact updated";
+export const SETTINGS_USER_SECURITY_UPDATE_SUCCESS = "Security contact updated";
 
 export const SETTINGS_USER_UPDATE_ERROR =
   "Failed to update user. Please try again.";
@@ -287,8 +286,7 @@ export const REGISTRY_USER_TOKENS_EMPTY = "No user tokens found.";
 
 export const REGISTRY_SERVICE_TOKENS_EMPTY = "No service tokens found.";
 
-export const REGISTRY_SEARCH_PLACEHOLDER_USER =
-  "Search by user, token name...";
+export const REGISTRY_SEARCH_PLACEHOLDER_USER = "Search by user, token name...";
 
 export const REGISTRY_SEARCH_PLACEHOLDER_SERVICE =
   "Search by token name, description...";
