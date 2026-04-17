@@ -1130,14 +1130,18 @@ export function getStatusIconElement(
  */
 export function convertCodeTagsToHtml(content: string): string {
   if (!content || typeof content !== "string") return "";
-  const normalized = content.replace(
+  const normalized = content
+    .replace(/\[\\\/code\]/gi, "[/code]")
+    .replace(/\[\\\/CODE\]/g, "[/code]")
+    .replace(/\[\\code\]/gi, "[code]")
+    .replace(/\[\\CODE\]/g, "[code]")
+    .replace(
     /\[\/code\]\s*\[code\]/gi,
     "[/code]\n[code]",
   );
-  return normalized.replace(
-    /\[code\]([\s\S]*?)\[\/code\]/gi,
-    "<code>$1</code>",
-  );
+  return normalized
+    .replace(/\[code\]([\s\S]*?)\[\/code\]/gi, "<code>$1</code>")
+    .replace(/\[\/?code\]/gi, "\n");
 }
 
 /**
@@ -1149,7 +1153,15 @@ export function convertCodeTagsToHtml(content: string): string {
  */
 export function stripAllCodeBlocks(content: string): string {
   if (!content || typeof content !== "string") return "";
-  return content.replace(/\[code\]([\s\S]*?)\[\/code\]/gi, "$1\n");
+  const normalized = content
+    .replace(/\[\\\/code\]/gi, "[/code]")
+    .replace(/\[\\\/CODE\]/g, "[/code]")
+    .replace(/\[\\code\]/gi, "[code]")
+    .replace(/\[\\CODE\]/g, "[code]")
+    .replace(/\[\/code\]\s*\[code\]/gi, "[/code]\n[code]");
+  return normalized
+    .replace(/\[code\]([\s\S]*?)\[\/code\]/gi, "$1\n")
+    .replace(/\[\/?code\]/gi, "\n");
 }
 
 /**
