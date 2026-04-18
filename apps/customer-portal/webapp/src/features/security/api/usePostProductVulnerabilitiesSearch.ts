@@ -74,6 +74,6 @@ export function usePostProductVulnerabilitiesSearch(
       return data;
     },
     enabled: isSignedIn && !isAuthLoading,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
   });
 }

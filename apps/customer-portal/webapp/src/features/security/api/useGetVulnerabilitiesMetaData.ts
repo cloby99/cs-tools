@@ -59,6 +59,6 @@ export function useGetVulnerabilitiesMetaData(): UseQueryResult<
       return data;
     },
     enabled: isSignedIn && !isAuthLoading,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0,
   });
 }

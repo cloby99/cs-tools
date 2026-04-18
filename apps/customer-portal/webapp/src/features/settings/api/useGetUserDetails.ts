@@ -110,8 +110,6 @@ const useGetUserDetails = (): UseQueryResult<UserDetails, Error> => {
     },
     retryDelay: (attemptIndex) => Math.min(400 * 2 ** attemptIndex, 3000),
     staleTime: 0,
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
   });
 };
 

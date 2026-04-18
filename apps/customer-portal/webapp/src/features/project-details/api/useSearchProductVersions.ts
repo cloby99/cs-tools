@@ -81,7 +81,6 @@ export function useSearchProductVersions(
       }
     },
     enabled: !!productId && isSignedIn && !isAuthLoading,
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
   });
 }
