@@ -98,6 +98,6 @@ export default function useGetTimeCardsStats({
     },
     enabled:
       !!projectId && !!startDate && !!endDate && isSignedIn && !isAuthLoading,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
   });
 }

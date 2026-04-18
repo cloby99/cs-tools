@@ -76,7 +76,6 @@ export function usePostUpdateLevelsSearch(
       return data;
     },
     enabled: !!params && isSignedIn && !isAuthLoading,
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
   });
 }

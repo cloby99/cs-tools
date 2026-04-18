@@ -118,9 +118,7 @@ describe("useGetProductUpdateLevels", () => {
       queryKey: ["product-update-levels"],
     })[0];
 
-    expect((query?.options as { staleTime?: number }).staleTime).toBe(
-      5 * 60 * 1000,
-    );
+    expect((query?.options as { staleTime?: number }).staleTime).toBe(0);
   });
 
   it("should handle API error", async () => {

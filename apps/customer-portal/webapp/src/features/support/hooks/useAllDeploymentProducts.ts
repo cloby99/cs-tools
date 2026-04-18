@@ -60,7 +60,7 @@ export function useAllDeploymentProducts(
         });
       },
       enabled: !!deploymentId,
-      staleTime: 5 * 60 * 1000,
+      staleTime: 0,
     })),
   });
 
