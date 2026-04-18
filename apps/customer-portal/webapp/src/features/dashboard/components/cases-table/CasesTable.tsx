@@ -262,9 +262,9 @@ const CasesTable = ({
   // fetching cases
   const isFetchingCases = showAll
     ? isLoadingAll ||
-      infiniteQuery.isFetching ||
+      infiniteQuery.isLoading ||
       infiniteQuery.isFetchingNextPage
-    : pageQuery.isFetching;
+    : pageQuery.isLoading;
 
   // error
   const isError = showAll ? infiniteQuery.isError : pageQuery.isError;
