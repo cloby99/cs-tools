@@ -88,7 +88,7 @@ export function useGetProjectCasesPage(
       !isAuthLoading &&
       offset >= 0 &&
       limit > 0,
-    staleTime: 5 * 60 * 1000,
+    staleTime:  0,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
