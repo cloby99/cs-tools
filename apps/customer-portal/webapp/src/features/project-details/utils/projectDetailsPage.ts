@@ -20,8 +20,8 @@ import { ProjectDetailsTabId } from "@features/project-details/types/projectDeta
 
 export type ProjectDetailsLoadingParams = {
   isAuthLoading: boolean;
-  isProjectFetching: boolean;
-  isStatsFetching: boolean;
+  isProjectLoading: boolean;
+  isStatsLoading: boolean;
   project: unknown;
   projectError: unknown;
   stats: unknown;
@@ -39,15 +39,15 @@ export function getProjectDetailsLoadingState(
 ): boolean {
   const {
     isAuthLoading,
-    isProjectFetching,
-    isStatsFetching,
+    isProjectLoading,
+    isStatsLoading,
     project,
     projectError,
     stats,
     statsError,
   } = params;
 
-  if (isAuthLoading || isProjectFetching || isStatsFetching) {
+  if (isAuthLoading || isProjectLoading || isStatsLoading) {
     return true;
   }
   if (!project && !projectError) {
