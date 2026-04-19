@@ -392,7 +392,6 @@ export type CaseDetailsTabPanelsProps = {
   focusMode?: boolean;
   isEngagement?: boolean;
   isServiceRequest?: boolean;
-  onKnowledgeBaseCountChange?: (count: number) => void;
 };
 
 export type CaseDetailsSkeletonProps = {

@@ -119,7 +119,10 @@ export default function ConversationKnowledgeRecommendations({
             <Paper
               key={`${item.articleId}-${index}`}
               variant="outlined"
+              role="button"
+              tabIndex={0}
               onClick={() => openArticle(item.articleId)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openArticle(item.articleId); }}
               sx={{
                 p: 2,
                 display: "flex",
@@ -162,7 +165,7 @@ export default function ConversationKnowledgeRecommendations({
                   size="small"
                   variant="outlined"
                   aria-label={`Open article ${item.title}`}
-                  onClick={() => openArticle(item.articleId)}
+                  onClick={(e) => { e.stopPropagation(); openArticle(item.articleId); }}
                   sx={{ flexShrink: 0 }}
                 >
                   <ExternalLink size={16} />
