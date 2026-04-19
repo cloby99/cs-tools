@@ -2695,10 +2695,12 @@ components:
           type: string
           description: Allowed domain list of the account
           nullable: true
+          default: ""
         classification:
           type: string
           description: Account classification
           nullable: true
+          default: ""
         isPartner:
           type: boolean
           description: Whether the account is a partner or not
@@ -4825,7 +4827,7 @@ components:
       - endDate
       - goLiveDate
       - goLivePlanDate
-      - hasSr
+      - hasPdpSubscription
       - id
       - key
       - name
@@ -4860,9 +4862,9 @@ components:
         sfId:
           type: string
           description: Salesforce ID
-        hasSr:
+        hasPdpSubscription:
           type: boolean
-          description: Indicates if the project has service requests
+          description: Indicates whether the project has a PDP subscription
         startDate:
           description: Project start date
           nullable: true

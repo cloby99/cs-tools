@@ -294,6 +294,8 @@ public type Project record {|
     string? description;
     # Project type
     ReferenceItem 'type;
+    # Indicates whether the project has a PDP subscription
+    boolean hasPdpSubscription;
     # Novera agent enabled status for the project
     boolean hasAgent;
     # Knowledge base references enabled status for the project
@@ -322,8 +324,8 @@ public type ProjectResponse record {|
     ReferenceItem 'type;
     # Salesforce ID
     string sfId;
-    # Indicates if the project has service requests
-    boolean hasSr;
+    # Indicates whether the project has a PDP subscription
+    boolean hasPdpSubscription;
     # Project start date
     entity:Date? startDate;
     # Project end date 
@@ -583,6 +585,8 @@ public type DeploymentSearchPayload record {|
 public type Deployment record {|
     # ID
     string id;
+    # Number of the deployment
+    string? number;
     # Name
     string name;
     # Created date and time

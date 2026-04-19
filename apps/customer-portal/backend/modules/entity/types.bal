@@ -114,6 +114,8 @@ public type Project record {|
     string? description;
     # Project type
     ReferenceTableItem 'type;
+    # Indicates whether the project has a PDP subscription
+    boolean hasPdpSubscription;
     # Agent enabled status for the project
     boolean hasAgent;
     # Knowledge base references enabled status for the project
@@ -164,8 +166,8 @@ public type ProjectResponse record {|
     ReferenceTableItem 'type;
     # Salesforce ID
     string sfId;
-    # Indicates if the project has service requests
-    boolean hasSr;
+    # Indicates whether the project has a PDP subscription
+    boolean hasPdpSubscription;
     # Project start date
     Date? startDate;
     # Project end date 
@@ -1188,6 +1190,8 @@ public type InstanceUsagePayload record {|
 public type Deployment record {|
     # ID
     IdString id;
+    # Number of the deployment
+    string? number;
     # Name
     string name;
     # Created date and time

@@ -256,6 +256,7 @@ public isolated function mapDeployments(entity:DeploymentsResponse response) ret
         select {
             id: deployment.id,
             name: deployment.name,
+            number: deployment.number,
             createdOn: deployment.createdOn,
             updatedOn: deployment.updatedOn,
             description: deployment.description,
@@ -846,6 +847,7 @@ public isolated function mapProjectsResponse(entity:ProjectsResponse response) r
             description: project.description,
             createdOn: project.createdOn,
             'type: {id: project.'type.id, label: project.'type.name},
+            hasPdpSubscription: project.hasPdpSubscription,
             hasAgent: project.hasAgent,
             hasKbReferences: project.hasKbReferences,
             activeCasesCount: project.activeCasesCount,
@@ -868,7 +870,7 @@ public isolated function mapProjectResponse(entity:ProjectResponse response) ret
     createdOn: response.createdOn,
     'type: {id: response.'type.id, label: response.'type.name},
     sfId: response.sfId,
-    hasSr: response.hasSr,
+    hasPdpSubscription: response.hasPdpSubscription,
     startDate: response.startDate,
     endDate: response.endDate,
     account: {
