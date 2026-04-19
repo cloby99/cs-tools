@@ -14,12 +14,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { SILENT_RECOVERY_TIMEOUT_MS } from "@constants/authConstants";
 import type { useAsgardeo } from "@asgardeo/react";
 import type { useLogger } from "@hooks/useLogger";
 
 type SignInSilently = ReturnType<typeof useAsgardeo>["signInSilently"];
 type Logger = ReturnType<typeof useLogger>;
+
 let pendingSilentRecovery: Promise<boolean> | null = null;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error("Silent sign-in timed out"));
+    }, timeoutMs);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
 
 export function recoverViaSilentSignIn(
   signInSilently: SignInSilently,
@@ -27,7 +47,7 @@ export function recoverViaSilentSignIn(
 ): Promise<boolean> {
   if (!pendingSilentRecovery) {
     pendingSilentRecovery = Promise.resolve()
-      .then(() => signInSilently())
+      .then(() => withTimeout(signInSilently(), SILENT_RECOVERY_TIMEOUT_MS))
       .then((result) => result !== false)
       .catch((error) => {
         logger.warn("[authRecovery] silent-signin-failed", { error });

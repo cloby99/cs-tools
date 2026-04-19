@@ -24,3 +24,5 @@ export const IDLE_PROMPT_BEFORE_MS = 4_000;
 export const IDLE_THROTTLE_MS = 500;
 
 export const HIDDEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
+
+export const SILENT_RECOVERY_TIMEOUT_MS = 15_000;
