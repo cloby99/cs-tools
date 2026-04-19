@@ -56,7 +56,7 @@ const CasesList = ({
           <TableHead>
             <TableRow>
               <TableCell>Created</TableCell>
-              <TableCell>Details</TableCell>
+              <TableCell sx={{ maxWidth: 320 }}>Details</TableCell>
               <TableCell>Severity</TableCell>
               <TableCell>Assigned to</TableCell>
               <TableCell>Status</TableCell>
@@ -156,15 +156,24 @@ const CasesList = ({
                       </Typography>
                     </Box>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ maxWidth: 320 }}>
                     <Box
                       sx={{
                         display: "flex",
                         flexDirection: "column",
                         gap: 0.25,
+                        minWidth: 0,
                       }}
                     >
-                      <Typography variant="body2" color="text.primary">
+                      <Typography
+                        variant="body2"
+                        color="text.primary"
+                        sx={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
                         {row.title || "--"}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">

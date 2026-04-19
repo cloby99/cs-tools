@@ -40,13 +40,16 @@ export function useConversationRecommendationsSearch(
   const { isSignedIn, isLoading: isAuthLoading } = useAsgardeo();
   const authFetch = useAuthApiClient();
 
-  const serialized =
-    payload == null ? "" : JSON.stringify(payload);
+  const msgCount = payload?.chatHistory.length ?? 0;
+  const firstTs = payload?.chatHistory[0]?.timestamp ?? "";
+  const lastTs = payload?.chatHistory[msgCount - 1]?.timestamp ?? "";
 
   return useQuery<RecommendationSearchResponse, Error>({
     queryKey: [
       ApiQueryKeys.CONVERSATION_RECOMMENDATIONS_SEARCH,
-      serialized,
+      msgCount,
+      firstTs,
+      lastTs,
     ],
     queryFn: async (): Promise<RecommendationSearchResponse> => {
       if (!payload) {
