@@ -380,6 +380,8 @@ export type CaseDetailsTabsProps = {
   callCount?: number;
   hideCallsTab?: boolean;
   hideKnowledgeBaseTab?: boolean;
+  knowledgeBaseCount?: number;
+  knowledgeBaseCountLoading?: boolean;
 };
 
 export type CaseDetailsTabPanelsProps = {

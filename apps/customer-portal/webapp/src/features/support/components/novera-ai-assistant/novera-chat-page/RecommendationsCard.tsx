@@ -15,6 +15,7 @@
 // under the License.
 
 import type { RecommendationsCardProps } from "@features/support/types/supportComponents";
+import { KB_ARTICLE_VIEW_BASE_URL } from "@features/support/constants/supportConstants";
 import {
   Box,
   Card,
@@ -25,8 +26,6 @@ import {
 } from "@wso2/oxygen-ui";
 import { ArrowUpRight, FileText, Sparkles } from "@wso2/oxygen-ui-icons-react";
 import { type JSX } from "react";
-
-const KB_BASE_URL = "https://support.wso2.com/kb?id=kb_article_view&sys_kb_id=";
 
 /**
  * Displays knowledge base article recommendations from the Novera AI agent.
@@ -43,7 +42,11 @@ export default function RecommendationsCard({
   }
 
   const handleArticleClick = (articleId: string) => {
-    window.open(`${KB_BASE_URL}${articleId}`, "_blank", "noopener,noreferrer");
+    window.open(
+      `${KB_ARTICLE_VIEW_BASE_URL}${articleId}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
   };
 
   const orangeMain = colors.orange?.[600] ?? colors.purple[600];
