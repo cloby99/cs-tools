@@ -42,6 +42,7 @@ function isAsgardeoUnauthenticatedError(error: unknown): boolean {
   }
   
   const msg = error.message.toLowerCase();
+
   return (
     msg.includes("id token") ||
     msg.includes("not authenticated") ||
