@@ -3,6 +3,7 @@
 // WSO2 LLC. licenses this file to you under the Apache License,
 // Version 2.0 (the "License"); you may not use this file except
 // in compliance with the License.
+//
 // You may obtain a copy of the License at
 //
 // http://www.apache.org/licenses/LICENSE-2.0
@@ -14,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, Grid, StatCard, Skeleton } from "@wso2/oxygen-ui";
+import { Box, StatCard, Skeleton } from "@wso2/oxygen-ui";
 import { type JSX } from "react";
 import ErrorIndicator from "@components/error-indicator/ErrorIndicator";
 import { type SupportStatConfig } from "@features/support/constants/supportConstants";
@@ -37,6 +38,17 @@ export interface ListStatGridProps<T extends string> {
 }
 
 /**
+ * Maps MUI-style 12-column `size` segments to `grid-template-columns` repeat count.
+ *
+ * @param {number} segment - Grid segment (12 = one full-width column).
+ * @returns {string} A `repeat(..., minmax(0, 1fr))` track list.
+ */
+function columnsFromSegment(segment: number): string {
+  const n = 12 / segment;
+  return `repeat(${n}, minmax(0, 1fr))`;
+}
+
+/**
  * ListStatGrid component to display a grid of support statistics.
  *
  * @param {ListStatGridProps} props - The props for the component.
@@ -52,18 +64,37 @@ export default function ListStatGrid<T extends string>({
   itemSize = { xs: 12, sm: 6, md: 3 },
   valueFormatter,
 }: ListStatGridProps<T>): JSX.Element {
+  const xs = itemSize.xs ?? 12;
+  const sm = itemSize.sm ?? 6;
+  const md = itemSize.md ?? 3;
+  const lg = itemSize.lg ?? md;
+  const xl = itemSize.xl ?? lg;
+
   return (
-    <Grid container spacing={spacing}>
+    <Box
+      sx={{
+        display: "grid",
+        width: "100%",
+        gap: spacing,
+        gridTemplateColumns: {
+          xs: columnsFromSegment(xs),
+          sm: columnsFromSegment(sm),
+          md: columnsFromSegment(md),
+          lg: columnsFromSegment(lg),
+          xl: columnsFromSegment(xl),
+        },
+      }}
+    >
       {configs.map((stat) => {
         const SecondaryIcon = stat.secondaryIcon;
         const Icon = stat.icon;
 
         return (
-          <Grid
+          <Box
             key={stat.key}
-            size={itemSize}
             sx={{
               position: "relative",
+              minWidth: 0,
             }}
           >
             {SecondaryIcon && (
@@ -106,9 +137,9 @@ export default function ListStatGrid<T extends string>({
               icon={<Icon />}
               iconColor={stat.iconColor}
             />
-          </Grid>
+          </Box>
         );
       })}
-    </Grid>
+    </Box>
   );
 }
