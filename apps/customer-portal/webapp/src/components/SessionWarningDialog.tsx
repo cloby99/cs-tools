@@ -40,7 +40,7 @@ export interface SessionWarningDialogProps {
 
 /**
  * Dialog that asks "Are you still there?" when the user has been idle.
- * Continue shows a 15-second buffer LinearProgress; Logout signs the user out.
+ * Continue shows a buffer LinearProgress for CONTINUE_LOADER_MS; Logout signs the user out.
  * Backdrop click and Escape key are intentionally disabled — the user must
  * make an explicit choice.
  *
@@ -96,11 +96,12 @@ export default function SessionWarningDialog({
         },
       }}
     >
-      {!isContinuing && (
-        <DialogTitle id="session-warning-dialog-title">
-          Are you still there?
-        </DialogTitle>
-      )}
+      <DialogTitle
+        id="session-warning-dialog-title"
+        sx={isContinuing ? { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" } : undefined}
+      >
+        Are you still there?
+      </DialogTitle>
       <DialogContent>
         {isContinuing ? (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, py: 1 }}>
