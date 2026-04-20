@@ -290,12 +290,15 @@ public isolated function mapDeployedProducts(entity:DeployedProductsResponse res
             product: associatedProduct != () ? {
                     id: associatedProduct.id,
                     label: associatedProduct.name,
-                    abbreviation: associatedProduct?.abbreviation,
+                    abbreviation: associatedProduct?.abbreviation
+                } : (),
+            deployment: deployment != () ? {id: deployment.id, label: deployment.name} : (),
+            version: version != () ? {
+                    id: version.id,
+                    label: version.name,
                     releasedOn: associatedProduct?.releasedOn,
                     endOfLifeOn: associatedProduct?.endOfLifeOn
                 } : (),
-            deployment: deployment != () ? {id: deployment.id, label: deployment.name} : (),
-            version: version != () ? {id: version.id, label: version.name} : (),
             category: category != () ? {id: category.id, label: category.name} : ()
         };
 
