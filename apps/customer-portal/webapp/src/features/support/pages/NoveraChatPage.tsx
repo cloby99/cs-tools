@@ -244,6 +244,7 @@ export default function NoveraChatPage(): JSX.Element {
             envProducts,
             region: DEFAULT_CONVERSATION_REGION,
             tier: DEFAULT_CONVERSATION_TIER,
+            projectId,
           });
           navigate(`/projects/${projectId}/support/chat/create-case`, {
             state: { messages, classificationResponse, conversationId },
