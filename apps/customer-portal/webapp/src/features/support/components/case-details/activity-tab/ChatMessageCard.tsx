@@ -18,6 +18,86 @@ import type { ChatMessageCardProps } from "@features/support/types/supportCompon
 import { Box, Paper } from "@wso2/oxygen-ui";
 import { useCallback, useEffect, useRef } from "react";
 import type { JSX } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+const SAFE_PROTOCOLS = ["http:", "https:"];
+
+function isSafeHref(href: string | undefined): href is string {
+  if (!href || typeof href !== "string") return false;
+  try {
+    const parsed = new URL(href, "https://invalid.invalid");
+    return SAFE_PROTOCOLS.includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
+const markdownComponents: React.ComponentProps<
+  typeof ReactMarkdown
+>["components"] = {
+  a: ({ href, children }) =>
+    isSafeHref(href) ? (
+      <Box
+        component="a"
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        sx={{ color: "primary.main", textDecoration: "underline" }}
+      >
+        {children}
+      </Box>
+    ) : (
+      <Box component="span">{children}</Box>
+    ),
+  table: ({ children }) => (
+    <Box sx={{ width: "100%", overflowX: "auto", mb: 1 }}>
+      <Box
+        component="table"
+        sx={{
+          width: "100%",
+          borderCollapse: "collapse",
+          minWidth: 420,
+        }}
+      >
+        {children}
+      </Box>
+    </Box>
+  ),
+  thead: ({ children }) => <Box component="thead">{children}</Box>,
+  tbody: ({ children }) => <Box component="tbody">{children}</Box>,
+  tr: ({ children }) => (
+    <Box component="tr" sx={{ borderBottom: "1px solid", borderColor: "divider" }}>
+      {children}
+    </Box>
+  ),
+  th: ({ children }) => (
+    <Box
+      component="th"
+      sx={{
+        textAlign: "left",
+        p: 1,
+        fontSize: "0.75rem",
+        fontWeight: 600,
+        color: "text.secondary",
+      }}
+    >
+      {children}
+    </Box>
+  ),
+  td: ({ children }) => (
+    <Box
+      component="td"
+      sx={{
+        p: 1,
+        fontSize: "0.8125rem",
+        verticalAlign: "top",
+      }}
+    >
+      {children}
+    </Box>
+  ),
+};
 
 /**
  * Card-style chat message using Paper without border or border radius.
@@ -28,6 +108,8 @@ import type { JSX } from "react";
  */
 export default function ChatMessageCard({
   htmlContent,
+  markdownContent,
+  renderAsMarkdown = false,
   isCurrentUser,
   primaryBg,
   onImageClick,
@@ -75,15 +157,67 @@ export default function ChatMessageCard({
       <Box
         sx={{
           fontSize: "0.875rem",
-          lineHeight: 1.5,
+          lineHeight: 1.6,
           overflowX: "auto",
           maxWidth: "100%",
+          "& h1": {
+            fontSize: "1.125rem",
+            fontWeight: 600,
+            mt: 2,
+            mb: 1,
+          },
+          "& h2": {
+            fontSize: "1rem",
+            fontWeight: 600,
+            mt: 2,
+            mb: 1,
+          },
+          "& h3": {
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            mt: 1.5,
+            mb: 0.5,
+          },
+          "& ul, & ol": {
+            mt: 0,
+            mb: 1,
+            pl: 2.5,
+          },
+          "& li": {
+            mb: 0.5,
+          },
           "& p": {
             margin: "0 0 0.25em 0",
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
           },
           "& p:last-child": { marginBottom: 0 },
+          "& a": {
+            color: "primary.main",
+            textDecoration: "underline",
+          },
+          "& table": {
+            width: "100%",
+            minWidth: 420,
+            borderCollapse: "collapse",
+            mb: 1,
+          },
+          "& tr": {
+            borderBottom: "1px solid",
+            borderColor: "divider",
+          },
+          "& th": {
+            textAlign: "left",
+            p: 1,
+            fontSize: "0.75rem",
+            fontWeight: 600,
+            color: "text.secondary",
+          },
+          "& td": {
+            p: 1,
+            fontSize: "0.8125rem",
+            verticalAlign: "top",
+          },
           "& img": {
             display: "block",
             maxWidth: "100%",
@@ -122,8 +256,15 @@ export default function ChatMessageCard({
           },
         }}
         ref={contentRef}
-        dangerouslySetInnerHTML={{ __html: htmlContent }}
-      />
+      >
+        {renderAsMarkdown ? (
+          <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkGfm]}>
+            {markdownContent ?? ""}
+          </ReactMarkdown>
+        ) : (
+          <Box dangerouslySetInnerHTML={{ __html: htmlContent }} />
+        )}
+      </Box>
     </Paper>
   );
 }
