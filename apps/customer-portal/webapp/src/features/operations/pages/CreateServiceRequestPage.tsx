@@ -13,7 +13,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, Button } from "@wso2/oxygen-ui";
+import { Box, Button, Typography } from "@wso2/oxygen-ui";
 import { CircleCheck } from "@wso2/oxygen-ui-icons-react";
 import {
   useState,
@@ -64,6 +64,7 @@ import {
 } from "@features/operations/utils/caseRefresh";
 import {
   filterDeploymentsForCaseCreation,
+  getProjectPermissions,
   shouldRestrictToPrimaryProductionDeployments,
 } from "@utils/permission";
 import { htmlToPlainText } from "@features/support/utils/richTextEditor";
@@ -528,6 +529,31 @@ export default function CreateServiceRequestPage(): JSX.Element {
     selectedCatalogItemId,
     isCreatePending,
   });
+
+  const srPermissions = useMemo(
+    () =>
+      getProjectPermissions(projectDetails?.type?.label, {
+        hasPdpSubscription: projectDetails?.hasPdpSubscription,
+      }),
+    [projectDetails?.type?.label, projectDetails?.hasPdpSubscription],
+  );
+
+  if (!isProjectLoading && projectDetails && !srPermissions.hasSR) {
+    return (
+      <Box sx={{ width: "100%", pt: 0, position: "relative", p: 3 }}>
+        <CaseCreationHeader
+          onBack={handleBack}
+          hideAiChip
+          backLabel="Back"
+          title="New Service Request"
+          subtitle="Service requests are not available for this project"
+        />
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+          Service requests are not available for this project type.
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ width: "100%", pt: 0, position: "relative" }}>

@@ -77,7 +77,9 @@ export default function OperationsPage(): JSX.Element {
     projectFetchSettled && !!project && !isProjectDetailsError;
 
   const projectTypeLabel = permissionsReady ? project?.type?.label : undefined;
-  const permissions = getProjectPermissions(projectTypeLabel);
+  const permissions = getProjectPermissions(projectTypeLabel, {
+    hasPdpSubscription: project?.hasPdpSubscription,
+  });
 
   const isServiceRequestEnabled = permissions.hasSR;
   const isChangeRequestEnabled = permissions.hasCR;
