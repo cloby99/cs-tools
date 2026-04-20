@@ -96,6 +96,9 @@ export default function ChatHistoryList({
             onClick={() => onItemAction?.(item.chatId, ChatAction.VIEW)}
             sx={{
               p: 2,
+              width: "100%",
+              minWidth: 0,
+              overflow: "hidden",
               display: "flex",
               flexDirection: "column",
               alignItems: "stretch",
@@ -135,8 +138,13 @@ export default function ChatHistoryList({
                   </Typography>
                 </Box>
               </Box>
-              <Box sx={{ pl: 4 }}>
-                <Stack direction="row" spacing={1} alignItems="center">
+              <Box sx={{ pl: 4, minWidth: 0 }}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  sx={{ minWidth: 0, flexWrap: "wrap", rowGap: 0.5 }}
+                >
                   <Typography variant="caption" color="text.secondary">
                     {formatDateTime(item.startedTime, "short") ?? "--"}
                   </Typography>
@@ -158,8 +166,8 @@ export default function ChatHistoryList({
               </Box>
             </CardContent>
 
-            <CardActions sx={{ p: 0, justifyContent: "space-between" }}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+            <CardActions sx={{ p: 0, justifyContent: "space-between", minWidth: 0 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, minWidth: 0 }}>
                 <Box
                   sx={{
                     width: 8,
@@ -169,7 +177,16 @@ export default function ChatHistoryList({
                     flexShrink: 0,
                   }}
                 />
-                <Typography variant="caption" sx={{ color: statusColorPath }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: statusColorPath,
+                    minWidth: 0,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
                   {item.status}
                 </Typography>
               </Box>
