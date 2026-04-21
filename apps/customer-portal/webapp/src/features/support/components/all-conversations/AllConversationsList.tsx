@@ -184,6 +184,7 @@ export default function AllConversationsList({
                       sx={{
                         width: 8,
                         height: 8,
+                        borderRadius: "50%",
                         bgcolor: statusColorPath,
                         flexShrink: 0,
                       }}
