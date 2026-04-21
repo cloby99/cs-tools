@@ -27,6 +27,7 @@ import {
   type JSX,
   type ChangeEvent,
 } from "react";
+import { useSessionState } from "@hooks/useSessionState";
 import { useLoader } from "@context/linear-loader/LoaderContext";
 import { Box, Button, Stack, Typography } from "@wso2/oxygen-ui";
 import { ArrowLeft, Plus } from "@wso2/oxygen-ui-icons-react";
@@ -92,13 +93,12 @@ export default function ServiceRequestsPage(): JSX.Element {
   const navSegment = getOperationsNavSegment(location.pathname);
   const returnTo = (location.state as { returnTo?: string } | null)?.returnTo;
 
-  const [searchTerm, setSearchTerm] = useState("");
+  const sessionPrefix = `${projectId ?? ""}-service-requests`;
+  const [searchTerm, setSearchTerm] = useSessionState(`${sessionPrefix}-search`, "");
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [filters, setFilters] = useState<AllCasesFilterValues>({});
-  const [sortField, setSortField] = useState<ServiceRequestCaseSortField>(
-    ServiceRequestCaseSortField.CreatedOn,
-  );
-  const [sortOrder, setSortOrder] = useState<SortOrder>(SortOrder.DESC);
+  const [filters, setFilters] = useSessionState<AllCasesFilterValues>(`${sessionPrefix}-filters`, {});
+  const [sortField, setSortField] = useSessionState<ServiceRequestCaseSortField>(`${sessionPrefix}-sortField`, ServiceRequestCaseSortField.CreatedOn);
+  const [sortOrder, setSortOrder] = useSessionState<SortOrder>(`${sessionPrefix}-sortOrder`, SortOrder.DESC);
   const [page, setPage] = useState(1);
   const pageSize = OPERATIONS_LIST_PAGE_SIZE;
 
