@@ -45,6 +45,7 @@ export type ProjectPermissions = {
   includeS0InSupportMetrics: boolean;
   showServiceHoursAllocationsCard: boolean;
   hasEngagements: boolean;
+  hasUpdates: boolean;
 };
 
 /** Aggregated operation counts for dashboard and related UI. */

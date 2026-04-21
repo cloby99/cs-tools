@@ -20,21 +20,17 @@ import {
   Button,
   CardActions,
   CardContent,
-  Chip,
   Form,
   Stack,
   Typography,
-  alpha,
-  type Theme,
 } from "@wso2/oxygen-ui";
-import { Bot, Clock, ExternalLink, Play } from "@wso2/oxygen-ui-icons-react";
+import { Bot, ExternalLink, Play } from "@wso2/oxygen-ui-icons-react";
 import type { JSX } from "react";
 import { ChatAction } from "@features/support/constants/supportConstants";
 import {
   getChatActionColor,
   getChatStatusAction,
-  getStatusColor,
-  resolveColorFromTheme,
+  getConversationStatusColor,
   formatDateTime,
 } from "@features/support/utils/support";
 import ChatHistorySkeleton from "@features/support/components/support-overview-cards/ChatHistorySkeleton";
@@ -92,7 +88,7 @@ export default function ChatHistoryList({
     >
       {items.map((item) => {
         const action = getChatStatusAction(item.status);
-        const chipColorPath = getStatusColor(item.status);
+        const statusColorPath = getConversationStatusColor(item.status);
 
         return (
           <Form.CardButton
@@ -100,6 +96,9 @@ export default function ChatHistoryList({
             onClick={() => onItemAction?.(item.chatId, ChatAction.VIEW)}
             sx={{
               p: 2,
+              width: "100%",
+              minWidth: 0,
+              overflow: "hidden",
               display: "flex",
               flexDirection: "column",
               alignItems: "stretch",
@@ -139,8 +138,13 @@ export default function ChatHistoryList({
                   </Typography>
                 </Box>
               </Box>
-              <Box sx={{ pl: 4 }}>
-                <Stack direction="row" spacing={1} alignItems="center">
+              <Box sx={{ pl: 4, minWidth: 0 }}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  sx={{ minWidth: 0, flexWrap: "wrap", rowGap: 0.5 }}
+                >
                   <Typography variant="caption" color="text.secondary">
                     {formatDateTime(item.startedTime, "short") ?? "--"}
                   </Typography>
@@ -162,31 +166,30 @@ export default function ChatHistoryList({
               </Box>
             </CardContent>
 
-            <CardActions sx={{ p: 0, justifyContent: "space-between" }}>
-              <Chip
-                size="small"
-                variant="outlined"
-                label={item.status}
-                icon={<Clock size={12} />}
-                sx={{
-                  bgcolor: (theme: Theme) =>
-                    alpha(resolveColorFromTheme(chipColorPath, theme), 0.1),
-                  color: chipColorPath,
-                  px: 0,
-                  height: 20,
-                  fontSize: "0.75rem",
-                  "& .MuiChip-icon": {
-                    color: "inherit",
-                    ml: "6px",
-                    mr: "6px",
-                    marginTop: "-1px",
-                  },
-                  "& .MuiChip-label": {
-                    pl: 0,
-                    pr: "6px",
-                  },
-                }}
-              />
+            <CardActions sx={{ p: 0, justifyContent: "space-between", minWidth: 0 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, minWidth: 0 }}>
+                <Box
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    bgcolor: statusColorPath,
+                    borderRadius: "50%",
+                    flexShrink: 0,
+                  }}
+                />
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: statusColorPath,
+                    minWidth: 0,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {item.status}
+                </Typography>
+              </Box>
               <Button
                 size="small"
                 variant="text"

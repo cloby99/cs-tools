@@ -24,6 +24,7 @@ import type {
 } from "@/types/permission";
 import { ProjectType } from "@/types/permission";
 import { convertMinutesToHours } from "@features/project-details/utils/projectDetails";
+import { formatBackendTimestampForDisplay } from "@utils/dateTime";
 
 export { PRIMARY_PRODUCTION_DEPLOYMENT_TYPE_LABEL } from "@constants/permissionConstants";
 export { ProjectType } from "@/types/permission";
@@ -55,6 +56,7 @@ function restrictivePermissions(): ProjectPermissions {
     includeS0InSupportMetrics: false,
     showServiceHoursAllocationsCard: false,
     hasEngagements: false,
+    hasUpdates: false,
   };
 }
 
@@ -87,9 +89,26 @@ export function getProjectPermissions(
       permissions.includeS0InSupportMetrics = true;
       permissions.showServiceHoursAllocationsCard = true;
       permissions.hasEngagements = true;
+      permissions.hasUpdates = true;
       break;
 
-    case ProjectType.CLOUD_SUPPORT:
+    case ProjectType.CLOUD_SUPPORT: {
+      permissions.hasOperations = true;
+      permissions.hasSR = hasPdpSubscription;
+      permissions.hasCR = false;
+      permissions.hasDeployments = false;
+      permissions.hasQueryHours = true;
+      permissions.hasTimeLogs = false;
+      permissions.hasSecurityReportAnalysis = false;
+      permissions.showOutstandingOpsChart = hasPdpSubscription;
+      permissions.includeChangeRequestsInDashboardTotals = false;
+      permissions.includeS0InSupportMetrics = false;
+      permissions.showServiceHoursAllocationsCard = false;
+      permissions.hasEngagements = true;
+      permissions.hasUpdates = false;
+      break;
+    }
+
     case ProjectType.CLOUD_SUBSCRIPTION: {
       permissions.hasOperations = true;
       permissions.hasSR = hasPdpSubscription;
@@ -97,25 +116,31 @@ export function getProjectPermissions(
       permissions.hasDeployments = false;
       permissions.hasQueryHours = true;
       permissions.hasTimeLogs = false;
-      permissions.hasSecurityReportAnalysis = true;
+      permissions.hasSecurityReportAnalysis = false;
       permissions.showOutstandingOpsChart = hasPdpSubscription;
       permissions.includeChangeRequestsInDashboardTotals = false;
       permissions.includeS0InSupportMetrics = false;
       permissions.showServiceHoursAllocationsCard = false;
       permissions.hasEngagements = true;
+      permissions.hasUpdates = true;
       break;
     }
 
     case ProjectType.CLOUD_EVALUATION_SUPPORT:
+      permissions.hasUpdates = false;
+      break;
+
     case ProjectType.EVALUATION_SUBSCRIPTION:
       break;
 
     case ProjectType.DEVELOPMENT_SUPPORT:
       permissions.hasSecurityReportAnalysis = true;
+      permissions.hasUpdates = true;
       break;
 
     case ProjectType.PROFESSIONAL_SERVICES:
       permissions.hasSecurityReportAnalysis = true;
+      permissions.hasUpdates = true;
       break;
 
     case ProjectType.SUBSCRIPTION:
@@ -131,6 +156,7 @@ export function getProjectPermissions(
       permissions.includeS0InSupportMetrics = false;
       permissions.showServiceHoursAllocationsCard = true;
       permissions.hasEngagements = true;
+      permissions.hasUpdates = true;
       break;
 
     default:
@@ -266,23 +292,18 @@ export function getRecentActivityItems(
 
   const formatDateTime = (dateString: string): string => {
     if (!dateString) return "";
-    try {
-      const date = new Date(dateString.replace(" ", "T"));
-      if (isNaN(date.getTime())) return "";
-      const dateStr = date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-      const timeStr = date.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      });
-      return `${dateStr} at ${timeStr}`;
-    } catch {
-      return "";
-    }
+    const dateStr = formatBackendTimestampForDisplay(dateString, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    const timeStr = formatBackendTimestampForDisplay(dateString, {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    if (!dateStr || !timeStr) return "";
+    return `${dateStr} at ${timeStr}`;
   };
 
   const items: ActivityItem[] = [];
