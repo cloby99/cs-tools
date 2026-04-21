@@ -157,7 +157,7 @@ export default function SupportPage(): JSX.Element {
           <SupportOverviewCard
             sx={{ flex: 1, width: "100%", minWidth: 0 }}
             title="Outstanding Cases"
-            subtitle={`Latest ${SUPPORT_OVERVIEW_CASES_LIMIT} support tickets`}
+            subtitle={`Latest ${SUPPORT_OVERVIEW_CASES_LIMIT} outstanding support tickets`}
             icon={FileText}
             iconVariant={SupportOverviewIconVariant.Orange}
             footerButtons={[

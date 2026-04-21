@@ -116,6 +116,7 @@ export default function OutstandingCasesList({
               flexDirection: "column",
               alignItems: "stretch",
               gap: 1,
+              minHeight: "180px",
             }}
           >
             <Form.CardHeader
