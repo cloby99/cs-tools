@@ -561,10 +561,8 @@ public type SortBy record {|
 
 # Project feature access configuration.
 public type ProjectFeatures record {|
-    # Feature ID
-    IdString projectTypeId;
-    # Feature name
-    string projectType;
+    # Project type information
+    ReferenceTableItem projectType;
     # Severities available for the feature
     ChoiceListItem[] acceptedSeverityValues;
     # Indicates if service request write access is enabled

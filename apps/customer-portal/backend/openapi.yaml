@@ -4735,6 +4735,58 @@ components:
             $ref: '#/components/schemas/ReferenceItem'
       additionalProperties: false
       description: Change request statistics.
+    ProjectFeatures:
+      required:
+      - acceptedSeverityValues
+      - hasChangeRequestReadAccess
+      - hasDeploymentReadAccess
+      - hasDeploymentWriteAccess
+      - hasEngagementsReadAccess
+      - hasServiceRequestReadAccess
+      - hasServiceRequestWriteAccess
+      - hasSraReadAccess
+      - hasSraWriteAccess
+      - hasTimeLogsReadAccess
+      - hasUpdatesReadAccess
+      type: object
+      properties:
+        acceptedSeverityValues:
+          type: array
+          description: Severities available for the feature
+          items:
+            $ref: '#/components/schemas/ReferenceItem'
+        hasServiceRequestWriteAccess:
+          type: boolean
+          description: Indicates if service request write access is enabled
+        hasServiceRequestReadAccess:
+          type: boolean
+          description: Indicates if service request read access is enabled
+        hasSraWriteAccess:
+          type: boolean
+          description: Indicates if SRA write access is enabled
+        hasSraReadAccess:
+          type: boolean
+          description: Indicates if SRA read access is enabled
+        hasChangeRequestReadAccess:
+          type: boolean
+          description: Indicates if change request read access is enabled
+        hasEngagementsReadAccess:
+          type: boolean
+          description: Indicates if engagements read access is enabled
+        hasUpdatesReadAccess:
+          type: boolean
+          description: Indicates if updates read access is enabled
+        hasTimeLogsReadAccess:
+          type: boolean
+          description: Indicates if time logs read access is enabled
+        hasDeploymentWriteAccess:
+          type: boolean
+          description: Indicates if deployment write access is enabled
+        hasDeploymentReadAccess:
+          type: boolean
+          description: Indicates if deployment read access is enabled
+      additionalProperties: false
+      description: Project feature access configuration.
     ProjectFilterOptions:
       required:
       - callRequestStates
@@ -4746,6 +4798,7 @@ components:
       - deploymentTypes
       - engagementPaymentTypes
       - engagementTypes
+      - features
       - issueTypes
       - severities
       - severityBasedAllocationTime
@@ -4819,6 +4872,8 @@ components:
             format: int64
           description: Severity based allocation time mapping (severity ID to allocation
             time in minutes)
+        features:
+          $ref: '#/components/schemas/ProjectFeatures'
       additionalProperties: false
       description: Project filter options.
     ProjectResponse:
