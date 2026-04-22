@@ -35,7 +35,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import useInfiniteProjects, { flattenProjectPages } from "@api/useGetProjects";
 import useGetProjectFeatures from "@api/useGetProjectFeatures";
-import { getProjectPermissions } from "@utils/permission";
+import { getProjectPermissions, isProjectRestricted } from "@utils/permission";
 
 interface GetHelpMenuItem {
   id: string;
@@ -155,6 +155,10 @@ export default function GetHelpDropdown(): JSX.Element {
         ]
       : []),
   ];
+
+  if (isProjectRestricted(selectedProject?.closureState)) {
+    return <></>;
+  }
 
   return (
     <Box>

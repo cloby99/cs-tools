@@ -26,6 +26,7 @@ import ErrorIndicator from "@components/error-indicator/ErrorIndicator";
 import { ChartLegend } from "@features/dashboard/components/charts/ChartLegend";
 import {
   DASHBOARD_CHART_CAPTION_TOTAL,
+  DASHBOARD_CHART_DARK_MODE_OPACITY,
   DASHBOARD_CHART_DARK_MODE_SHADE,
   DASHBOARD_CHART_ERROR_ENTITY_OUTSTANDING_CASES,
   DASHBOARD_CHART_LEGEND_SKELETON_WIDTH_INCIDENTS_PX,
@@ -138,8 +139,6 @@ export const OutstandingIncidentsChart = ({
     displayChartSource,
     displayedData,
   );
-  const darkModeCenterTextColor =
-    colors.blue?.[DASHBOARD_CHART_DARK_MODE_SHADE] ?? colors.blue?.[300];
 
   return (
     <Card sx={{ height: "100%", p: 2 }}>
@@ -200,6 +199,7 @@ export const OutstandingIncidentsChart = ({
                     key={`cell-${index}`}
                     fill={entry.color}
                     stroke="none"
+                    opacity={isDarkMode ? DASHBOARD_CHART_DARK_MODE_OPACITY : 1}
                   />
                 ))}
               </Pie>
@@ -232,10 +232,7 @@ export const OutstandingIncidentsChart = ({
               </Box>
             ) : (
               <>
-                <Typography
-                  variant="h4"
-                  color={isDarkMode ? darkModeCenterTextColor : undefined}
-                >
+                <Typography variant="h4">
                   {formatOutstandingIncidentsCenterTotal(
                     Boolean(data),
                     displayedData.total,
