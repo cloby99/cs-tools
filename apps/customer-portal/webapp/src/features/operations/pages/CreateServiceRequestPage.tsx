@@ -42,6 +42,7 @@ import { useSearchCatalogs } from "@features/operations/api/useSearchCatalogs";
 import { useGetCatalogItemVariables } from "@features/operations/api/useGetCatalogItemVariables";
 import { usePostCase } from "@features/operations/api/usePostCase";
 import useGetProjectDetails from "@api/useGetProjectDetails";
+import useGetProjectFeatures from "@api/useGetProjectFeatures";
 import { useLoader } from "@context/linear-loader/LoaderContext";
 import { useErrorBanner } from "@context/error-banner/ErrorBannerContext";
 import { useSuccessBanner } from "@context/success-banner/SuccessBannerContext";
@@ -188,12 +189,13 @@ export default function CreateServiceRequestPage(): JSX.Element {
 
   const { data: projectDetails, isLoading: isProjectLoading } =
     useGetProjectDetails(projectId || "");
+  const { data: projectFeatures } = useGetProjectFeatures(projectId || "");
   const srPermissions = useMemo(
     () =>
       getProjectPermissions(projectDetails?.type?.label, {
-        hasPdpSubscription: projectDetails?.hasPdpSubscription,
+        projectFeatures,
       }),
-    [projectDetails?.type?.label, projectDetails?.hasPdpSubscription],
+    [projectDetails?.type?.label, projectFeatures],
   );
   const hasSR = srPermissions.hasSR;
   const deploymentsQuery = usePostProjectDeploymentsSearchInfinite(
