@@ -16,25 +16,25 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import Error500Page from "@components/error/Error500Page";
+import Error400Page from "@components/error/Error400Page";
 
-describe("Error500Page", () => {
+describe("Error400Page", () => {
   it("should render the default message and illustration", () => {
-    render(<Error500Page />);
+    render(<Error400Page />);
 
     expect(
-      screen.getByAltText("500 server error illustration"),
+      screen.getByAltText("400 bad request illustration"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Something went wrong on our side\. Please try again in a few moments\./,
+        /This request could not be processed\. Check the link or try again from the portal navigation\./,
       ),
     ).toBeInTheDocument();
   });
 
-  it("should render a custom message when provided", () => {
-    render(<Error500Page message="Upstream timeout." />);
+  it("should render a custom API message when provided", () => {
+    render(<Error400Page message="Invalid case id format." />);
 
-    expect(screen.getByText("Upstream timeout.")).toBeInTheDocument();
+    expect(screen.getByText("Invalid case id format.")).toBeInTheDocument();
   });
 });
