@@ -231,7 +231,8 @@ public isolated function mapCommentsResponse(entity:CommentsResponse response) r
             hasInlineAttachments: comment.hasInlineAttachments,
             inlineAttachments: comment.inlineAttachments,
             createdByFirstName: comment.createdByFirstName,
-            createdByLastName: comment.createdByLastName
+            createdByLastName: comment.createdByLastName,
+            createdByFullName: comment.createdByFullName
         };
 
     return {

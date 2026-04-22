@@ -560,6 +560,8 @@ public type Comment record {|
     string? createdByFirstName;
     # Last name of the user who created the comment
     string? createdByLastName;
+    # Full name of the user who created the comment
+    string? createdByFullName;
 |};
 
 # Comments response with pagination.
