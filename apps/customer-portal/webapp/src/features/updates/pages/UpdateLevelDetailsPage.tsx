@@ -41,7 +41,7 @@ import { getUpdateTypeChipColor } from "@features/updates/utils/updates";
 import type { SecurityAdvisory, UpdateDescriptionLevel } from "@features/updates/types/updates";
 import PendingUpdatesListSkeleton from "@features/updates/components/pending-updates/PendingUpdatesListSkeleton";
 import EmptyState from "@components/empty-state/EmptyState";
-import Error500Page from "@components/error/Error500Page";
+import error500Svg from "@assets/error/error-500.svg";
 import { ROUTE_PREVIOUS_PAGE } from "@features/project-hub/constants/navigationConstants";
 
 type FilterType = "all" | "security" | "regular";
@@ -515,7 +515,7 @@ export default function UpdateLevelDetailsPage(): JSX.Element {
               py: 5,
             }}
           >
-            <Error500Page style={{ width: 200, height: "auto" }} />
+            <img src={error500Svg} alt="" aria-hidden="true" style={{ width: 200, height: "auto" }} />
             <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
               Failed to load updates. Please try again.
             </Typography>
@@ -530,7 +530,7 @@ export default function UpdateLevelDetailsPage(): JSX.Element {
               py: 5,
             }}
           >
-            <Error500Page style={{ width: 200, height: "auto" }} />
+            <img src={error500Svg} alt="" aria-hidden="true" style={{ width: 200, height: "auto" }} />
             <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
               Level not found.
             </Typography>

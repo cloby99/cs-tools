@@ -25,6 +25,7 @@ import {
 import { type JSX, type ReactNode, useRef, useEffect, useState } from "react";
 import { useAsgardeo } from "@asgardeo/react";
 import { useLoader } from "@context/linear-loader/LoaderContext";
+import { useErrorPageContext } from "@context/error-page/ErrorPageContext";
 import { useLocation, Outlet } from "react-router";
 import IdleTimeoutProvider from "@providers/IdleTimeoutProvider";
 import GlobalNotificationBanner from "@components/notification-banner/GlobalNotificationBanner";
@@ -33,7 +34,7 @@ import Footer from "@components/footer/Footer";
 import Header from "@components/header/Header";
 import SideBar from "@components/side-nav-bar/SideBar";
 import useGetUserDetails from "@features/settings/api/useGetUserDetails";
-import PortalAccessRequiredPage from "@components/error/PortalAccessRequiredPage";
+import PortalAccessRequiredPage from "@/components/access-control/PortalAccessRequiredPage";
 import { isUnauthorizedError } from "@utils/ApiError";
 import {
   getSidebarCollapsed,
@@ -58,6 +59,7 @@ export default function AppLayout({ children }: AppLayoutProps): JSX.Element {
   const { isLoading: isAuthLoading } = useAsgardeo();
   const { error: userDetailsError, isLoading: isUserDetailsLoading } =
     useGetUserDetails();
+  const { isErrorPageDisplayed } = useErrorPageContext();
 
   // Scroll to top on route change
   useEffect(() => {
@@ -169,7 +171,7 @@ export default function AppLayout({ children }: AppLayoutProps): JSX.Element {
             />
           </AppShell.Navbar>
 
-          {!isProjectHub && (
+          {!isProjectHub && !hasPortalAccessError && !isErrorPageDisplayed && (
             <AppShell.Sidebar>
               <SideBar
                 collapsed={shellState.sidebarCollapsed}
