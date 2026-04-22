@@ -70,7 +70,8 @@ export default function ProjectDetails(): JSX.Element {
     isLoading: isProjectLoading,
     error: projectError,
   } = useGetProjectDetails(projectId || "");
-  const { data: projectFeatures } = useGetProjectFeatures(projectId || "");
+  const { data: projectFeatures, isLoading: isProjectFeaturesLoading } =
+    useGetProjectFeatures(projectId || "");
 
   const projectTypeLabel = currentProject?.type?.label ?? project?.type?.label;
 
@@ -80,7 +81,9 @@ export default function ProjectDetails(): JSX.Element {
     error: statsError,
   } = useGetProjectStat(projectId || "");
 
-  const isDetailsLoading = getProjectDetailsLoadingState({
+  const isDetailsLoading =
+    isProjectFeaturesLoading ||
+    getProjectDetailsLoadingState({
     isAuthLoading,
     isProjectLoading,
     isStatsLoading,
@@ -88,7 +91,7 @@ export default function ProjectDetails(): JSX.Element {
     projectError,
     stats,
     statsError,
-  });
+    });
 
   useEffect(() => {
     if (isDetailsLoading) {
@@ -121,8 +124,10 @@ export default function ProjectDetails(): JSX.Element {
 
   const visibleTabs = useMemo(
     () =>
-      filterProjectDetailsTabsByPermissions(PROJECT_DETAILS_TABS, permissions),
-    [permissions],
+      isProjectFeaturesLoading
+        ? PROJECT_DETAILS_TABS
+        : filterProjectDetailsTabsByPermissions(PROJECT_DETAILS_TABS, permissions),
+    [isProjectFeaturesLoading, permissions],
   );
   const effectiveTab = useMemo(() => {
     const tabIds = visibleTabs.map((tab) => tab.id);

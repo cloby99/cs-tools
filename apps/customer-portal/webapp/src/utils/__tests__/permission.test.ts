@@ -49,6 +49,18 @@ function buildProjectFeatures(
 }
 
 describe("getProjectPermissions", () => {
+  it("keeps permission resolution independent from projectTypeLabel", () => {
+    const options = {
+      projectFeatures: buildProjectFeatures({
+        hasServiceRequestReadAccess: true,
+        hasChangeRequestReadAccess: true,
+      }),
+    };
+    const cloudSupport = getProjectPermissions(ProjectType.CLOUD_SUPPORT, options);
+    const subscription = getProjectPermissions(ProjectType.SUBSCRIPTION, options);
+    expect(cloudSupport).toEqual(subscription);
+  });
+
   it("enables SR, CR, SRA, engagements, updates and operations from feature flags", () => {
     const perms = getProjectPermissions(ProjectType.CLOUD_SUPPORT, {
       projectFeatures: buildProjectFeatures({

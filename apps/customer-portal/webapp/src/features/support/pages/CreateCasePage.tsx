@@ -135,10 +135,12 @@ export default function CreateCasePage(): JSX.Element {
   const { showLoader, hideLoader } = useLoader();
   const { data: projectDetails, isLoading: isProjectLoading } =
     useGetProjectDetails(projectId || "");
-  const { data: projectFeatures } = useGetProjectFeatures(projectId || "");
-  const severityPolicy = projectDetails
+  const { data: projectFeatures, isLoading: isProjectFeaturesLoading } =
+    useGetProjectFeatures(projectId || "");
+  const severityPolicy =
+    projectDetails && !isProjectFeaturesLoading && projectFeatures
     ? getProjectSeverityPolicy(projectDetails.type?.label, { projectFeatures })
-    : { excludeS0: false, restrictSeverityToLow: false };
+    : { excludeS0: true, restrictSeverityToLow: true };
   const { excludeS0, restrictSeverityToLow: forceSeverityS4 } = severityPolicy;
   const { data: filters, isLoading: isFiltersLoading } = useGetProjectFilters(
     projectId || "",
@@ -361,13 +363,19 @@ export default function CreateCasePage(): JSX.Element {
   }[];
 
   useEffect(() => {
-    if (isProjectLoading || isFiltersLoading) {
+    if (isProjectLoading || isProjectFeaturesLoading || isFiltersLoading) {
       showLoader();
     } else {
       hideLoader();
     }
     return () => hideLoader();
-  }, [isProjectLoading, isFiltersLoading, showLoader, hideLoader]);
+  }, [
+    isProjectLoading,
+    isProjectFeaturesLoading,
+    isFiltersLoading,
+    showLoader,
+    hideLoader,
+  ]);
 
   const handleDeploymentChange = useCallback((value: string) => {
     setDeployment(value);
@@ -684,6 +692,7 @@ export default function CreateCasePage(): JSX.Element {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!projectId || isNavigatingAfterCreate) return;
+    if (isProjectLoading || isProjectFeaturesLoading) return;
 
     const titlePlain = htmlToPlainText(title).trim();
     const descriptionPlain = htmlToPlainText(description).trim();
@@ -961,6 +970,7 @@ export default function CreateCasePage(): JSX.Element {
               color="primary"
               disabled={
                 isProjectLoading ||
+                isProjectFeaturesLoading ||
                 isFiltersLoading ||
                 isCreatePending ||
                 isNavigatingAfterCreate ||

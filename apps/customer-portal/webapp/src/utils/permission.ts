@@ -42,6 +42,8 @@ export type ProjectSeverityPolicy = {
 
 const CATASTROPHIC_SEVERITY_TAG = "(P0)";
 const LOW_SEVERITY_TAG = "(P4)";
+const CATASTROPHIC_SEVERITY_ID = "14";
+const LOW_SEVERITY_ID = "13";
 
 /**
  * Restrictive defaults for unknown or unlisted project types.
@@ -67,7 +69,8 @@ function restrictivePermissions(): ProjectPermissions {
 /**
  * Returns UI and stats permissions for a project type label (API string).
  *
- * @param projectTypeLabel - Value from project.type.label.
+ * @param projectTypeLabel - Kept for API parity with legacy callers; ignored when
+ * permissions are derived from project features.
  * @param options - Optional API-driven feature payload from `/projects/{projectId}/features`.
  * @returns Permission flags for conditional rendering and aggregations.
  */
@@ -94,7 +97,7 @@ export function getProjectPermissions(
     hasSR,
     hasCR,
     hasDeployments,
-    hasQueryHours: true,
+    hasQueryHours: hasTimeLogs,
     hasTimeLogs,
     hasSecurityReportAnalysis: hasSra,
     showOutstandingOpsChart: hasSR || hasCR,
@@ -124,7 +127,8 @@ export function shouldExcludeS0(
  * Whether the severity must be locked to S4 (Low) for case creation.
  * Development Support projects always use S4 and the field must not be editable.
  *
- * @param projectTypeLabel - Value from project.type.label.
+ * @param projectTypeLabel - Kept for API parity with legacy callers; ignored when
+ * severity policy is derived from project features.
  * @returns True when severity must be forced to S4.
  */
 export function shouldForceSeverityS4(
@@ -133,8 +137,7 @@ export function shouldForceSeverityS4(
 ): boolean {
   const acceptedSeverities = options?.projectFeatures?.acceptedSeverityValues ?? [];
   if (acceptedSeverities.length !== 1) return false;
-  const onlySeverityLabel = acceptedSeverities[0]?.label ?? "";
-  return onlySeverityLabel.includes(LOW_SEVERITY_TAG);
+  return hasSeverityMatch(acceptedSeverities[0], LOW_SEVERITY_ID, LOW_SEVERITY_TAG);
 }
 
 /**
@@ -157,9 +160,26 @@ function hasAcceptedSeverityLabel(
   features: ProjectFeatures,
   labelFragment: string,
 ): boolean {
+  const severityId =
+    labelFragment === CATASTROPHIC_SEVERITY_TAG
+      ? CATASTROPHIC_SEVERITY_ID
+      : LOW_SEVERITY_ID;
   return features.acceptedSeverityValues.some((severity) =>
-    severity.label.includes(labelFragment),
+    hasSeverityMatch(severity, severityId, labelFragment),
   );
+}
+
+function hasSeverityMatch(
+  severity: { id?: string; label?: string },
+  expectedId: string,
+  fallbackLabelTag: string,
+): boolean {
+  if ((severity.id ?? "").trim() === expectedId) {
+    return true;
+  }
+  const normalizedLabel = (severity.label ?? "").trim().toLowerCase();
+  const normalizedFallback = fallbackLabelTag.trim().toLowerCase();
+  return normalizedLabel.includes(normalizedFallback);
 }
 
 /**
@@ -250,8 +270,9 @@ export function calculateProjectStats(
 export function getRecentActivityItems(
   activity?: ProjectStatsResponse["recentActivity"],
   projectTypeLabel?: string | null,
+  options?: GetProjectPermissionsOptions,
 ): ActivityItem[] {
-  const permissions = getProjectPermissions(projectTypeLabel);
+  const permissions = getProjectPermissions(projectTypeLabel, options);
 
   const formatDateTime = (dateString: string): string => {
     if (!dateString) return "";

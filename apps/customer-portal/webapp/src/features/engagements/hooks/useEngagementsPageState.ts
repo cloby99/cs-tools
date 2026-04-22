@@ -63,9 +63,12 @@ export function useEngagementsPageState() {
   const { data: project, isLoading: isProjectLoading } = useGetProjectDetails(
     projectId || "",
   );
-  const { data: projectFeatures } = useGetProjectFeatures(projectId || "");
+  const { data: projectFeatures, isLoading: isProjectFeaturesLoading } =
+    useGetProjectFeatures(projectId || "");
   const projectReady = !isProjectLoading && project !== undefined;
-  const severityPolicy = projectReady
+  const areFeaturePermissionsReady =
+    projectReady && !isProjectFeaturesLoading && projectFeatures !== undefined;
+  const severityPolicy = areFeaturePermissionsReady
     ? getProjectSeverityPolicy(project?.type?.label, { projectFeatures })
     : { excludeS0: false, restrictSeverityToLow: false };
   const { excludeS0, restrictSeverityToLow } = severityPolicy;

@@ -68,7 +68,8 @@ export default function OperationsPage(): JSX.Element {
     isLoading: isProjectLoading,
     isError: isProjectDetailsError,
   } = useGetProjectDetails(projectId || "");
-  const { data: projectFeatures } = useGetProjectFeatures(projectId || "");
+  const { data: projectFeatures, isLoading: isProjectFeaturesLoading } =
+    useGetProjectFeatures(projectId || "");
 
   const projectFetchSettled = !isProjectLoading;
   const projectLoadFailed =
@@ -76,7 +77,11 @@ export default function OperationsPage(): JSX.Element {
     projectFetchSettled &&
     (isProjectDetailsError || project === undefined);
   const permissionsReady =
-    projectFetchSettled && !!project && !isProjectDetailsError;
+    projectFetchSettled &&
+    !isProjectFeaturesLoading &&
+    projectFeatures !== undefined &&
+    !!project &&
+    !isProjectDetailsError;
 
   const projectTypeLabel = permissionsReady ? project?.type?.label : undefined;
   const permissions = getProjectPermissions(projectTypeLabel, {

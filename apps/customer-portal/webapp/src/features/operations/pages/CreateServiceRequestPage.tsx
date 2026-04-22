@@ -189,7 +189,8 @@ export default function CreateServiceRequestPage(): JSX.Element {
 
   const { data: projectDetails, isLoading: isProjectLoading } =
     useGetProjectDetails(projectId || "");
-  const { data: projectFeatures } = useGetProjectFeatures(projectId || "");
+  const { data: projectFeatures, isLoading: isFeaturesLoading } =
+    useGetProjectFeatures(projectId || "");
   const srPermissions = useMemo(
     () =>
       getProjectPermissions(projectDetails?.type?.label, {
@@ -202,7 +203,7 @@ export default function CreateServiceRequestPage(): JSX.Element {
     projectId || "",
     {
       pageSize: 10,
-      enabled: !!projectId && !isProjectLoading && hasSR,
+      enabled: !!projectId && !isProjectLoading && !isFeaturesLoading && hasSR,
     },
   );
   const allProjectDeployments = useMemo(
@@ -554,7 +555,12 @@ export default function CreateServiceRequestPage(): JSX.Element {
     isCreatePending: isCreatePending || isNavigatingAfterCreate,
   });
 
-  if (!isProjectLoading && projectDetails && !srPermissions.hasSR) {
+  if (
+    !isProjectLoading &&
+    !isFeaturesLoading &&
+    projectDetails &&
+    !srPermissions.hasSR
+  ) {
     return (
       <Box sx={{ width: "100%", pt: 0, position: "relative", p: 3 }}>
         <CaseCreationHeader
