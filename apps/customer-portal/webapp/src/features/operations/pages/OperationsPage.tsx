@@ -189,20 +189,29 @@ export default function OperationsPage(): JSX.Element {
     enabled: !!projectId && permissionsReady && isChangeRequestEnabled,
   });
 
-  const activeServiceRequests = srStats?.activeCount;
-  const activeChangeRequests = crStats?.activeCount;
+  // Action Required SRs = Awaiting Info + Solution Proposed
+  const awaitingInfoSrCount =
+    srStats?.stateCount?.find((s) => s.label === "Awaiting Info")?.count ?? 0;
+  const solutionProposedSrCount =
+    srStats?.stateCount?.find((s) => s.label === "Solution Proposed")?.count ?? 0;
+  const activeServiceRequests = awaitingInfoSrCount + solutionProposedSrCount;
+
+  // Outstanding SRs = all SR states except Closed
+  const closedSrCount =
+    srStats?.stateCount?.find((s) => s.label === "Closed")?.count ?? 0;
+  const totalSrCount =
+    srStats?.stateCount?.reduce((sum, s) => sum + (s.count ?? 0), 0) ?? 0;
+  const activeChangeRequests = totalSrCount - closedSrCount;
+
+  // Action Required CRs = Customer Approval + Customer Review
+  const customerApprovalCrCount =
+    crStats?.stateCount?.find((s) => s.label === "Customer Approval")?.count ?? 0;
+  const customerReviewCrCount =
+    crStats?.stateCount?.find((s) => s.label === "Customer Review")?.count ?? 0;
+  const completedThisMonth = customerApprovalCrCount + customerReviewCrCount;
 
   const scheduledCrCount =
     crStats?.stateCount?.find((s) => s.label === "Scheduled")?.count ?? 0;
-
-  const closedSrCount =
-    srStats?.stateCount?.find((s) => s.label === "Closed")?.count ?? 0;
-  const closedCrCount =
-    crStats?.stateCount?.find((s) => s.label === "Closed")?.count ?? 0;
-
-  const completedThisMonth =
-    (isServiceRequestEnabled ? closedSrCount : 0) +
-    (isChangeRequestEnabled ? closedCrCount : 0);
 
   const srReady = !isServiceRequestEnabled || srStats !== undefined;
   const crReady = !isChangeRequestEnabled || crStats !== undefined;
@@ -213,12 +222,10 @@ export default function OperationsPage(): JSX.Element {
       : srReady && crReady
         ? {
             ...(isServiceRequestEnabled && {
-              activeServiceRequests: activeServiceRequests ?? 0,
+              activeServiceRequests,
+              activeChangeRequests,
             }),
             ...(isChangeRequestEnabled && {
-              activeChangeRequests: activeChangeRequests ?? 0,
-            }),
-            ...((isServiceRequestEnabled || isChangeRequestEnabled) && {
               completedThisMonth,
             }),
             ...(isChangeRequestEnabled &&
@@ -242,11 +249,37 @@ export default function OperationsPage(): JSX.Element {
 
     return OPERATIONS_STAT_CONFIGS.filter(
       (c) =>
-        (isServiceRequestEnabled || c.key !== "activeServiceRequests") &&
+        (isServiceRequestEnabled ||
+          (c.key !== "activeServiceRequests" && c.key !== "activeChangeRequests")) &&
         (isChangeRequestEnabled ||
-          (c.key !== "activeChangeRequests" && c.key !== "upcomingChanges")),
+          (c.key !== "completedThisMonth" && c.key !== "upcomingChanges")),
     );
   }, [permissionsReady, isServiceRequestEnabled, isChangeRequestEnabled]);
+
+  const handleStatClick = (key: OperationsStatKey) => {
+    switch (key) {
+      case "activeServiceRequests":
+        navigate(`/projects/${projectId}/operations/service-requests`, {
+          state: { returnTo: operationsPath, actionRequired: true },
+        });
+        break;
+      case "activeChangeRequests":
+        navigate(`/projects/${projectId}/operations/service-requests`, {
+          state: { returnTo: operationsPath, outstandingOnly: true },
+        });
+        break;
+      case "completedThisMonth":
+        navigate(`/projects/${projectId}/operations/change-requests`, {
+          state: { returnTo: operationsPath, actionRequired: true },
+        });
+        break;
+      case "upcomingChanges":
+        navigate(`/projects/${projectId}/operations/change-requests`, {
+          state: { returnTo: operationsPath, scheduledOnly: true },
+        });
+        break;
+    }
+  };
 
   const overviewGridSize =
     isServiceRequestEnabled && isChangeRequestEnabled
@@ -287,6 +320,7 @@ export default function OperationsPage(): JSX.Element {
           entityName={OPERATIONS_HUB_STAT_ENTITY_NAME}
           stats={stats}
           configs={operationsStatConfigs}
+          onStatClick={handleStatClick}
         />
       </Box>
       {!permissionsReady ? (
@@ -421,7 +455,7 @@ export default function OperationsPage(): JSX.Element {
                           onClick={() =>
                             navigate(
                               `/projects/${projectId}/operations/change-requests`,
-                              { state: { returnTo: operationsPath } },
+                              { state: { returnTo: operationsPath, outstandingOnly: true } },
                             )
                           }
                           endIcon={<ArrowRight size={16} />}
