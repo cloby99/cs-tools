@@ -31,12 +31,14 @@ import {
 } from "@features/support/constants/supportConstants";
 import useGetProjectDetails from "@api/useGetProjectDetails";
 import useGetProjectFeatures from "@api/useGetProjectFeatures";
-import useGetProjectCases from "@api/useGetProjectCases";
+import useGetProjectFilters from "@api/useGetProjectFilters";
+import { useGetProjectCasesPage } from "@api/useGetProjectCasesPage";
 import useGetChangeRequests from "@features/operations/api/useGetChangeRequests";
 import { useGetProjectCasesStats } from "@features/dashboard/api/useGetProjectCasesStats";
 import { useGetProjectChangeRequestsStats } from "@features/dashboard/api/useGetProjectChangeRequestsStats";
 import { getProjectPermissions, isProjectRestricted } from "@utils/permission";
 import { SortOrder } from "@/types/common";
+import { resolveCasesTableDefaultStatusIds } from "@features/dashboard/utils/casesTable";
 import ErrorIndicator from "@components/error-indicator/ErrorIndicator";
 import {
   OPERATIONS_HUB_CARD_TITLE_CR,
@@ -93,21 +95,40 @@ export default function OperationsPage(): JSX.Element {
   const isRestricted = isProjectRestricted(project?.closureState);
   const operationsPath = `/projects/${projectId}/operations`;
 
+  const { data: filterMetadata, isLoading: isFilterMetadataLoading, isError: isFilterMetadataError } =
+    useGetProjectFilters(projectId || "");
+
+  const nonClosedStatusIds = useMemo(
+    () => resolveCasesTableDefaultStatusIds(filterMetadata?.caseStates),
+    [filterMetadata?.caseStates],
+  );
+
   const {
     data: srData,
-    isLoading: isSrLoading,
+    isLoading: isSrDataLoading,
     isError: isSrError,
-  } = useGetProjectCases(
+  } = useGetProjectCasesPage(
     projectId || "",
     {
-      filters: { caseTypes: [CaseType.SERVICE_REQUEST] },
+      filters: {
+        caseTypes: [CaseType.SERVICE_REQUEST],
+        statusIds: nonClosedStatusIds,
+      },
       sortBy: { field: "createdOn", order: SortOrder.DESC },
     },
-    { enabled: !!projectId && permissionsReady && isServiceRequestEnabled },
+    0,
+    OPERATIONS_OVERVIEW_LIST_LIMIT,
+    {
+      enabled:
+        !!projectId &&
+        permissionsReady &&
+        isServiceRequestEnabled &&
+        filterMetadata !== undefined,
+    },
   );
-  const serviceRequests = (srData?.pages?.[0]?.cases ?? [])
-    .filter((c) => c.status?.label?.trim().toLowerCase() !== "closed")
-    .slice(0, OPERATIONS_OVERVIEW_LIST_LIMIT);
+  const isSrLoading = isSrDataLoading || isFilterMetadataLoading;
+  const combinedIsSrError = isSrError || isFilterMetadataError;
+  const serviceRequests = srData?.cases ?? [];
 
   const {
     data: crData,
@@ -335,7 +356,7 @@ export default function OperationsPage(): JSX.Element {
                         ),
                     },
                   ]}
-                  isError={isSrError}
+                  isError={combinedIsSrError}
                 >
                   <OutstandingCasesList
                     cases={serviceRequests}
@@ -364,22 +385,32 @@ export default function OperationsPage(): JSX.Element {
                   footerButtons={[]}
                   isError={isCrError}
                 >
-                  <Box sx={{ display: "flex", flexDirection: "column", width: "100%" }}>
-                    <OutstandingCasesList
-                      cases={changeRequestsAsCases}
-                      isLoading={isCrLoading}
-                      isError={isCrError}
-                      useChangeRequestColors
-                      onCaseClick={
-                        projectId
-                          ? (c) =>
-                              navigate(
-                                `/projects/${projectId}/operations/change-requests/${c.id}`,
-                                { state: { returnTo: operationsPath } },
-                              )
-                          : undefined
-                      }
-                    />
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      width: "100%",
+                      flex: 1,
+                      minHeight: 0,
+                    }}
+                  >
+                    <Box sx={{ flex: 1, minHeight: 0 }}>
+                      <OutstandingCasesList
+                        cases={changeRequestsAsCases}
+                        isLoading={isCrLoading}
+                        isError={isCrError}
+                        useChangeRequestColors
+                        onCaseClick={
+                          projectId
+                            ? (c) =>
+                                navigate(
+                                  `/projects/${projectId}/operations/change-requests/${c.id}`,
+                                  { state: { returnTo: operationsPath } },
+                                )
+                            : undefined
+                        }
+                      />
+                    </Box>
                     {projectId && !isCrLoading && !isCrError && (
                       <>
                         <Box sx={{ borderTop: 1, borderColor: "divider", mt: 1.5 }} />
