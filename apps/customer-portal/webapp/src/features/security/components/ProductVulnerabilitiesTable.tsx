@@ -74,6 +74,28 @@ const ProductVulnerabilitiesTable = ({
     OPTIONS_FETCH_REQUEST,
   );
 
+  // --- Main paginated search request ---
+  const searchRequest = useMemo(
+    () => ({
+      filters: {
+        searchQuery: (debouncedSearch?.trim() || undefined) as
+          | string
+          | undefined,
+        severityId: filters.severityId ? Number(filters.severityId) : undefined,
+        productName: (filters.productName as string) || undefined,
+        productVersion: (filters.productVersion as string) || undefined,
+      },
+      pagination: {
+        offset: page * rowsPerPage,
+        limit: rowsPerPage,
+      },
+    }),
+    [debouncedSearch, filters, page, rowsPerPage],
+  );
+
+  const { data, isLoading, isError } =
+    usePostProductVulnerabilitiesSearch(searchRequest);
+
   // Combine the bulk-fetch records with the current page so that options are
   // immediately available from the first paginated response, even while the
   // larger OPTIONS query is still in-flight.
@@ -106,28 +128,6 @@ const ProductVulnerabilitiesTable = ({
       .sort()
       .map((v) => ({ value: v, label: v }));
   }, [allKnownVulnerabilities, filters.productName]);
-
-  // --- Main paginated search request ---
-  const searchRequest = useMemo(
-    () => ({
-      filters: {
-        searchQuery: (debouncedSearch?.trim() || undefined) as
-          | string
-          | undefined,
-        severityId: filters.severityId ? Number(filters.severityId) : undefined,
-        productName: (filters.productName as string) || undefined,
-        productVersion: (filters.productVersion as string) || undefined,
-      },
-      pagination: {
-        offset: page * rowsPerPage,
-        limit: rowsPerPage,
-      },
-    }),
-    [debouncedSearch, filters, page, rowsPerPage],
-  );
-
-  const { data, isLoading, isError } =
-    usePostProductVulnerabilitiesSearch(searchRequest);
 
   useEffect(() => {
     if (data?.totalRecords !== undefined) {
