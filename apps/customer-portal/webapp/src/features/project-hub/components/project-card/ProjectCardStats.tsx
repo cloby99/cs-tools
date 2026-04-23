@@ -22,14 +22,9 @@ import {
   Typography,
   colors,
 } from "@wso2/oxygen-ui";
-import {
-  Calendar,
-  CircleAlert,
-  MessageSquare,
-} from "@wso2/oxygen-ui-icons-react";
+import { CircleAlert, MessageSquare } from "@wso2/oxygen-ui-icons-react";
 import { type JSX } from "react";
 import ErrorIndicator from "@components/error-indicator/ErrorIndicator";
-import { formatProjectDate } from "@features/project-hub/utils/projectCard";
 import {
   PROJECT_CARD_ERROR_ENTITY_ACTIVE_CHATS,
   PROJECT_CARD_ERROR_ENTITY_OUTSTANDING_CASES,
@@ -48,7 +43,6 @@ import type { ProjectCardStatsProps } from "@features/project-hub/types/projectH
 export default function ProjectCardStats({
   activeCasesCount,
   activeChatsCount,
-  date,
   isError,
   isLoading,
 }: ProjectCardStatsProps): JSX.Element {
@@ -77,7 +71,9 @@ export default function ProjectCardStats({
           {isLoading ? (
             <Skeleton variant="text" width={20} />
           ) : isError ? (
-            <ErrorIndicator entityName={PROJECT_CARD_ERROR_ENTITY_OUTSTANDING_CASES} />
+            <ErrorIndicator
+              entityName={PROJECT_CARD_ERROR_ENTITY_OUTSTANDING_CASES}
+            />
           ) : (
             <Typography variant="body2" color="primary">
               {activeCasesCount ?? PROJECT_CARD_STATS_NULL_PLACEHOLDER}
@@ -101,7 +97,9 @@ export default function ProjectCardStats({
           {isLoading ? (
             <Skeleton variant="text" width={20} />
           ) : isError ? (
-            <ErrorIndicator entityName={PROJECT_CARD_ERROR_ENTITY_ACTIVE_CHATS} />
+            <ErrorIndicator
+              entityName={PROJECT_CARD_ERROR_ENTITY_ACTIVE_CHATS}
+            />
           ) : (
             <Typography variant="body2" color={colors.blue[500]}>
               {activeChatsCount ?? PROJECT_CARD_STATS_NULL_PLACEHOLDER}
@@ -109,13 +107,6 @@ export default function ProjectCardStats({
           )}
         </Box>
 
-        {/* Date */}
-        <Box display="flex" alignItems="center" gap={1} color="text.secondary">
-          <Calendar size={16} />
-          <Typography variant="body2" color="inherit">
-            {formatProjectDate(date) || PROJECT_CARD_STATS_NULL_PLACEHOLDER}
-          </Typography>
-        </Box>
         <Divider sx={{ width: "100%" }} />
       </Box>
     </Form.CardContent>

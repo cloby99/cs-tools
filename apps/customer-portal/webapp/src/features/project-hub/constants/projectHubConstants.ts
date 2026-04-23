@@ -62,9 +62,6 @@ export function formatProjectHubManyProjectsTitle(totalRecords: number): string 
   return `You have ${totalRecords} projects`;
 }
 
-/** Prefix for formatted created-on line on project cards (`formatProjectDate`). */
-export const PROJECT_CARD_DATE_CREATED_PREFIX = "Created ";
-
 export const PROJECT_CARD_DATE_LOCALE = "en-US";
 
 export const PROJECT_CARD_STATS_NULL_PLACEHOLDER = "--";

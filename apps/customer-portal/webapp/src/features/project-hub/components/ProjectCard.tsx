@@ -35,7 +35,6 @@ import { ProjectClosureState } from "@/types/permission";
 export default function ProjectCard({
   id,
   projectKey,
-  slaStatus,
   title,
   date,
   activeCasesCount,
@@ -74,7 +73,7 @@ export default function ProjectCard({
       }}
     >
       {/* project card badges */}
-      <ProjectCardBadges projectKey={projectKey} slaStatus={slaStatus} />
+      <ProjectCardBadges projectKey={projectKey} />
       {/* project card info */}
       <ProjectCardInfo title={title} />
       {/* project card stats */}
