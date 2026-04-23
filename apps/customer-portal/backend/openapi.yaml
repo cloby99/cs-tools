@@ -3364,6 +3364,10 @@ components:
           type: integer
           description: Severity ID
           format: int64
+        engagementTypeKey:
+          type: integer
+          description: Engagement type key (required for engagement type cases)
+          format: int64
         deploymentId:
           type: string
           description: Deployment ID
