@@ -191,7 +191,6 @@ export default function ProjectSwitcher({
           );
         }}
       >
-        <ComplexSelect.ListHeader>Switch Project</ComplexSelect.ListHeader>
         {/* project switcher list items - limited with scroll to load more */}
         {projects.slice(0, displayLimit).map((project) => (
           <ComplexSelect.MenuItem key={project.id} value={project.id}>

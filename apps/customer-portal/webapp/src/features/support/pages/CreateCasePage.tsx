@@ -198,7 +198,7 @@ export default function CreateCasePage(): JSX.Element {
     {
       pageSize: 10,
       enabled: !!selectedDeploymentId,
-      request: { filters: { productCategories: getProductCategoriesForCaseCreation() } },
+      request: { filters: { productCategories: getProductCategoriesForCaseCreation(projectDetails?.type?.label) } },
     },
   );
   const deploymentProductsLoading = deploymentProductsQuery.isLoading;

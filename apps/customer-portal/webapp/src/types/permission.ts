@@ -26,7 +26,6 @@ export enum ProjectClosureState {
 export enum ProjectType {
   MANAGED_CLOUD_SUBSCRIPTION = "Managed Cloud Subscription",
   CLOUD_SUPPORT = "Cloud Support",
-  CLOUD_SUBSCRIPTION = "Cloud Subscription",
   CLOUD_EVALUATION_SUPPORT = "Cloud Evaluation Support",
   EVALUATION_SUBSCRIPTION = "Evaluation Subscription",
   SUBSCRIPTION = "Subscription",

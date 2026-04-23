@@ -93,10 +93,8 @@ export default function DashboardPage(): JSX.Element {
     isFetching: isProjectDetailsFetching,
     error: projectDetailsError,
   } = useGetProjectDetails(projectId || "");
-  const {
-    data: projectFeatures,
-    isFetching: isProjectFeaturesFetching,
-  } = useGetProjectFeatures(projectId || "");
+  const { data: projectFeatures, isFetching: isProjectFeaturesFetching } =
+    useGetProjectFeatures(projectId || "");
 
   // forbidden
   const isForbidden =
@@ -115,7 +113,9 @@ export default function DashboardPage(): JSX.Element {
     !!projectId &&
     (resolvedProject === undefined ||
       (resolvedProject !== undefined && isProjectFeaturesFetching)) &&
-    (isProjectsLoading || isProjectDetailsFetching || isProjectFeaturesFetching);
+    (isProjectsLoading ||
+      isProjectDetailsFetching ||
+      isProjectFeaturesFetching);
 
   // permissions
   const permissions = useMemo(
@@ -398,7 +398,113 @@ export default function DashboardPage(): JSX.Element {
     <Box sx={{ width: "100%", pt: 0, position: "relative" }}>
       {/* Dashboard stats grid */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        {DASHBOARD_STATS.map((stat) => {
+        <Grid
+          size={{ xs: 12, sm: 12, md: 6 }}
+          sx={{
+            border: "1px solid",
+            borderColor: "disabled",
+            p: 2,
+            borderRadius: 1,
+          }}
+        >
+          <Grid container spacing={2}>
+            {DASHBOARD_STATS.slice(0, 2).map((stat) => {
+              let value: string | number = 0;
+              let trend:
+                | {
+                    value: string;
+                    direction: TrendDirection;
+                    color: TrendColor;
+                  }
+                | undefined;
+              let isCardLoading = false;
+              let isCardError = false;
+
+              switch (stat.id) {
+                case "totalCases": {
+                  isCardLoading = crBranchState.isCardLoading;
+                  isCardError = crBranchState.isCardError;
+
+                  const combinedTotal = crBranchState.hasCombined
+                    ? (combinedCasesStats?.totalCount ??
+                      combinedCasesStats?.totalCases ??
+                      0)
+                    : 0;
+                  const changeTotal = crBranchState.hasChange
+                    ? (changeRequestStats?.totalCount ?? 0)
+                    : 0;
+
+                  value = includeCrStats
+                    ? !isCardError &&
+                      crBranchState.hasCombined &&
+                      crBranchState.hasChange
+                      ? combinedTotal + changeTotal
+                      : 0
+                    : combinedTotal;
+                  break;
+                }
+                case "openCases": {
+                  isCardLoading = crBranchState.isCardLoading;
+                  isCardError = crBranchState.isCardError;
+
+                  const combinedActive = crBranchState.hasCombined
+                    ? (combinedCasesStats?.activeCount ??
+                      combinedCasesStats?.stateCount
+                        ?.filter((state) => state.label !== "Closed")
+                        .reduce((sum, state) => sum + state.count, 0) ??
+                      0)
+                    : 0;
+
+                  const changeActive = crBranchState.hasChange
+                    ? (changeRequestStats?.activeCount ??
+                      changeRequestStats?.stateCount
+                        ?.filter(
+                          (state) =>
+                            state.label !== "Closed" &&
+                            state.label !== "Canceled",
+                        )
+                        .reduce((sum, state) => sum + state.count, 0) ??
+                      0)
+                    : 0;
+
+                  value = includeCrStats
+                    ? !isCardError &&
+                      crBranchState.hasCombined &&
+                      crBranchState.hasChange
+                      ? combinedActive + changeActive
+                      : 0
+                    : combinedActive;
+                  break;
+                }
+                default:
+                  break;
+              }
+
+              const showTrend =
+                stat.id !== "totalCases" && stat.id !== "openCases";
+
+              return (
+                <Grid key={stat.id} size={{ xs: 12, sm: 6 }}>
+                  <StatCard
+                    label={stat.label}
+                    value={value}
+                    icon={<stat.icon size={20} />}
+                    iconColor={stat.iconColor}
+                    tooltipText={stat.tooltipText}
+                    trend={trend}
+                    showTrend={showTrend}
+                    isLoading={isCardLoading}
+                    isError={isCardError}
+                    isTrendError={false}
+                  />
+                </Grid>
+              );
+            })}
+          </Grid>
+        </Grid>
+
+        {/* Remaining stats cards */}
+        {DASHBOARD_STATS.slice(2).map((stat) => {
           let value: string | number = 0;
           let trend:
             | {
@@ -411,60 +517,6 @@ export default function DashboardPage(): JSX.Element {
           let isCardError = false;
 
           switch (stat.id) {
-            case "totalCases": {
-              isCardLoading = crBranchState.isCardLoading;
-              isCardError = crBranchState.isCardError;
-
-              const combinedTotal = crBranchState.hasCombined
-                ? (combinedCasesStats?.totalCount ??
-                  combinedCasesStats?.totalCases ??
-                  0)
-                : 0;
-              const changeTotal = crBranchState.hasChange
-                ? (changeRequestStats?.totalCount ?? 0)
-                : 0;
-
-              value = includeCrStats
-                ? !isCardError &&
-                  crBranchState.hasCombined &&
-                  crBranchState.hasChange
-                  ? combinedTotal + changeTotal
-                  : 0
-                : combinedTotal;
-              break;
-            }
-            case "openCases": {
-              isCardLoading = crBranchState.isCardLoading;
-              isCardError = crBranchState.isCardError;
-
-              const combinedActive = crBranchState.hasCombined
-                ? (combinedCasesStats?.activeCount ??
-                  combinedCasesStats?.stateCount
-                    ?.filter((state) => state.label !== "Closed")
-                    .reduce((sum, state) => sum + state.count, 0) ??
-                  0)
-                : 0;
-
-              const changeActive = crBranchState.hasChange
-                ? (changeRequestStats?.activeCount ??
-                  changeRequestStats?.stateCount
-                    ?.filter(
-                      (state) =>
-                        state.label !== "Closed" && state.label !== "Canceled",
-                    )
-                    .reduce((sum, state) => sum + state.count, 0) ??
-                  0)
-                : 0;
-
-              value = includeCrStats
-                ? !isCardError &&
-                  crBranchState.hasCombined &&
-                  crBranchState.hasChange
-                  ? combinedActive + changeActive
-                  : 0
-                : combinedActive;
-              break;
-            }
             case "resolvedCases": {
               const hasDefault = !!defaultCaseStats && !isErrorDefaultCase;
               const resolved =

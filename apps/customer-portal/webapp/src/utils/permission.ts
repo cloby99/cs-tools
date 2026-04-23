@@ -202,7 +202,6 @@ export function shouldRestrictToPrimaryProductionDeployments(
 ): boolean {
   return (
     projectTypeLabel === ProjectType.CLOUD_SUPPORT ||
-    projectTypeLabel === ProjectType.CLOUD_SUBSCRIPTION ||
     projectTypeLabel === ProjectType.CLOUD_EVALUATION_SUPPORT
   );
 }
@@ -234,12 +233,21 @@ export function shouldHideOnboardingData(
 
 /**
  * Returns the product categories to pass when fetching products for case creation.
- * Always filters to Cloud products.
+ * Only Cloud Subscription and Cloud Evaluation Support projects filter by Cloud products.
  *
- * @returns Product category filter array for case creation flows.
+ * @param projectTypeLabel - Value from project.type.label.
+ * @returns Product category filter array, or undefined when no filter should be applied.
  */
-export function getProductCategoriesForCaseCreation(): ProductCategory[] {
-  return [ProductCategory.CLOUD];
+export function getProductCategoriesForCaseCreation(
+  projectTypeLabel: string | null | undefined,
+): ProductCategory[] | undefined {
+  if (
+    projectTypeLabel === ProjectType.CLOUD_SUPPORT ||
+    projectTypeLabel === ProjectType.CLOUD_EVALUATION_SUPPORT
+  ) {
+    return [ProductCategory.CLOUD];
+  }
+  return undefined;
 }
 
 /**
@@ -253,7 +261,7 @@ export function getProductCategoriesForServiceRequest(
   projectTypeLabel: string | null | undefined,
 ): ProductCategory[] | undefined {
   if (
-    projectTypeLabel === ProjectType.CLOUD_SUBSCRIPTION ||
+    projectTypeLabel === ProjectType.CLOUD_SUPPORT ||
     projectTypeLabel === ProjectType.CLOUD_EVALUATION_SUPPORT
   ) {
     return [ProductCategory.PDP];
