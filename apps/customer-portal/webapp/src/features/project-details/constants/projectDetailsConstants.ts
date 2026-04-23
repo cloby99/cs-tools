@@ -15,11 +15,17 @@
 // under the License.
 
 import {
+  Bell,
+  Briefcase,
   CircleAlert,
   Clock,
+  GitMerge,
   Info,
   Rocket,
   Server,
+  Shield,
+  Users,
+  Wrench,
 } from "@wso2/oxygen-ui-icons-react";
 import type { TabOption } from "@components/tab-bar/TabBar";
 import { ProjectDetailsTabId } from "@features/project-details/types/projectDetails";
@@ -79,6 +85,42 @@ export const statItems: Stat[] = [
     icon: Rocket,
     iconColor: "warning",
     key: "deployments",
+  },
+  {
+    label: "Outstanding Cases",
+    icon: Briefcase,
+    iconColor: "primary",
+    key: "outstandingCaseCount",
+  },
+  {
+    label: "Outstanding Service Requests",
+    icon: Wrench,
+    iconColor: "warning",
+    key: "outstandingServiceRequestCount",
+  },
+  {
+    label: "Outstanding Engagements",
+    icon: Users,
+    iconColor: "success",
+    key: "outstandingEngagementCount",
+  },
+  {
+    label: "Outstanding Security Reports",
+    icon: Shield,
+    iconColor: "primary",
+    key: "outstandingSraCount",
+  },
+  {
+    label: "Outstanding Change Requests",
+    icon: GitMerge,
+    iconColor: "warning",
+    key: "outstandingChangeRequestCount",
+  },
+  {
+    label: "Outstanding Announcements",
+    icon: Bell,
+    iconColor: "success",
+    key: "outstandingAnnouncementCount",
   },
 ];
 
