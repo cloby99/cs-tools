@@ -78,10 +78,16 @@ import {
 export default function ChangeRequestsPage(): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
-  const returnTo = (location.state as { returnTo?: string; outstandingOnly?: boolean; actionRequired?: boolean; scheduledOnly?: boolean } | null)?.returnTo;
-  const outstandingOnly = (location.state as { outstandingOnly?: boolean } | null)?.outstandingOnly ?? false;
-  const actionRequired = (location.state as { actionRequired?: boolean } | null)?.actionRequired ?? false;
-  const scheduledOnly = (location.state as { scheduledOnly?: boolean } | null)?.scheduledOnly ?? false;
+  const locationState = location.state as {
+    returnTo?: string;
+    outstandingOnly?: boolean;
+    actionRequired?: boolean;
+    scheduledOnly?: boolean;
+  } | null;
+  const returnTo = locationState?.returnTo;
+  const outstandingOnly = locationState?.outstandingOnly ?? false;
+  const actionRequired = locationState?.actionRequired ?? false;
+  const scheduledOnly = locationState?.scheduledOnly ?? false;
   const { projectId } = useParams<{ projectId: string }>();
   const navSegment = getOperationsNavSegment(location.pathname);
 
