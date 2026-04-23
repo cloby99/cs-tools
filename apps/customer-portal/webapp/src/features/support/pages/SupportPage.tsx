@@ -71,7 +71,7 @@ export default function SupportPage(): JSX.Element {
     caseTypes: [CaseType.DEFAULT_CASE],
   });
 
-  const { data: filterMetadata, isLoading: isFilterMetadataLoading } =
+  const { data: filterMetadata, isLoading: isFilterMetadataLoading, isError: isFilterMetadataError } =
     useGetProjectFilters(projectId || "");
 
   const nonClosedStatusIds = useMemo(
@@ -98,6 +98,7 @@ export default function SupportPage(): JSX.Element {
   );
 
   const isCasesLoading = isFilterMetadataLoading || isCasesDataLoading;
+  const combinedIsCasesError = isCasesError || isFilterMetadataError;
 
   const {
     data: conversationsData,
@@ -176,7 +177,7 @@ export default function SupportPage(): JSX.Element {
                   navigate("cases", { state: { returnTo: supportPath } }),
               },
             ]}
-            isError={isCasesError}
+            isError={combinedIsCasesError}
           >
             <OutstandingCasesList
               cases={cases}
