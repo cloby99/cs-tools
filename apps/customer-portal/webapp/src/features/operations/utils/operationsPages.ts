@@ -82,15 +82,27 @@ export function formatOperationsOverviewChangeRequestsSubtitle(
  * @param searchTerm - Raw search string.
  * @returns Request body without pagination.
  */
+/** CR state IDs for "Action Required" (Customer Approval + Customer Review). */
+const ACTION_REQUIRED_CR_STATE_IDS = [5, 1] as const;
+
+/** CR state IDs for "Scheduled Only" (Upcoming). */
+const SCHEDULED_ONLY_CR_STATE_IDS = [-2] as const;
+
 export function buildChangeRequestSearchRequest(
   filters: ChangeRequestFilterValues,
   searchTerm: string,
   outstandingOnly: boolean = false,
+  actionRequired: boolean = false,
+  scheduledOnly: boolean = false,
 ): Omit<ChangeRequestSearchRequest, "pagination"> {
   const selectedStateId = filters.stateId ? Number(filters.stateId) : undefined;
-  const allowedStateIds: number[] = outstandingOnly
-    ? [...OUTSTANDING_CHANGE_REQUEST_STATE_IDS]
-    : [...ALLOWED_CHANGE_REQUEST_STATE_IDS];
+  const allowedStateIds: number[] = actionRequired
+    ? [...ACTION_REQUIRED_CR_STATE_IDS]
+    : scheduledOnly
+      ? [...SCHEDULED_ONLY_CR_STATE_IDS]
+      : outstandingOnly
+        ? [...OUTSTANDING_CHANGE_REQUEST_STATE_IDS]
+        : [...ALLOWED_CHANGE_REQUEST_STATE_IDS];
   const stateKeys =
     selectedStateId === undefined
       ? allowedStateIds
