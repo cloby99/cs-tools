@@ -16,16 +16,16 @@
 
 import {
   Bell,
-  Briefcase,
   CircleAlert,
+  ClipboardList,
   Clock,
   GitMerge,
   Info,
+  MessageSquare,
   Rocket,
   Server,
   Shield,
   Users,
-  Wrench,
 } from "@wso2/oxygen-ui-icons-react";
 import type { TabOption } from "@components/tab-bar/TabBar";
 import { ProjectDetailsTabId } from "@features/project-details/types/projectDetails";
@@ -76,7 +76,7 @@ export const statItems: Stat[] = [
   },
   {
     label: "Active Chats",
-    icon: CircleAlert,
+    icon: MessageSquare,
     iconColor: "success",
     key: "activeChats",
   },
@@ -88,13 +88,13 @@ export const statItems: Stat[] = [
   },
   {
     label: "Outstanding Cases",
-    icon: Briefcase,
-    iconColor: "primary",
+    icon: CircleAlert,
+    iconColor: "warning",
     key: "outstandingCaseCount",
   },
   {
     label: "Outstanding Service Requests",
-    icon: Wrench,
+    icon: ClipboardList,
     iconColor: "warning",
     key: "outstandingServiceRequestCount",
   },
