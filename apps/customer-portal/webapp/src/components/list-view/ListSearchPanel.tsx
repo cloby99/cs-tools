@@ -42,6 +42,7 @@ export interface ListSearchPanelProps {
   hideSeverityFilter?: boolean;
   hideStatusFilter?: boolean;
   hideDeploymentFilter?: boolean;
+  hideCategoryFilter?: boolean;
   isProjectContextLoading?: boolean;
   onLoadMoreDeployments?: () => void;
   hasMoreDeployments?: boolean;
@@ -71,6 +72,7 @@ export default function ListSearchPanel({
   hideSeverityFilter = false,
   hideStatusFilter = false,
   hideDeploymentFilter = false,
+  hideCategoryFilter = false,
   isProjectContextLoading = false,
   onLoadMoreDeployments,
   hasMoreDeployments = false,
@@ -83,6 +85,7 @@ export default function ListSearchPanel({
     ...(hideSeverityFilter ? { severityId: undefined } : {}),
     ...(hideStatusFilter ? { statusId: undefined } : {}),
     ...(hideDeploymentFilter ? { deploymentId: undefined } : {}),
+    ...(hideCategoryFilter ? { issueTypes: undefined } : {}),
     ...excluded,
   };
   return (
@@ -109,6 +112,7 @@ export default function ListSearchPanel({
           hideSeverityFilter={hideSeverityFilter}
           hideStatusFilter={hideStatusFilter}
           hideDeploymentFilter={hideDeploymentFilter}
+          hideCategoryFilter={hideCategoryFilter}
           onLoadMoreDeployments={onLoadMoreDeployments}
           hasMoreDeployments={hasMoreDeployments}
           isFetchingMoreDeployments={isFetchingMoreDeployments}
