@@ -90,7 +90,7 @@ export const UPDATES_SECURITY_PENDING_ACTION_CHIP_LABEL = "Action Required";
 
 export const PENDING_UPDATES_TABLE_VIEW_BUTTON_LABEL = "View";
 
-export const UPDATE_PRODUCT_GRID_SECTION_TITLE = "Product Update Status";
+export const UPDATE_PRODUCT_GRID_SECTION_TITLE = "Update Details";
 
 export const UPDATE_PRODUCT_GRID_ERROR_MESSAGE =
   "Failed to load product updates.";
