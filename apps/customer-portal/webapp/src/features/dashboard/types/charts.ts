@@ -45,6 +45,7 @@ export type ChartPieSlice = {
   name: string;
   value: number;
   color: string;
+  id?: string;
 };
 
 // Active cases chart: both series or service requests only.
@@ -61,6 +62,7 @@ export type OutstandingIncidentsChartProps = {
   excludeS0?: boolean;
   restrictSeverityToLow?: boolean;
   centerContent?: boolean;
+  onSeverityClick?: (severityId: string) => void;
 };
 
 // Outstanding Engagements chart props.
@@ -85,6 +87,7 @@ export type ChartLegendProps = {
   data: ChartPieSlice[];
   isError?: boolean;
   showValues?: boolean;
+  onItemClick?: (id: string) => void;
 };
 
 // Chart layout props.
@@ -101,4 +104,5 @@ export type ChartLayoutProps = {
   showOperationsChart?: boolean;
   operationsChartMode?: OperationsChartMode;
   showEngagementsChart?: boolean;
+  onSeverityClick?: (severityId: string) => void;
 };
