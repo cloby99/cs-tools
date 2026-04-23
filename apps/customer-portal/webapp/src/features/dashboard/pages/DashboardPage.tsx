@@ -34,7 +34,8 @@ import {
 } from "@/features/dashboard/constants/dashboard";
 import { OperationsChartMode } from "@/features/dashboard/types/charts";
 import { TrendDirection, TrendColor } from "@features/dashboard/types/stats";
-import { CaseType } from "@features/support/constants/supportConstants";
+import { CaseType, CaseStatus } from "@features/support/constants/supportConstants";
+import { ChangeRequestStates } from "@features/operations/constants/operationsConstants";
 import {
   calculateProjectStats,
   getProjectPermissions,
@@ -188,18 +189,30 @@ export default function DashboardPage(): JSX.Element {
       ? OperationsChartMode.SrOnly
       : OperationsChartMode.SrAndCr;
 
-  // combined cases stats
+  // Combined stats scoped to only the case types the user has permission to see.
+  // This ensures the Action Required / Outstanding card counts match what is visible on the page.
+  // Note: chart-specific queries (defaultCaseStats, serviceRequestStats, engagementStats) remain
+  // separate because stateCount here is aggregated and cannot be split back per type.
+  const combinedCaseTypes = useMemo(() => {
+    const types: string[] = [CaseType.DEFAULT_CASE];
+    if (permissions.hasSR) types.push(CaseType.SERVICE_REQUEST);
+    if (permissions.hasEngagements) types.push(CaseType.ENGAGEMENT);
+    if (permissions.hasSecurityReportAnalysis)
+      types.push(CaseType.SECURITY_REPORT_ANALYSIS);
+    return types;
+  }, [
+    permissions.hasSR,
+    permissions.hasEngagements,
+    permissions.hasSecurityReportAnalysis,
+  ]);
+
   const {
     data: combinedCasesStats,
     isLoading: isCombinedCasesLoading,
     isError: isErrorCombinedCases,
   } = useGetProjectCasesStats(projectId || "", {
-    caseTypes: [
-      CaseType.DEFAULT_CASE,
-      CaseType.SERVICE_REQUEST,
-      CaseType.ENGAGEMENT,
-    ],
-    enabled: !!projectId,
+    caseTypes: combinedCaseTypes,
+    enabled: !!projectId && !awaitingProjectContext,
   });
 
   // default case stats
@@ -240,6 +253,8 @@ export default function DashboardPage(): JSX.Element {
   } = useGetProjectChangeRequestsStats(projectId || "", {
     enabled: !!projectId && includeCrStats,
   });
+
+
 
   // is dashboard loading
   const isDashboardLoading = isAuthLoading || awaitingProjectContext;
@@ -465,70 +480,100 @@ export default function DashboardPage(): JSX.Element {
 
           switch (stat.id) {
             case "totalCases": {
-              isCardLoading = crBranchState.isCardLoading;
-              isCardError = crBranchState.isCardError;
+              // Action Required: Cases/SR/SRA with Awaiting Info or Solution Proposed,
+              // plus CRs in Customer Review or Customer Approval.
+              isCardError =
+                isErrorCombinedCases ||
+                (includeCrStats && isErrorChangeRequestStats);
+              isCardLoading =
+                !isCardError &&
+                ((isCombinedCasesLoading && !combinedCasesStats) ||
+                  (includeCrStats &&
+                    isChangeRequestStatsLoading &&
+                    !changeRequestStats));
 
-              const combinedTotal = crBranchState.hasCombined
-                ? (combinedCasesStats?.totalCount ??
-                  combinedCasesStats?.totalCases ??
-                  0)
-                : 0;
-              const changeTotal = crBranchState.hasChange
-                ? (changeRequestStats?.totalCount ?? 0)
-                : 0;
+              if (!isCardError) {
+                const casesActionCount =
+                  combinedCasesStats?.stateCount
+                    ?.filter(
+                      (s) =>
+                        s.label === CaseStatus.AWAITING_INFO ||
+                        s.label === CaseStatus.SOLUTION_PROPOSED,
+                    )
+                    .reduce((sum, s) => sum + s.count, 0) ?? 0;
 
-              value = includeCrStats
-                ? !isCardError &&
-                  crBranchState.hasCombined &&
-                  crBranchState.hasChange
-                  ? combinedTotal + changeTotal
-                  : 0
-                : combinedTotal;
+                const crActionCount = includeCrStats
+                  ? ((changeRequestStats?.stateCount?.find(
+                      (s) => s.label === ChangeRequestStates.CUSTOMER_REVIEW,
+                    )?.count ?? 0) +
+                    (changeRequestStats?.stateCount?.find(
+                      (s) => s.label === ChangeRequestStates.CUSTOMER_APPROVAL,
+                    )?.count ?? 0))
+                  : 0;
+
+                value = casesActionCount + crActionCount;
+              }
               break;
             }
             case "openCases": {
-              isCardLoading = crBranchState.isCardLoading;
-              isCardError = crBranchState.isCardError;
+              // Outstanding Interactions: Cases/SR/SRA with any non-Closed status,
+              // plus CRs excluding Rollback, Closed, and Canceled.
+              isCardError =
+                isErrorCombinedCases ||
+                (includeCrStats && isErrorChangeRequestStats);
+              isCardLoading =
+                !isCardError &&
+                ((isCombinedCasesLoading && !combinedCasesStats) ||
+                  (includeCrStats &&
+                    isChangeRequestStatsLoading &&
+                    !changeRequestStats));
 
-              const combinedActive = crBranchState.hasCombined
-                ? (combinedCasesStats?.activeCount ??
+              if (!isCardError) {
+                const casesOutstandingCount =
                   combinedCasesStats?.stateCount
-                    ?.filter((state) => state.label !== "Closed")
-                    .reduce((sum, state) => sum + state.count, 0) ??
-                  0)
-                : 0;
+                    ?.filter((s) => s.label !== CaseStatus.CLOSED)
+                    .reduce((sum, s) => sum + s.count, 0) ?? 0;
 
-              const changeActive = crBranchState.hasChange
-                ? (changeRequestStats?.activeCount ??
-                  changeRequestStats?.stateCount
-                    ?.filter(
-                      (state) =>
-                        state.label !== "Closed" &&
-                        state.label !== "Canceled",
-                    )
-                    .reduce((sum, state) => sum + state.count, 0) ??
-                  0)
-                : 0;
+                const crOutstandingCount = includeCrStats
+                  ? (changeRequestStats?.stateCount
+                      ?.filter(
+                        (s) =>
+                          s.label !== ChangeRequestStates.ROLLBACK &&
+                          s.label !== ChangeRequestStates.CLOSED &&
+                          s.label !== ChangeRequestStates.CANCELED,
+                      )
+                      .reduce((sum, s) => sum + s.count, 0) ?? 0)
+                  : 0;
 
-              value = includeCrStats
-                ? !isCardError &&
-                  crBranchState.hasCombined &&
-                  crBranchState.hasChange
-                  ? combinedActive + changeActive
-                  : 0
-                : combinedActive;
+                value = casesOutstandingCount + crOutstandingCount;
+              }
               break;
             }
             case "resolvedCases": {
               const hasDefault = !!defaultCaseStats && !isErrorDefaultCase;
-              const resolved =
+              const closedTotal =
                 hasDefault && defaultCaseStats
-                  ? (defaultCaseStats.resolvedCases.pastThirtyDays ??
-                    defaultCaseStats.resolvedCases.currentMonth ??
-                    0)
+                  ? (defaultCaseStats.stateCount?.find(
+                      (s) => s.label === CaseStatus.CLOSED,
+                    )?.count ?? 0)
                   : 0;
 
-              value = resolved;
+              // Subtract S0 (Catastrophic) closed cases for projects that exclude S0,
+              // mirroring the same exclusion AllCasesPage applies client-side.
+              // S0 closed ≈ total S0 − outstanding (non-closed) S0.
+              const s0ClosedCount = !permissions.includeS0InSupportMetrics
+                ? Math.max(
+                    0,
+                    (defaultCaseStats?.severityCount?.find(
+                      (s) => s.label === SEVERITY_API_LABELS[0],
+                    )?.count ?? 0) -
+                      (defaultCaseStats?.outstandingSeverityCount?.find(
+                        (s) => s.label === SEVERITY_API_LABELS[0],
+                      )?.count ?? 0),
+                  )
+                : 0;
+
+              value = Math.max(0, closedTotal - s0ClosedCount);
               isCardError = isErrorDefaultCase;
               isCardLoading =
                 !isCardError && isDefaultCaseLoading && !defaultCaseStats;
@@ -551,6 +596,15 @@ export default function DashboardPage(): JSX.Element {
               break;
           }
 
+          const statOnClick =
+            stat.id === "totalCases"
+              ? () => navigate("action-required", { state: { returnTo: location.pathname } })
+              : stat.id === "openCases"
+                ? () => navigate("outstanding-interactions", { state: { returnTo: location.pathname } })
+                : stat.id === "resolvedCases"
+                  ? () => navigate("../support/cases?statusFilter=resolved", { state: { returnTo: location.pathname } })
+                  : undefined;
+
           return (
             <Grid key={stat.id} size={{ xs: 12, sm: 6, md: 3 }}>
               <StatCard
@@ -564,6 +618,7 @@ export default function DashboardPage(): JSX.Element {
                 isLoading={isCardLoading}
                 isError={isCardError}
                 isTrendError={false}
+                onClick={statOnClick}
               />
             </Grid>
           );
