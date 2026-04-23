@@ -6,7 +6,7 @@
 
 Customer Portal is an open-source solution for customer success operations, built with a modular architecture that combines a Ballerina backend and multiple React frontends. It enables teams to manage customer-facing workflows, project visibility, and support experiences through a unified platform.
 
-Customer portal is delivered through two frontend experiences:
+Customer Portal is delivered through two frontend experiences:
 
 - `webapp`: Publicly available browser-based customer portal
 - `microapp`: Micro app experience inside the [WSO2 mobile super app](https://github.com/opensuperapp/opensuperapp/tree/v1)
