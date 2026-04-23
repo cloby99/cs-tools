@@ -45,7 +45,7 @@ export function UpdateProductCard({
   const {
     productName,
     productBaseVersion,
-    startingUpdateLevel,
+    endingUpdateLevel,
     recommendedUpdateLevel,
     installedUpdatesCount,
     installedSecurityUpdatesCount,
@@ -53,10 +53,10 @@ export function UpdateProductCard({
     availableSecurityUpdatesCount,
   } = item;
 
-  const pendingLevels = recommendedUpdateLevel - startingUpdateLevel;
+  const pendingLevels = recommendedUpdateLevel - endingUpdateLevel;
   const percentage =
     recommendedUpdateLevel > 0
-      ? (startingUpdateLevel / recommendedUpdateLevel) * 100
+      ? (endingUpdateLevel / recommendedUpdateLevel) * 100
       : 0;
   const isHealthy = percentage >= 50;
   const statusColor = resolveUpdateCardHeaderStatusColor(isHealthy);
@@ -78,7 +78,7 @@ export function UpdateProductCard({
         />
 
         <UpdateCardLevels
-          startingUpdateLevel={startingUpdateLevel}
+          currentUpdateLevel={endingUpdateLevel}
           recommendedUpdateLevel={recommendedUpdateLevel}
           pendingLevels={pendingLevels}
         />
