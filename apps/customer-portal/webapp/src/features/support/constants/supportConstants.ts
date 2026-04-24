@@ -580,8 +580,8 @@ export const OPERATIONS_STAT_CONFIGS: SupportStatConfig<OperationsStatKey>[] = [
     label: "Outstanding Service Requests",
   },
   {
-    icon: CircleCheck,
-    iconColor: "success",
+    icon: TriangleAlert,
+    iconColor: "warning",
     key: "actionRequiredChangeRequests",
     label: "Action Required Changes",
   },

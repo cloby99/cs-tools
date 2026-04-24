@@ -541,6 +541,7 @@ export default function DashboardPage(): JSX.Element {
           configs={dashboardStatConfigs}
           stats={dashboardStatValues as Partial<Record<DashboardStatKey, number>>}
           valueFormatter={(value) => String(value)}
+          nonClickableKeys={["avgResponseTime"]}
           onStatClick={(key) => {
             if (key === "totalCases") {
               navigate("action-required", { state: { returnTo: location.pathname } });
@@ -553,7 +554,7 @@ export default function DashboardPage(): JSX.Element {
               return;
             }
             if (key === "resolvedCases") {
-              navigate("../support/cases?statusFilter=resolved", {
+              navigate("closed-last-30d", {
                 state: { returnTo: location.pathname },
               });
             }

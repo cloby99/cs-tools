@@ -49,8 +49,12 @@ import type { ChangeRequestItem } from "@features/operations/types/changeRequest
 // CR stateKeys are stable integers defined in CHANGE_REQUEST_STATE_API_ID_TO_LABEL.
 const CR_ACTION_REQUIRED_STATE_KEYS = [1, 5]; // Customer Review + Customer Approval
 const CR_OUTSTANDING_STATE_KEYS = [-5, -4, -3, 5, -2, -1, 0, 1]; // All except Rollback(2), Closed(3), Canceled(4)
+const CR_CLOSED_STATE_KEYS = [3]; // Closed
 
-export type DashboardItemsMode = "action-required" | "outstanding-interactions";
+export type DashboardItemsMode =
+  | "action-required"
+  | "outstanding-interactions"
+  | "closed-last-30d";
 
 interface DashboardItemsPageProps {
   mode: DashboardItemsMode;
@@ -84,10 +88,8 @@ export default function DashboardItemsPage({
   }, [project, isProjectLoading, projectFeatures]);
 
   // --- Filter metadata → case status IDs ---
-  const {
-    data: filterMetadata,
-    isError: isFilterMetadataError,
-  } = useGetProjectFilters(projectId || "");
+  const { data: filterMetadata, isError: isFilterMetadataError } =
+    useGetProjectFilters(projectId || "");
 
   // Resolve case status IDs from filter metadata labels.
   // Returns undefined while metadata is loading, or a (possibly empty) array once loaded.
@@ -102,6 +104,11 @@ export default function DashboardItemsPage({
         )
         .map((s) => Number(s.id));
     }
+    if (mode === "closed-last-30d") {
+      return filterMetadata.caseStates
+        .filter((s) => s.label === CaseStatus.CLOSED)
+        .map((s) => Number(s.id));
+    }
     return filterMetadata.caseStates
       .filter((s) => s.label !== CaseStatus.CLOSED)
       .map((s) => Number(s.id));
@@ -110,28 +117,52 @@ export default function DashboardItemsPage({
   const crStateKeys =
     mode === "action-required"
       ? CR_ACTION_REQUIRED_STATE_KEYS
-      : CR_OUTSTANDING_STATE_KEYS;
+      : mode === "closed-last-30d"
+        ? CR_CLOSED_STATE_KEYS
+        : CR_OUTSTANDING_STATE_KEYS;
+
+  const isOutstandingMode = mode === "outstanding-interactions";
 
   // filterMetadataLoaded tracks whether the metadata response has arrived (distinct from having IDs).
   // An error counts as "loaded" so the page does not stay on skeletons forever.
   const filterMetadataLoaded = !!filterMetadata || isFilterMetadataError;
 
+  // For outstanding mode: resolved = closed items shown in the "Resolved Items" sub-section.
+  const resolvedCaseStatusIds = useMemo((): number[] | undefined => {
+    if (!isOutstandingMode) return undefined;
+    if (!filterMetadata?.caseStates) return undefined;
+    return filterMetadata.caseStates
+      .filter((s) => s.label === CaseStatus.CLOSED)
+      .map((s) => Number(s.id));
+  }, [isOutstandingMode, filterMetadata]);
+
   // Queries are enabled once metadata is loaded AND there are status IDs to filter by.
   // An empty caseStatusIds array (no matching statuses) means no items exist — skip the query.
   const hasStatusIds = filterMetadataLoaded && (caseStatusIds?.length ?? 0) > 0;
+  const hasResolvedStatusIds =
+    isOutstandingMode &&
+    filterMetadataLoaded &&
+    (resolvedCaseStatusIds?.length ?? 0) > 0;
+  const apiResolvedStatusIds = hasResolvedStatusIds
+    ? resolvedCaseStatusIds
+    : undefined;
 
   // statusIds sent to the API: use the resolved IDs, or undefined if empty (never send []).
   const apiStatusIds = hasStatusIds ? caseStatusIds : undefined;
 
   const casesEnabled = !!projectId && !isProjectLoading && hasStatusIds;
-  const srEnabled = !!projectId && !isProjectLoading && hasStatusIds && permissions.hasSR;
+  const srEnabled =
+    !!projectId && !isProjectLoading && hasStatusIds && permissions.hasSR;
   const sraEnabled =
     !!projectId &&
     !isProjectLoading &&
     hasStatusIds &&
     permissions.hasSecurityReportAnalysis;
   const engEnabled =
-    !!projectId && !isProjectLoading && hasStatusIds && permissions.hasEngagements;
+    !!projectId &&
+    !isProjectLoading &&
+    hasStatusIds &&
+    permissions.hasEngagements;
   const crEnabled = !!projectId && permissions.hasCR && !isProjectLoading;
 
   // --- Data fetching (10 items each — single-page query, never loads more) ---
@@ -141,7 +172,9 @@ export default function DashboardItemsPage({
     isError: isCasesError,
   } = useGetProjectCasesPage(
     projectId || "",
-    { filters: { caseTypes: [CaseType.DEFAULT_CASE], statusIds: apiStatusIds } },
+    {
+      filters: { caseTypes: [CaseType.DEFAULT_CASE], statusIds: apiStatusIds },
+    },
     0,
     10,
     { enabled: casesEnabled },
@@ -153,7 +186,12 @@ export default function DashboardItemsPage({
     isError: isSrError,
   } = useGetProjectCasesPage(
     projectId || "",
-    { filters: { caseTypes: [CaseType.SERVICE_REQUEST], statusIds: apiStatusIds } },
+    {
+      filters: {
+        caseTypes: [CaseType.SERVICE_REQUEST],
+        statusIds: apiStatusIds,
+      },
+    },
     0,
     10,
     { enabled: srEnabled },
@@ -200,13 +238,119 @@ export default function DashboardItemsPage({
     { enabled: crEnabled },
   );
 
+  // --- Resolved item queries (outstanding mode only) ---
+  const {
+    data: resolvedCasesData,
+    isLoading: isResolvedCasesQuerying,
+    isError: isResolvedCasesError,
+  } = useGetProjectCasesPage(
+    projectId || "",
+    {
+      filters: {
+        caseTypes: [CaseType.DEFAULT_CASE],
+        statusIds: apiResolvedStatusIds,
+      },
+    },
+    0,
+    10,
+    { enabled: !!projectId && !isProjectLoading && hasResolvedStatusIds },
+  );
+
+  const {
+    data: resolvedSrData,
+    isLoading: isResolvedSrQuerying,
+    isError: isResolvedSrError,
+  } = useGetProjectCasesPage(
+    projectId || "",
+    {
+      filters: {
+        caseTypes: [CaseType.SERVICE_REQUEST],
+        statusIds: apiResolvedStatusIds,
+      },
+    },
+    0,
+    10,
+    {
+      enabled:
+        !!projectId &&
+        !isProjectLoading &&
+        hasResolvedStatusIds &&
+        permissions.hasSR,
+    },
+  );
+
+  const {
+    data: resolvedSraData,
+    isLoading: isResolvedSraQuerying,
+    isError: isResolvedSraError,
+  } = useGetProjectCasesPage(
+    projectId || "",
+    {
+      filters: {
+        caseTypes: [CaseType.SECURITY_REPORT_ANALYSIS],
+        statusIds: apiResolvedStatusIds,
+      },
+    },
+    0,
+    10,
+    {
+      enabled:
+        !!projectId &&
+        !isProjectLoading &&
+        hasResolvedStatusIds &&
+        permissions.hasSecurityReportAnalysis,
+    },
+  );
+
+  const {
+    data: resolvedEngData,
+    isLoading: isResolvedEngQuerying,
+    isError: isResolvedEngError,
+  } = useGetProjectCasesPage(
+    projectId || "",
+    {
+      filters: {
+        caseTypes: [CaseType.ENGAGEMENT],
+        statusIds: apiResolvedStatusIds,
+      },
+    },
+    0,
+    10,
+    {
+      enabled:
+        !!projectId &&
+        !isProjectLoading &&
+        hasResolvedStatusIds &&
+        permissions.hasEngagements,
+    },
+  );
+
+  const {
+    data: resolvedCrData,
+    isLoading: isResolvedCrQuerying,
+    isError: isResolvedCrError,
+  } = useGetChangeRequests(
+    projectId || "",
+    { filters: { stateKeys: CR_CLOSED_STATE_KEYS } },
+    0,
+    10,
+    {
+      enabled:
+        !!projectId &&
+        permissions.hasCR &&
+        !isProjectLoading &&
+        isOutstandingMode,
+    },
+  );
+
   // --- Derived values ---
   // useGetProjectCasesPage returns CaseSearchResponse directly (not InfiniteData).
   const cases = casesQueryData?.cases ?? [];
   const casesTotal = casesQueryData?.totalRecords ?? 0;
   // Loading while: metadata not yet loaded, OR query in-flight without data yet.
   const isCasesLoading =
-    !filterMetadataLoaded || (casesEnabled && isCasesQuerying && !casesQueryData);
+    !filterMetadataLoaded ||
+    (casesEnabled && isCasesQuerying && !casesQueryData);
 
   const serviceRequests = srQueryData?.cases ?? [];
   const srTotal = srQueryData?.totalRecords ?? 0;
@@ -232,9 +376,65 @@ export default function DashboardItemsPage({
     permissions.hasCR &&
     (isProjectLoading || (crEnabled && isCrQuerying && !crQueryData));
 
+  // --- Resolved derived values (outstanding mode only) ---
+  const resolvedCases = resolvedCasesData?.cases ?? [];
+  const resolvedCasesTotal = resolvedCasesData?.totalRecords ?? 0;
+  const isResolvedCasesLoading =
+    isOutstandingMode &&
+    (!filterMetadataLoaded ||
+      (hasResolvedStatusIds && isResolvedCasesQuerying && !resolvedCasesData));
+
+  const resolvedServiceRequests = resolvedSrData?.cases ?? [];
+  const resolvedSrTotal = resolvedSrData?.totalRecords ?? 0;
+  const isResolvedSrLoading =
+    isOutstandingMode &&
+    permissions.hasSR &&
+    (!filterMetadataLoaded ||
+      (hasResolvedStatusIds && isResolvedSrQuerying && !resolvedSrData));
+
+  const resolvedSraItems = resolvedSraData?.cases ?? [];
+  const resolvedSraTotal = resolvedSraData?.totalRecords ?? 0;
+  const isResolvedSraLoading =
+    isOutstandingMode &&
+    permissions.hasSecurityReportAnalysis &&
+    (!filterMetadataLoaded ||
+      (hasResolvedStatusIds && isResolvedSraQuerying && !resolvedSraData));
+
+  const resolvedEngagements = resolvedEngData?.cases ?? [];
+  const resolvedEngTotal = resolvedEngData?.totalRecords ?? 0;
+  const isResolvedEngLoading =
+    isOutstandingMode &&
+    permissions.hasEngagements &&
+    (!filterMetadataLoaded ||
+      (hasResolvedStatusIds && isResolvedEngQuerying && !resolvedEngData));
+
+  const resolvedChangeRequests = resolvedCrData?.changeRequests ?? [];
+  const resolvedCrTotal = resolvedCrData?.totalRecords ?? 0;
+  const isResolvedCrLoading =
+    isOutstandingMode &&
+    permissions.hasCR &&
+    (isProjectLoading ||
+      (!!projectId &&
+        permissions.hasCR &&
+        !isProjectLoading &&
+        isResolvedCrQuerying &&
+        !resolvedCrData));
+
   // --- Accordion state ---
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    () => new Set(["cases", "sr", "sra", "eng", "cr"]),
+    () =>
+      new Set([
+        "cases",
+        "sr",
+        "sra",
+        "eng",
+        "cr",
+        "resolved-cases",
+        "resolved-sr",
+        "resolved-sra",
+        "resolved-eng",
+        "resolved-cr",
+      ]),
   );
   const toggleSection = useCallback((id: string) => {
     setExpandedSections((prev) => {
@@ -399,27 +599,117 @@ export default function DashboardItemsPage({
     },
   ];
 
+  const resolvedSections: Section[] = isOutstandingMode
+    ? [
+        {
+          id: "resolved-cases",
+          label: "Cases",
+          isLoading: isResolvedCasesLoading,
+          isError: isResolvedCasesError,
+          total: resolvedCasesTotal,
+          hasPermission: true,
+          isCr: false,
+          items: resolvedCases,
+          hideSeverity: false,
+          entityName: "cases",
+          viewAllPath: "../../support/cases",
+          viewAllLabel: "View all cases",
+          onItemClick: handleCaseClick,
+        },
+        {
+          id: "resolved-sr",
+          label: "Service Requests",
+          isLoading: isResolvedSrLoading,
+          isError: isResolvedSrError,
+          total: resolvedSrTotal,
+          hasPermission: permissions.hasSR,
+          isCr: false,
+          items: resolvedServiceRequests,
+          hideSeverity: true,
+          entityName: "service requests",
+          viewAllPath: "../../operations/service-requests",
+          viewAllLabel: "View all service requests",
+          onItemClick: handleSrClick,
+        },
+        {
+          id: "resolved-sra",
+          label: "Security Report Analysis",
+          isLoading: isResolvedSraLoading,
+          isError: isResolvedSraError,
+          total: resolvedSraTotal,
+          hasPermission: permissions.hasSecurityReportAnalysis,
+          isCr: false,
+          items: resolvedSraItems,
+          hideSeverity: false,
+          entityName: "security reports",
+          viewAllPath: "../../security-center",
+          viewAllLabel: "View all security reports",
+          onItemClick: handleSraClick,
+        },
+        {
+          id: "resolved-eng",
+          label: "Engagements",
+          isLoading: isResolvedEngLoading,
+          isError: isResolvedEngError,
+          total: resolvedEngTotal,
+          hasPermission: permissions.hasEngagements,
+          isCr: false,
+          items: resolvedEngagements,
+          hideSeverity: true,
+          entityName: "engagements",
+          viewAllPath: "../../engagements",
+          viewAllLabel: "View all engagements",
+          onItemClick: handleEngClick,
+        },
+        {
+          id: "resolved-cr",
+          label: "Change Requests",
+          isLoading: isResolvedCrLoading,
+          isError: isResolvedCrError,
+          total: resolvedCrTotal,
+          hasPermission: permissions.hasCR,
+          isCr: true,
+          items: resolvedChangeRequests,
+          viewAllPath: "../../operations/change-requests",
+          viewAllLabel: "View all change requests",
+          onItemClick: handleCrClick,
+        },
+      ]
+    : [];
+
   const isPageLoading = isProjectLoading || !filterMetadataLoaded;
   const isPageError = !isProjectLoading && isFilterMetadataError;
 
-  const visibleSections = isPageLoading || isPageError
-    ? []
-    : sections.filter(
-        (s) => s.hasPermission && (s.isLoading || s.total > 0 || s.isError),
-      );
+  const visibleSections =
+    isPageLoading || isPageError
+      ? []
+      : sections.filter(
+          (s) => s.hasPermission && (s.isLoading || s.total > 0 || s.isError),
+        );
+
+  const visibleResolvedSections =
+    isPageLoading || isPageError
+      ? []
+      : resolvedSections.filter(
+          (s) => s.hasPermission && (s.isLoading || s.total > 0 || s.isError),
+        );
 
   return (
     <Stack spacing={3} sx={{ minWidth: 0 }}>
       <ListPageHeader
         title={
           mode === "action-required"
-            ? "Action Required"
-            : "Outstanding Items"
+            ? "Action Required Items"
+            : mode === "closed-last-30d"
+              ? "Closed items last (30d)"
+              : "Outstanding Items"
         }
         description={
           mode === "action-required"
-            ? "Review items that require your attention"
-            : "View all currently active and unresolved interactions"
+            ? "Items awaiting your response"
+            : mode === "closed-last-30d"
+              ? "Successfully closed and resolved items during the last 30 days "
+              : "View all currently active and unresolved items"
         }
         backLabel="Back"
         onBack={() => navigate(returnTo ?? "..")}
@@ -454,9 +744,7 @@ export default function DashboardItemsPage({
               expandIcon={<ChevronDown size={20} />}
               sx={{ px: 2.5, py: 1.5, minHeight: 56 }}
             >
-              <Box
-                sx={{ display: "flex", alignItems: "center", gap: 1.5 }}
-              >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                 <Typography variant="subtitle1" fontWeight={600}>
                   {section.label}
                 </Typography>
@@ -487,7 +775,13 @@ export default function DashboardItemsPage({
                   {section.total > 10 && (
                     <>
                       <Divider />
-                      <Box sx={{ display: "flex", justifyContent: "flex-end", pt: 0.5 }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          pt: 0.5,
+                        }}
+                      >
                         <Button
                           variant="text"
                           color="warning"
@@ -521,7 +815,13 @@ export default function DashboardItemsPage({
                   {section.total > 10 && (
                     <>
                       <Divider />
-                      <Box sx={{ display: "flex", justifyContent: "flex-end", pt: 0.5 }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          pt: 0.5,
+                        }}
+                      >
                         <Button
                           variant="text"
                           color="warning"
@@ -545,19 +845,161 @@ export default function DashboardItemsPage({
           </Accordion>
         ))}
 
+        {isOutstandingMode && (
+          <>
+            <Typography
+              variant="subtitle2"
+              color="text.secondary"
+              fontWeight={600}
+              sx={{ px: 0.5, pt: visibleSections.length > 0 ? 1 : 0 }}
+            >
+              Resolved Items
+            </Typography>
+            {visibleResolvedSections.map((section) => (
+              <Accordion
+                key={section.id}
+                expanded={expandedSections.has(section.id)}
+                onChange={() => toggleSection(section.id)}
+                disableGutters
+                elevation={0}
+                sx={{
+                  "&:before": { display: "none" },
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 2,
+                  overflow: "hidden",
+                  bgcolor: "background.paper",
+                }}
+              >
+                <AccordionSummary
+                  expandIcon={<ChevronDown size={20} />}
+                  sx={{ px: 2.5, py: 1.5, minHeight: 56 }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                    <Typography variant="subtitle1" fontWeight={600}>
+                      {section.label}
+                    </Typography>
+                    {section.isLoading ? (
+                      <Skeleton variant="rounded" width={32} height={22} />
+                    ) : (
+                      <Chip
+                        label={section.total}
+                        size="small"
+                        color="default"
+                        sx={{ fontWeight: 600 }}
+                      />
+                    )}
+                  </Box>
+                </AccordionSummary>
+                <AccordionDetails sx={{ px: 2.5, pb: 1, pt: 0 }}>
+                  {section.isCr ? (
+                    <>
+                      <Box sx={{ pb: 2.5 }}>
+                        <ChangeRequestsList
+                          changeRequests={section.items}
+                          isLoading={section.isLoading}
+                          isError={section.isError}
+                          onChangeRequestClick={section.onItemClick}
+                        />
+                      </Box>
+                      {section.total > 10 && (
+                        <>
+                          <Divider />
+                          <Box
+                            sx={{
+                              display: "flex",
+                              justifyContent: "flex-end",
+                              pt: 0.5,
+                            }}
+                          >
+                            <Button
+                              variant="text"
+                              color="warning"
+                              endIcon={<ArrowRight size={16} />}
+                              onClick={() =>
+                                navigate(section.viewAllPath, {
+                                  relative: "path",
+                                })
+                              }
+                              sx={{ textTransform: "none", fontWeight: 500 }}
+                            >
+                              {section.viewAllLabel}
+                            </Button>
+                          </Box>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Box sx={{ pb: 2.5 }}>
+                        <ListItems
+                          cases={section.items}
+                          isLoading={section.isLoading}
+                          isError={section.isError}
+                          onCaseClick={section.onItemClick}
+                          entityName={section.entityName}
+                          hideSeverity={section.hideSeverity}
+                        />
+                      </Box>
+                      {section.total > 10 && (
+                        <>
+                          <Divider />
+                          <Box
+                            sx={{
+                              display: "flex",
+                              justifyContent: "flex-end",
+                              pt: 0.5,
+                            }}
+                          >
+                            <Button
+                              variant="text"
+                              color="warning"
+                              endIcon={<ArrowRight size={16} />}
+                              onClick={() =>
+                                navigate(section.viewAllPath, {
+                                  relative: "path",
+                                })
+                              }
+                              sx={{ textTransform: "none", fontWeight: 500 }}
+                            >
+                              {section.viewAllLabel}
+                            </Button>
+                          </Box>
+                        </>
+                      )}
+                    </>
+                  )}
+                </AccordionDetails>
+              </Accordion>
+            ))}
+            {!isPageLoading &&
+              !isPageError &&
+              visibleResolvedSections.length === 0 && (
+                <Box sx={{ textAlign: "center", py: 4 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No resolved items found.
+                  </Typography>
+                </Box>
+              )}
+          </>
+        )}
+
         {isPageError && (
           <Box sx={{ py: 4 }}>
             <ErrorIndicator entityName="items" />
           </Box>
         )}
 
-        {!isPageLoading && !isPageError && visibleSections.length === 0 && (
-          <Box sx={{ textAlign: "center", py: 8 }}>
-            <Typography variant="body1" color="text.secondary">
-              No items found.
-            </Typography>
-          </Box>
-        )}
+        {!isPageLoading &&
+          !isPageError &&
+          !isOutstandingMode &&
+          visibleSections.length === 0 && (
+            <Box sx={{ textAlign: "center", py: 8 }}>
+              <Typography variant="body1" color="text.secondary">
+                No items found.
+              </Typography>
+            </Box>
+          )}
       </Stack>
     </Stack>
   );

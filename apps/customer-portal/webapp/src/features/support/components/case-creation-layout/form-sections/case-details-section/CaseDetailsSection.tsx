@@ -316,7 +316,7 @@ export function CaseDetailsSection({
                     color="text.secondary"
                     sx={{ mt: 1, display: "block" }}
                   >
-                    PDF, DOCX, TXT, CSV or other formats • Max 15MB per file
+                    PDF, DOCX, TXT, CSV or other formats • Max 10MB per file
                   </Typography>
                 </Box>
               </Box>

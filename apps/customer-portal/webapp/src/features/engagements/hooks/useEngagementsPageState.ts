@@ -55,9 +55,11 @@ export function useEngagementsPageState() {
   )?.engagementTypeId;
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<AllCasesFilterValues>(() =>
     initialEngagementTypeId ? { issueTypes: initialEngagementTypeId } : {},
+  );
+  const [isFiltersOpen, setIsFiltersOpen] = useState(
+    () => hasListSearchOrFilters(searchTerm, filters),
   );
   const [sortField, setSortField] = useState<EngagementsSortField>(
     EngagementsSortField.CreatedOn,
