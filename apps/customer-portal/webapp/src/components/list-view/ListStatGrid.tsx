@@ -145,7 +145,7 @@ export default function ListStatGrid<T extends string>({
               <Box
                 sx={{
                   position: "absolute",
-                  top: 46,
+                  top: 56,
                   right: 14,
                   zIndex: 2,
                   display: "inline-flex",

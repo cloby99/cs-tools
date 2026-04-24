@@ -176,13 +176,19 @@ const SecurityPage = (): JSX.Element => {
       ) : (
         <SecurityStats onStatClick={handleStatCardClick} />
       )}
-      <TabBar
-        tabs={tabs}
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-      />
+      {!isStatFiltered && (
+        <TabBar
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+        />
+      )}
       <Box>
-        {renderTabContent()}
+        {isStatFiltered ? (
+          <SecurityReportAnalysis fixedStatusIds={fixedStatusIds} />
+        ) : (
+          renderTabContent()
+        )}
       </Box>
     </Box>
   );
