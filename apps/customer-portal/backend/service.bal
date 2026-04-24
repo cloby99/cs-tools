@@ -1352,6 +1352,14 @@ service http:InterceptableService / on new http:Listener(9090, listenerConf) {
             };
         }
 
+        if isInvalidDateRange(payload.filters?.startDate, payload.filters?.endDate) {
+            return <http:BadRequest>{
+                body: {
+                    message: "Start date must not be after End date"
+                }
+            };
+        }
+
         types:CaseSearchResponse|error casesResponse = searchCases(userInfo.idToken, id, payload);
         if casesResponse is error {
             if getStatusCode(casesResponse) == http:STATUS_UNAUTHORIZED {

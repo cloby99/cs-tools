@@ -44,7 +44,10 @@ public isolated function searchCases(string idToken, string projectId, types:Cas
             caseTypes: payload.filters?.caseTypes,
             stateKeys: payload.filters?.statusIds,
             deploymentId: payload.filters?.deploymentId,
-            createdByMe: payload.filters?.createdByMe
+            createdByMe: payload.filters?.createdByMe,
+            engagementTypeKeys: payload.filters?.engagementTypeKeys,
+            startDate: payload.filters?.startDate,
+            endDate: payload.filters?.endDate
         },
         pagination: payload.pagination,
         sortBy: payload.sortBy
@@ -252,6 +255,14 @@ public isolated function mapCommentsResponse(entity:CommentsResponse response) r
 # + return - True if invalid, else false
 public isolated function isInvalidLimitOffset(int? 'limit, int? offset) returns boolean =>
     ('limit != () && ('limit < 1 || 'limit > 50)) || (offset != () && offset < 0);
+
+# Validate that startDate is not after endDate.
+#
+# + startDate - Start date string
+# + endDate - End date string
+# + return - True if invalid, else false
+public isolated function isInvalidDateRange(string? startDate, string? endDate) returns boolean =>
+    startDate != () && endDate != () && startDate > endDate;
 
 # Map attachments response to map to desired structure.
 #
