@@ -73,7 +73,7 @@ export const DASHBOARD_STATS: StatConfigItem[] = [
   },
   {
     id: "openCases",
-    label: "Outstanding Items",
+    label: "Outstanding",
     icon: Clock,
     iconColor: "warning",
     tooltipText: "Currently active and unresolved items",
@@ -83,7 +83,7 @@ export const DASHBOARD_STATS: StatConfigItem[] = [
     label: "Closed (Last 30d)",
     icon: CheckCircle,
     iconColor: "success",
-    tooltipText: "Successfully closed and resolved items",
+    tooltipText: "Successfully closed and resolved items in Last 30 days",
   },
   {
     id: "avgResponseTime",

@@ -43,6 +43,7 @@ export type CaseDetailsHeaderVariant =
   | "serviceRequest";
 
 export type CaseDetailsHeaderProps = {
+  wso2CaseId?: string | null;
   caseNumber: string | null | undefined;
   title: string | null | undefined;
   severityLabel: string | null | undefined;
@@ -185,6 +186,7 @@ export type CommentBubbleProps = {
   comment: CaseComment;
   isCurrentUser: boolean;
   primaryBg: string;
+  hideAvatar?: boolean;
   onImageClick?: (src: string) => void;
   userDetails?: {
     email?: string;
@@ -212,6 +214,7 @@ export type ActivityContentProps = {
   caseCreatedOn?: string | null;
   currentUserEmail: string;
   primaryBg: string;
+  hideAvatar?: boolean;
   userDetails?: {
     email?: string;
     firstName?: string;

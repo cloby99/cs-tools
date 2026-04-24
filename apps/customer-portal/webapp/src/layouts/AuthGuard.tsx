@@ -50,6 +50,7 @@ export default function AuthGuard(): JSX.Element {
       const fromHeader = (location.state as { fromHeader?: boolean })?.fromHeader;
       if (
         lastProjectId &&
+        lastProjectId.length === 32 &&
         location.pathname === "/" &&
         !fromHeader
       ) {

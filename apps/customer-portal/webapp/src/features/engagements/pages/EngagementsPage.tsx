@@ -120,7 +120,7 @@ export default function EngagementsPage(): JSX.Element {
         filterMetadata={filterMetadata}
         onFilterChange={handleFilterChange}
         onClearFilters={handleClearFilters}
-        hideFiltersButton={isStatFiltered}
+        isStatFiltered={isStatFiltered}
         excludeS0={excludeS0}
         restrictSeverityToLow={restrictSeverityToLow}
         isProjectContextLoading={!projectReady}

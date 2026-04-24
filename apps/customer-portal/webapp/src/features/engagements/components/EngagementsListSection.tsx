@@ -15,6 +15,7 @@
 // under the License.
 
 import type { JSX } from "react";
+import { Divider } from "@wso2/oxygen-ui";
 import ListResultsBar from "@components/list-view/ListResultsBar";
 import ListPagination from "@components/list-view/ListPagination";
 import ListItems from "@components/list-view/ListItems";
@@ -42,6 +43,7 @@ export default function EngagementsListSection({
   onFilterChange,
   onClearFilters,
   hideFiltersButton = false,
+  isStatFiltered = false,
   excludeS0,
   restrictSeverityToLow,
   isProjectContextLoading,
@@ -62,25 +64,29 @@ export default function EngagementsListSection({
 }: EngagementsListSectionProps): JSX.Element {
   return (
     <>
-      <ListSearchPanel
-        searchTerm={searchTerm}
-        searchPlaceholder={ENGAGEMENTS_SEARCH_PLACEHOLDER}
-        onSearchChange={onSearchChange}
-        isFiltersOpen={isFiltersOpen}
-        onFiltersToggle={onFiltersToggle}
-        filters={filters}
-        filterMetadata={filterMetadata}
-        deployments={undefined}
-        onFilterChange={onFilterChange}
-        onClearFilters={onClearFilters}
-        hideFiltersButton={hideFiltersButton}
-        excludeS0={excludeS0}
-        restrictSeverityToLow={restrictSeverityToLow}
-        hideSeverityFilter
-        hideDeploymentFilter
-        hideCategoryFilter
-        isProjectContextLoading={isProjectContextLoading}
-      />
+      {isStatFiltered ? (
+        <Divider />
+      ) : (
+        <ListSearchPanel
+          searchTerm={searchTerm}
+          searchPlaceholder={ENGAGEMENTS_SEARCH_PLACEHOLDER}
+          onSearchChange={onSearchChange}
+          isFiltersOpen={isFiltersOpen}
+          onFiltersToggle={onFiltersToggle}
+          filters={filters}
+          filterMetadata={filterMetadata}
+          deployments={undefined}
+          onFilterChange={onFilterChange}
+          onClearFilters={onClearFilters}
+          hideFiltersButton={hideFiltersButton}
+          excludeS0={excludeS0}
+          restrictSeverityToLow={restrictSeverityToLow}
+          hideSeverityFilter
+          hideDeploymentFilter
+          hideCategoryFilter
+          isProjectContextLoading={isProjectContextLoading}
+        />
+      )}
 
       <ListResultsBar
         shownCount={paginatedCases.length}

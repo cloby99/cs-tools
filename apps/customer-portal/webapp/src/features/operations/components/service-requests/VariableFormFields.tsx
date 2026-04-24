@@ -33,6 +33,7 @@ import {
   isAttachmentField,
   isFileCopyPathField,
   isDescriptionField,
+  isDateTimeField,
 } from "@features/operations/utils/serviceRequestValidation";
 import Editor from "@components/rich-text-editor/Editor";
 
@@ -66,6 +67,12 @@ function parseRequiredLabel(questionText: string): { label: string } {
   const raw = (questionText ?? "").trim();
   const label = raw.replace(/^\s*\*?\s*/, "").trim() || raw;
   return { label };
+}
+
+function isTitleField(questionText: string): boolean {
+  return (
+    questionText.replace(/^\s*\*?\s*/, "").trim().toLowerCase() === "title"
+  );
 }
 
 /** Hot fix: all typable (user-editable) fields are mandatory due to API hasMandatory inconsistency. */
@@ -286,6 +293,9 @@ export default function VariableFormFields({
     const displayValue = isContext
       ? getContextValue(variable.questionText!, contextValues!)
       : value;
+    const isTitle = isTitleField(variable.questionText ?? "");
+    const titleLength = displayValue.trim().length;
+    const isTitleTooLong = isTitle && titleLength > 160;
 
     if (
       type === VARIABLE_TYPE_SELECT ||
@@ -474,6 +484,25 @@ export default function VariableFormFields({
       );
     }
 
+    if (isDateTimeField(variable)) {
+      return (
+        <Grid key={variable.id} size={{ xs: 12, sm: 6 }}>
+          <Box sx={{ mb: 1 }}>
+            <FieldLabel questionText={variable.questionText ?? ""} />
+          </Box>
+          <TextField
+            fullWidth
+            size="small"
+            type="datetime-local"
+            value={displayValue}
+            onChange={(e) => onChange(variable.id, e.target.value)}
+            disabled={isContext}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+        </Grid>
+      );
+    }
+
     return (
       <Grid key={variable.id} size={{ xs: 12 }}>
         <Box sx={{ mb: 1 }}>
@@ -485,7 +514,19 @@ export default function VariableFormFields({
           value={displayValue}
           onChange={(e) => onChange(variable.id, e.target.value)}
           disabled={isContext}
+          error={isTitleTooLong}
+          helperText={isTitleTooLong ? "Title must be 160 characters or fewer." : undefined}
         />
+        {isTitle && (
+          <Typography
+            variant="caption"
+            color={isTitleTooLong ? "error.main" : "text.secondary"}
+            align="right"
+            sx={{ mt: 0.5, display: "block" }}
+          >
+            {titleLength}/160
+          </Typography>
+        )}
       </Grid>
     );
   };

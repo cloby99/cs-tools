@@ -23,7 +23,7 @@ import {
   type ChangeEvent,
 } from "react";
 import { useSessionState } from "@hooks/useSessionState";
-import { Button, CircularProgress, Stack } from "@wso2/oxygen-ui";
+import { Button, CircularProgress, Divider, Stack } from "@wso2/oxygen-ui";
 import { Download } from "@wso2/oxygen-ui-icons-react";
 import type { ChangeRequestFilterValues, ChangeRequestItem } from "@features/operations/types/changeRequests";
 import useGetProjectFilters from "@api/useGetProjectFilters";
@@ -96,8 +96,10 @@ export default function ChangeRequestsPage(): JSX.Element {
   );
   const sessionPrefix = `${projectId ?? "unknown"}-change-requests`;
   const [searchTerm, setSearchTerm] = useSessionState(`${sessionPrefix}-search`, "", undefined, { popOnly: true });
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filters, setFilters] = useSessionState<ChangeRequestFilterValues>(`${sessionPrefix}-filters`, {}, undefined, { popOnly: true });
+  const [isFiltersOpen, setIsFiltersOpen] = useState(
+    () => hasListSearchOrFilters(searchTerm, filters),
+  );
   const [page, setPage] = useSessionState<number>(`${sessionPrefix}-page`, 1, undefined, { popOnly: true });
   const [rowsPerPage, setRowsPerPage] = useSessionState<number>(`${sessionPrefix}-rowsPerPage`, OPERATIONS_LIST_PAGE_SIZE, undefined, { popOnly: true });
   const [isExporting, setIsExporting] = useState(false);
@@ -307,26 +309,30 @@ export default function ChangeRequestsPage(): JSX.Element {
         actions={exportButton}
       />
 
-      <ListSearchBar
-        searchPlaceholder={CHANGE_REQUESTS_SEARCH_PLACEHOLDER}
-        searchTerm={searchTerm}
-        onSearchChange={handleSearchChange}
-        isFiltersOpen={isFiltersOpen}
-        onFiltersToggle={() => setIsFiltersOpen(!isFiltersOpen)}
-        activeFiltersCount={countListSearchAndFilters(searchTerm, filters)}
-        onClearFilters={handleClearFilters}
-        filtersContent={
-          <ListFiltersPanel
-            filterDefinitions={visibleFilterDefinitions}
-            filters={filters}
-            resolveOptions={(def) =>
-              resolveChangeRequestFilterListOptions(def, filterMetadata)
-            }
-            onFilterChange={handleFilterChange}
-            gridSize={{ xs: 12, sm: 6, md: 4 }}
-          />
-        }
-      />
+      {outstandingOnly || actionRequired || scheduledOnly ? (
+        <Divider />
+      ) : (
+        <ListSearchBar
+          searchPlaceholder={CHANGE_REQUESTS_SEARCH_PLACEHOLDER}
+          searchTerm={searchTerm}
+          onSearchChange={handleSearchChange}
+          isFiltersOpen={isFiltersOpen}
+          onFiltersToggle={() => setIsFiltersOpen(!isFiltersOpen)}
+          activeFiltersCount={countListSearchAndFilters(searchTerm, filters)}
+          onClearFilters={handleClearFilters}
+          filtersContent={
+            <ListFiltersPanel
+              filterDefinitions={visibleFilterDefinitions}
+              filters={filters}
+              resolveOptions={(def) =>
+                resolveChangeRequestFilterListOptions(def, filterMetadata)
+              }
+              onFilterChange={handleFilterChange}
+              gridSize={{ xs: 12, sm: 6, md: 4 }}
+            />
+          }
+        />
+      )}
 
       <ListResultsBar
         shownCount={changeRequests.length}

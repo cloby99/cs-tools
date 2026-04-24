@@ -69,12 +69,6 @@ export const PROJECT_DETAILS_TABS: TabOption[] = [
 
 export const statItems: Stat[] = [
   {
-    label: "Open Cases",
-    icon: Clock,
-    iconColor: "primary",
-    key: "openCases",
-  },
-  {
     label: "Active Chats",
     icon: MessageSquare,
     iconColor: "success",

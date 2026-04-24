@@ -29,6 +29,7 @@ import { useErrorPageContext } from "@context/error-page/ErrorPageContext";
 import { useLocation, Outlet } from "react-router";
 import IdleTimeoutProvider from "@providers/IdleTimeoutProvider";
 import GlobalNotificationBanner from "@components/notification-banner/GlobalNotificationBanner";
+import HtmlAnnouncementBanner from "@components/announcement-banner/HtmlAnnouncementBanner";
 import TopBanner from "@components/top-banner/TopBanner";
 import Footer from "@components/footer/Footer";
 import Header from "@components/header/Header";
@@ -100,16 +101,6 @@ export default function AppLayout({ children }: AppLayoutProps): JSX.Element {
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [isAuthLoading, isLoginCallback]);
 
-  // Show "Signing out…" overlay the instant logout is triggered anywhere in the
-  // app (UserProfile, IdleTimeoutProvider). The overlay stays until the IDP
-  // redirect navigates the browser away.
-  const [isSigningOut, setIsSigningOut] = useState(false);
-  useEffect(() => {
-    const handleSigningOut = () => setIsSigningOut(true);
-    window.addEventListener("app:signing-out", handleSigningOut);
-    return () => window.removeEventListener("app:signing-out", handleSigningOut);
-  }, []);
-
   // Persist sidebar state
   useEffect(() => {
     setSidebarCollapsed(shellState.sidebarCollapsed);
@@ -176,11 +167,13 @@ export default function AppLayout({ children }: AppLayoutProps): JSX.Element {
       >
         <TopBanner />
         <GlobalNotificationBanner visible={notificationBannerConfig.visible} />
+        <HtmlAnnouncementBanner />
         <AppShell sx={{ flex: 1, minHeight: 0, height: "auto" }}>
           <AppShell.Navbar>
             <Header
               onToggleSidebar={shellActions.toggleSidebar}
               collapsed={shellState.sidebarCollapsed}
+              hideProjectControls={hasPortalAccessError}
             />
           </AppShell.Navbar>
 
@@ -239,7 +232,7 @@ export default function AppLayout({ children }: AppLayoutProps): JSX.Element {
                       : { p: 3 }),
                 }}
               >
-                {isSigningOut || !hasInitialized ? (
+                {!hasInitialized ? (
                   <Box
                     sx={{
                       flex: 1,
@@ -256,7 +249,7 @@ export default function AppLayout({ children }: AppLayoutProps): JSX.Element {
                       sx={{ width: "80%", maxWidth: 400, height: 4 }}
                     />
                     <Typography variant="body2" color="text.secondary">
-                      {isSigningOut ? "Signing out…" : loadingMessage}
+                      {loadingMessage}
                     </Typography>
                   </Box>
                 ) : hasPortalAccessError ? (

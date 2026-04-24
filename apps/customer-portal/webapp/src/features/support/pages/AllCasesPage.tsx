@@ -29,7 +29,7 @@ import {
 } from "react";
 import { useSessionState } from "@hooks/useSessionState";
 import { useLoader } from "@context/linear-loader/LoaderContext";
-import { Stack } from "@wso2/oxygen-ui";
+import { Stack, Divider } from "@wso2/oxygen-ui";
 import useGetProjectDetails from "@api/useGetProjectDetails";
 import useGetProjectFeatures from "@api/useGetProjectFeatures";
 import useGetProjectFilters from "@api/useGetProjectFilters";
@@ -79,12 +79,14 @@ export default function AllCasesPage(): JSX.Element {
 
   const sessionPrefix = `${projectId ?? "unknown"}-cases`;
   const [searchTerm, setSearchTerm] = useSessionState(`${sessionPrefix}-search`, "", undefined, { popOnly: true });
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filters, setFilters] = useSessionState<AllCasesFilterValues>(
     `${sessionPrefix}-filters`,
     initialSeverityId ? { severityId: initialSeverityId } : {},
     undefined,
     { popOnly: true },
+  );
+  const [isFiltersOpen, setIsFiltersOpen] = useState(
+    () => hasListSearchOrFilters(searchTerm, filters),
   );
   const [sortField, setSortField] = useSessionState<"createdOn" | "updatedOn" | "severity" | "state">(`${sessionPrefix}-sortField`, "createdOn", undefined, { popOnly: true });
   const [sortOrder, setSortOrder] = useSessionState<SortOrder>(`${sessionPrefix}-sortOrder`, SortOrder.DESC, undefined, { popOnly: true });
@@ -302,7 +304,7 @@ export default function AllCasesPage(): JSX.Element {
           if (dashboardTitle) return dashboardTitle;
           if (createdByMe) return "My Cases";
           if (statusFilter === "active") return "Outstanding Cases";
-          if (statusFilter === "resolved") return "Resolved Cases";
+          if (statusFilter === "resolved") return "Resolved Cases (Last 30d)";
           return "All Cases";
         })()}
         description={
@@ -313,7 +315,7 @@ export default function AllCasesPage(): JSX.Element {
               return dashboardDescription;
             }
             if (statusFilter === "active") return "Cases that are currently in progress";
-            if (statusFilter === "resolved") return "Cases that have been resolved";
+            if (statusFilter === "resolved") return "Cases that have been resolved during the last 30 days";
             return createdByMe
               ? "Manage and track your support cases"
               : "Manage and track all your support cases";
@@ -332,43 +334,45 @@ export default function AllCasesPage(): JSX.Element {
         }}
       />
 
-      <ListSearchPanel
-        searchTerm={searchTerm}
-        onSearchChange={handleSearchChange}
-        isFiltersOpen={isFiltersOpen}
-        onFiltersToggle={() => setIsFiltersOpen(!isFiltersOpen)}
-        filters={filters}
-        filterMetadata={filterMetadata}
-        deployments={
-          projectDetailsReady && permissions.hasDeployments
-            ? deploymentsList
-            : []
-        }
-        onLoadMoreDeployments={() => {
-          if (
-            deploymentsQuery.hasNextPage &&
-            !deploymentsQuery.isFetchingNextPage
-          ) {
-            void deploymentsQuery.fetchNextPage();
+      {statusFilter ? (
+        <Divider />
+      ) : (
+        <ListSearchPanel
+          searchTerm={searchTerm}
+          onSearchChange={handleSearchChange}
+          isFiltersOpen={isFiltersOpen}
+          onFiltersToggle={() => setIsFiltersOpen(!isFiltersOpen)}
+          filters={filters}
+          filterMetadata={filterMetadata}
+          deployments={
+            projectDetailsReady && permissions.hasDeployments
+              ? deploymentsList
+              : []
           }
-        }}
-        hasMoreDeployments={!!deploymentsQuery.hasNextPage}
-        isFetchingMoreDeployments={deploymentsQuery.isFetchingNextPage}
-        onFilterChange={handleFilterChange}
-        onClearFilters={handleClearFilters}
-        hideFiltersButton={statusFilter === "resolved"}
-        excludeS0={excludeS0}
-        restrictSeverityToLow={restrictSeverityToLow}
-        hideSeverityFilter={isDashboardSeverityNavigation}
-        hideStatusFilter={isDashboardSeverityNavigation || statusFilter === "active"}
-        hideDeploymentFilter={!permissions.hasDeployments}
-        isProjectContextLoading={isProjectContextLoading}
-        excludeFromCount={
-          initialSeverityId && filters.severityId === initialSeverityId
-            ? ["severityId"]
-            : []
-        }
-      />
+          onLoadMoreDeployments={() => {
+            if (
+              deploymentsQuery.hasNextPage &&
+              !deploymentsQuery.isFetchingNextPage
+            ) {
+              void deploymentsQuery.fetchNextPage();
+            }
+          }}
+          hasMoreDeployments={!!deploymentsQuery.hasNextPage}
+          isFetchingMoreDeployments={deploymentsQuery.isFetchingNextPage}
+          onFilterChange={handleFilterChange}
+          onClearFilters={handleClearFilters}
+          excludeS0={excludeS0}
+          restrictSeverityToLow={restrictSeverityToLow}
+          hideSeverityFilter={isDashboardSeverityNavigation}
+          hideDeploymentFilter={!permissions.hasDeployments}
+          isProjectContextLoading={isProjectContextLoading}
+          excludeFromCount={
+            initialSeverityId && filters.severityId === initialSeverityId
+              ? ["severityId"]
+              : []
+          }
+        />
+      )}
 
       <ListResultsBar
         shownCount={paginatedCases.length}

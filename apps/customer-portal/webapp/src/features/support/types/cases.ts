@@ -243,6 +243,10 @@ export type CaseComment = AuditMetadata & {
   id: string;
   content: string;
   type: string;
+  fileName?: string;
+  contentType?: string;
+  sizeBytes?: number;
+  downloadUrl?: string;
   createdByFirstName?: string | null;
   createdByLastName?: string | null;
   isEscalated: boolean;
@@ -253,6 +257,28 @@ export type CaseComment = AuditMetadata & {
 // Response type for case comments list.
 export type CaseCommentsResponse = PaginationResponse & {
   comments: CaseComment[];
+};
+
+// Item type for case activity (comments/attachments timeline entries).
+export type CaseActivity = {
+  id: string;
+  content: string;
+  createdOn: string;
+  createdBy: string;
+  createdByFirstName?: string | null;
+  createdByLastName?: string | null;
+  createdByFullName?: string | null;
+  type: string;
+  commentType?: string;
+  fileName?: string;
+  contentType?: string;
+  sizeBytes?: number;
+  downloadUrl?: string;
+};
+
+// Response type for case activities search.
+export type CaseActivitiesResponse = PaginationResponse & {
+  activities: CaseActivity[];
 };
 
 // Response type for case metadata (fetching possible statuses, severities, types).

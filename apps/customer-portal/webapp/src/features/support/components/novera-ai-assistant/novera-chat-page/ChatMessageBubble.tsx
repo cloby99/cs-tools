@@ -128,6 +128,7 @@ export default function ChatMessageBubble({
   message,
 }: ChatMessageBubbleProps): JSX.Element {
   const isUser = message.sender === ChatSender.USER;
+  const isCurrentUserMessage = isUser && (message.isCurrentUser ?? true);
 
   const displayText = message.isError ? "Something went wrong" : message.text;
 
@@ -191,7 +192,11 @@ export default function ChatMessageBubble({
 
   if (isUser) {
     return (
-      <Stack direction="row" alignItems="flex-start" sx={{ flexDirection: "row-reverse", gap: 2 }}>
+      <Stack
+        direction="row"
+        alignItems="flex-start"
+        sx={{ flexDirection: isCurrentUserMessage ? "row-reverse" : "row", gap: 2 }}
+      >
         <Avatar
           sx={{
             width: 32,
@@ -204,8 +209,15 @@ export default function ChatMessageBubble({
         >
           <User size={14} />
         </Avatar>
-        <Stack spacing={0.75} sx={{ minWidth: 0, alignItems: "flex-end" }}>
-          <Stack direction="row" alignItems="center" sx={{ flexDirection: "row-reverse", gap: 1 }}>
+        <Stack
+          spacing={0.75}
+          sx={{ minWidth: 0, alignItems: isCurrentUserMessage ? "flex-end" : "flex-start" }}
+        >
+          <Stack
+            direction="row"
+            alignItems="center"
+            sx={{ flexDirection: isCurrentUserMessage ? "row-reverse" : "row", gap: 1 }}
+          >
             <Typography variant="body2" color="text.primary" fontWeight={500}>
               {message.createdBy || "You"}
             </Typography>

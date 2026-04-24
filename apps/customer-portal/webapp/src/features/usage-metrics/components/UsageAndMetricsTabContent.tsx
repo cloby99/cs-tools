@@ -14,11 +14,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, IconButton } from "@wso2/oxygen-ui";
+import { Box } from "@wso2/oxygen-ui";
 import type { JSX } from "react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useParams } from "react-router";
-import { ChevronLeft, ChevronRight } from "@wso2/oxygen-ui-icons-react";
 import TabBar from "@components/tab-bar/TabBar";
 import UsageOverviewPanel from "@features/usage-metrics/components/UsageOverviewPanel";
 import UsageEnvironmentProductsPanel from "@features/usage-metrics/components/UsageEnvironmentProductsPanel";
@@ -40,7 +39,7 @@ import { usePostProjectDeploymentsSearchAll } from "@api/usePostProjectDeploymen
 export default function UsageAndMetricsTabContent(): JSX.Element {
   const { projectId } = useParams<{ projectId: string }>();
   const [timeRange, setTimeRange] = useState<UsageTimeRange>(
-    UsageTimeRange.THREE_MONTHS,
+    UsageTimeRange.ONE_MONTH,
   );
   const [innerTab, setInnerTab] = useState<string>(
     UsageMetricsInnerTabId.OVERVIEW,
@@ -56,7 +55,6 @@ export default function UsageAndMetricsTabContent(): JSX.Element {
   const [customEnd, setCustomEnd] = useState<string>("");
   const [appliedCustomStart, setAppliedCustomStart] = useState<string>("");
   const [appliedCustomEnd, setAppliedCustomEnd] = useState<string>("");
-  const deploymentTabsScrollRef = useRef<HTMLDivElement | null>(null);
 
   const dateRange = useMemo(
     () => resolveUsagePresetDateRange(timeRange),
@@ -126,23 +124,7 @@ export default function UsageAndMetricsTabContent(): JSX.Element {
   const handleCancelCustom = () => {
     setCustomStart(appliedCustomStart);
     setCustomEnd(appliedCustomEnd);
-    setTimeRange(UsageTimeRange.THREE_MONTHS);
-  };
-
-  const handleScrollDeploymentTabs = (direction: "left" | "right") => {
-    const scrollContainer = deploymentTabsScrollRef.current;
-    if (!scrollContainer) {
-      return;
-    }
-    const scrollOffset = Math.max(220, Math.floor(scrollContainer.clientWidth * 0.6));
-    const nextScrollLeft =
-      direction === "left"
-        ? scrollContainer.scrollLeft - scrollOffset
-        : scrollContainer.scrollLeft + scrollOffset;
-    scrollContainer.scrollTo({
-      left: nextScrollLeft,
-      behavior: "smooth",
-    });
+    setTimeRange(UsageTimeRange.ONE_MONTH);
   };
 
   const timeRangeSelector = (
@@ -206,56 +188,24 @@ export default function UsageAndMetricsTabContent(): JSX.Element {
           <Box
             sx={{
               flex: 1,
-              width: "100%",
               minWidth: 0,
-              display: "flex",
-              alignItems: "center",
-              gap: 0,
-              maxWidth: { xs: "72%", md: "78%" },
+              maxWidth: "100%",
+              overflowX: "auto",
+              overflowY: "hidden",
+              scrollbarWidth: "none",
+              "&::-webkit-scrollbar": { display: "none" },
             }}
           >
-            {deploymentTabs.length > 0 && (
-              <IconButton
-                size="small"
-                onClick={() => handleScrollDeploymentTabs("left")}
-                aria-label="Scroll deployment tabs left"
-                sx={{ flexShrink: 0 }}
-              >
-                <ChevronLeft size={16} />
-              </IconButton>
-            )}
-            <Box
-              ref={deploymentTabsScrollRef}
-              sx={{
-                flex: 1,
-                minWidth: 0,
-                overflowX: "auto",
-                overflowY: "hidden",
-                scrollbarWidth: "none",
-                "&::-webkit-scrollbar": { display: "none" },
-              }}
-            >
-              <Box sx={{ width: "max-content", minWidth: "100%" }}>
-                <TabBar
-                  tabs={deploymentTabs}
-                  activeTab={innerTab}
-                  onTabChange={setInnerTab}
-                  keepButtonWidth={true}
-                  compact={true}
-                  sx={{ mb: 0, border: "none", boxShadow: "none" }}
-                />
-              </Box>
+            <Box sx={{ width: "max-content", minWidth: "100%" }}>
+              <TabBar
+                tabs={deploymentTabs}
+                activeTab={innerTab}
+                onTabChange={setInnerTab}
+                keepButtonWidth={true}
+                compact={true}
+                sx={{ mb: 0, border: "none", boxShadow: "none" }}
+              />
             </Box>
-            {deploymentTabs.length > 0 && (
-              <IconButton
-                size="small"
-                onClick={() => handleScrollDeploymentTabs("right")}
-                aria-label="Scroll deployment tabs right"
-                sx={{ flexShrink: 0 }}
-              >
-                <ChevronRight size={16} />
-              </IconButton>
-            )}
           </Box>
         </Box>
       </Box>

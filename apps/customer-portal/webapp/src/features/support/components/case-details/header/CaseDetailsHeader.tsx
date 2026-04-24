@@ -40,6 +40,7 @@ import { CaseDetailsHeaderSkeleton } from "@case-details/CaseDetailsSkeleton";
  * @returns {JSX.Element} The header block.
  */
 export default function CaseDetailsHeader({
+  wso2CaseId,
   caseNumber,
   title,
   severityLabel,
@@ -84,6 +85,14 @@ export default function CaseDetailsHeader({
         alignItems="center"
         sx={{ mb: 0.5, flexWrap: "wrap" }}
       >
+        {wso2CaseId ? (
+          <>
+            <Typography variant="body2" color="text.secondary">
+              {formatValue(wso2CaseId)}
+            </Typography>
+            <Divider orientation="vertical" flexItem />
+          </>
+        ) : null}
         <Typography variant="body2" fontWeight={500} color="text.primary">
           {formatValue(caseNumber)}
         </Typography>

@@ -18,6 +18,7 @@ import { useState, useMemo, type JSX } from "react";
 import {
   Box,
   Button,
+  Divider,
   Paper,
   Stack,
   Typography,
@@ -299,6 +300,10 @@ export default function ServiceRequestDetailContent({
             alignItems="center"
             sx={{ flexWrap: "wrap" }}
           >
+            <Typography variant="body2" color="text.secondary">
+              WSO2 Case ID: {data?.internalId ?? "--"}
+            </Typography>
+            <Divider orientation="vertical" flexItem />
             <Typography variant="body2" fontWeight={600} color="text.primary">
               {data?.number ?? "--"}
             </Typography>

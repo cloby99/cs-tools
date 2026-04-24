@@ -121,6 +121,30 @@ function getCreateServiceRequestValidationError(params: {
   return null;
 }
 
+function getServiceRequestTitleLengthError(
+  variables: Array<{ id: string; questionText?: string }> | undefined,
+  variableValues: Record<string, string>,
+): string | null {
+  if (!variables?.length) {
+    return null;
+  }
+  const titleField = variables.find(
+    (variable) =>
+      (variable.questionText ?? "")
+        .replace(/^\s*\*?\s*/, "")
+        .trim()
+        .toLowerCase() === "title",
+  );
+  if (!titleField) {
+    return null;
+  }
+  const plainTitle = htmlToPlainText(variableValues[titleField.id] ?? "").trim();
+  if (plainTitle.length > 160) {
+    return "Title must be 160 characters or fewer.";
+  }
+  return null;
+}
+
 function getCanSubmitServiceRequest(params: {
   projectId: string | undefined;
   selectedDeploymentId: string;
@@ -462,6 +486,10 @@ export default function CreateServiceRequestPage(): JSX.Element {
       contextValues,
       variableValues,
     );
+    const titleLengthError = getServiceRequestTitleLengthError(
+      variables,
+      variableValues,
+    );
 
     const validationError = getCreateServiceRequestValidationError({
       projectId,
@@ -473,6 +501,9 @@ export default function CreateServiceRequestPage(): JSX.Element {
     });
     if (validationError) {
       showError(validationError);
+      return;
+    }
+    if (titleLengthError) {
       return;
     }
     if (!projectId || !deploymentMatch) {

@@ -28,7 +28,7 @@ import {
   type ChangeEvent,
 } from "react";
 import { useSessionState } from "@hooks/useSessionState";
-import { Stack } from "@wso2/oxygen-ui";
+import { Divider, Stack } from "@wso2/oxygen-ui";
 import { useLoader } from "@context/linear-loader/LoaderContext";
 import useGetProjectFilters from "@api/useGetProjectFilters";
 import { useSearchConversations } from "@features/support/api/useSearchConversations";
@@ -70,13 +70,45 @@ export default function AllConversationsPage(): JSX.Element {
       : null;
 
   const sessionPrefix = `${projectId ?? "unknown"}-conversations`;
-  const [searchTerm, setSearchTerm] = useSessionState(`${sessionPrefix}-search`, "", undefined, { popOnly: true });
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [filters, setFilters] = useSessionState<AllConversationsFilterValues>(`${sessionPrefix}-filters`, {}, undefined, { popOnly: true });
-  const [sortField, setSortField] = useSessionState<"createdOn" | "updatedOn">(`${sessionPrefix}-sortField`, "updatedOn", undefined, { popOnly: true });
-  const [sortOrder, setSortOrder] = useSessionState<SortOrder>(`${sessionPrefix}-sortOrder`, SortOrder.DESC, undefined, { popOnly: true });
-  const [page, setPage] = useSessionState<number>(`${sessionPrefix}-page`, 1, undefined, { popOnly: true });
-  const [rowsPerPage, setRowsPerPage] = useSessionState<number>(`${sessionPrefix}-rowsPerPage`, 10, undefined, { popOnly: true });
+  const [searchTerm, setSearchTerm] = useSessionState(
+    `${sessionPrefix}-search`,
+    "",
+    undefined,
+    { popOnly: true },
+  );
+  const [filters, setFilters] = useSessionState<AllConversationsFilterValues>(
+    `${sessionPrefix}-filters`,
+    {},
+    undefined,
+    { popOnly: true },
+  );
+  const [isFiltersOpen, setIsFiltersOpen] = useState(
+    () => hasListSearchOrFilters(searchTerm, filters),
+  );
+  const [sortField, setSortField] = useSessionState<"createdOn" | "updatedOn">(
+    `${sessionPrefix}-sortField`,
+    "updatedOn",
+    undefined,
+    { popOnly: true },
+  );
+  const [sortOrder, setSortOrder] = useSessionState<SortOrder>(
+    `${sessionPrefix}-sortOrder`,
+    SortOrder.DESC,
+    undefined,
+    { popOnly: true },
+  );
+  const [page, setPage] = useSessionState<number>(
+    `${sessionPrefix}-page`,
+    1,
+    undefined,
+    { popOnly: true },
+  );
+  const [rowsPerPage, setRowsPerPage] = useSessionState<number>(
+    `${sessionPrefix}-rowsPerPage`,
+    10,
+    undefined,
+    { popOnly: true },
+  );
 
   const { data: filterMetadata } = useGetProjectFilters(projectId || "");
 
@@ -89,11 +121,7 @@ export default function AllConversationsPage(): JSX.Element {
     }
     if (statusFilter === "resolvedViaChat") {
       return filterMetadata.conversationStates
-        .filter(
-          (s) =>
-            s.label === ConversationStatus.RESOLVED ||
-            s.label === ConversationStatus.CONVERTED,
-        )
+        .filter((s) => s.label === ConversationStatus.RESOLVED)
         .map((s) => Number(s.id));
     }
     return undefined;
@@ -218,7 +246,7 @@ export default function AllConversationsPage(): JSX.Element {
           statusFilter === "active"
             ? "Active Chats"
             : statusFilter === "resolvedViaChat"
-              ? "Resolved via Chat"
+              ? "Resolved via Chat Last 30d"
               : createdByMe
                 ? "My Chat History"
                 : "All Chat History"
@@ -227,7 +255,7 @@ export default function AllConversationsPage(): JSX.Element {
           statusFilter === "active"
             ? "Conversations currently in progress"
             : statusFilter === "resolvedViaChat"
-              ? "Conversations that were resolved or converted to cases"
+              ? "Conversations that were resolved via chat during the last 30 days"
               : createdByMe
                 ? "Browse and search your conversation history with Novera"
                 : "Browse and search your complete conversation history with Novera"
@@ -236,44 +264,36 @@ export default function AllConversationsPage(): JSX.Element {
         onBack={() => (returnTo ? navigate(returnTo) : navigate(".."))}
       />
 
-      <ListSearchBar
-        searchPlaceholder="Search chats by message, ID, or category..."
-        searchTerm={searchTerm}
-        onSearchChange={handleSearchChange}
-        isFiltersOpen={isFiltersOpen}
-        onFiltersToggle={() => setIsFiltersOpen(!isFiltersOpen)}
-        activeFiltersCount={countListSearchAndFilters(searchTerm, filters)}
-        onClearFilters={handleClearFilters}
-        hideFiltersButton={statusFilter === "active"}
-        filtersContent={
-          <ListFiltersPanel
-            filterDefinitions={ALL_CONVERSATIONS_FILTER_DEFINITIONS}
-            filters={filters}
-            resolveOptions={(def) => {
-              const raw = (
-                filterMetadata as CaseMetadataResponse | undefined
-              )?.[def.metadataKey as keyof CaseMetadataResponse];
-              if (!Array.isArray(raw)) return [];
-              const options = raw.map((item: { label: string; id: string }) => ({
-                label: item.label,
-                value: item.id,
-              }));
-              if (
-                statusFilter === "resolvedViaChat" &&
-                def.filterKey === "stateId"
-              ) {
-                return options.filter(
-                  (option) =>
-                    option.label === ConversationStatus.RESOLVED ||
-                    option.label === ConversationStatus.CONVERTED,
-                );
-              }
-              return options;
-            }}
-            onFilterChange={handleFilterChange}
-          />
-        }
-      />
+      {statusFilter ? (
+        <Divider />
+      ) : (
+        <ListSearchBar
+          searchPlaceholder="Search chats by message, ID, or category..."
+          searchTerm={searchTerm}
+          onSearchChange={handleSearchChange}
+          isFiltersOpen={isFiltersOpen}
+          onFiltersToggle={() => setIsFiltersOpen(!isFiltersOpen)}
+          activeFiltersCount={countListSearchAndFilters(searchTerm, filters)}
+          onClearFilters={handleClearFilters}
+          filtersContent={
+            <ListFiltersPanel
+              filterDefinitions={ALL_CONVERSATIONS_FILTER_DEFINITIONS}
+              filters={filters}
+              resolveOptions={(def) => {
+                const raw = (
+                  filterMetadata as CaseMetadataResponse | undefined
+                )?.[def.metadataKey as keyof CaseMetadataResponse];
+                if (!Array.isArray(raw)) return [];
+                return raw.map((item: { label: string; id: string }) => ({
+                  label: item.label,
+                  value: item.id,
+                }));
+              }}
+              onFilterChange={handleFilterChange}
+            />
+          }
+        />
+      )}
 
       <ListResultsBar
         shownCount={conversations.length}

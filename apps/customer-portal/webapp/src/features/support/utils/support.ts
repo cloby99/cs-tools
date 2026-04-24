@@ -745,10 +745,7 @@ export function resolveColorFromTheme(path: string, theme: Theme): string {
 export function formatRelativeTime(date: string | Date | undefined): string {
   if (!date) return "--";
 
-  const d =
-    typeof date === "string"
-      ? parseBackendTimestamp(date)
-      : date;
+  const d = typeof date === "string" ? parseBackendTimestamp(date) : date;
   if (!d) return "--";
   if (isNaN(d.getTime())) return "--";
 
@@ -980,19 +977,19 @@ export function getSeverityColor(label?: string): string {
 export function getStatusColor(label?: string): string {
   switch (label) {
     case CaseStatus.OPEN:
-      return colors.blue[500];
+      return colors.lightBlue[500];
     case CaseStatus.WORK_IN_PROGRESS:
-      return colors.orange[500];
-    case CaseStatus.AWAITING_INFO:
-      return colors.grey[500];
-    case CaseStatus.WAITING_ON_WSO2:
       return colors.green[500];
+    case CaseStatus.AWAITING_INFO:
+      return colors.orange[500];
+    case CaseStatus.WAITING_ON_WSO2:
+      return colors.yellow[500];
     case CaseStatus.SOLUTION_PROPOSED:
-      return colors.yellow[900];
+      return colors.purple[900];
     case CaseStatus.CLOSED:
-      return colors.red[500];
+      return colors.grey[500];
     case CaseStatus.REOPENED:
-      return colors.purple[500];
+      return colors.pink[500];
     default:
       return colors.grey[500];
   }

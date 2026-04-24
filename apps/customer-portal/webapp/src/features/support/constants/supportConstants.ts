@@ -180,10 +180,10 @@ export const CaseType = {
 export type CaseType = (typeof CaseType)[keyof typeof CaseType];
 
 // Maximum allowed attachment file size in bytes.
-export const MAX_ATTACHMENT_SIZE_BYTES = 15 * 1024 * 1024;
+export const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
 
-// Maximum allowed embedded image size in bytes (15MB for base64 images in rich text).
-export const MAX_IMAGE_SIZE_BYTES = 15 * 1024 * 1024;
+// Maximum allowed embedded image size in bytes (10MB for base64 images in rich text).
+export const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
 // Initial limit for case attachments list.
 export const CASE_ATTACHMENTS_INITIAL_LIMIT = 50;
@@ -580,10 +580,10 @@ export const OPERATIONS_STAT_CONFIGS: SupportStatConfig<OperationsStatKey>[] = [
     label: "Outstanding Service Requests",
   },
   {
-    icon: CircleCheck,
-    iconColor: "success",
+    icon: TriangleAlert,
+    iconColor: "warning",
     key: "actionRequiredChangeRequests",
-    label: "Action Required Change Requests",
+    label: "Action Required Changes",
   },
   {
     icon: Calendar,

@@ -258,6 +258,9 @@ export default function CaseDetailsAttachmentsPanel({
       <UploadAttachmentModal
         open={uploadOpen}
         caseId={caseId}
+        onSuccess={() => {
+          window.location.reload();
+        }}
         onClose={() => setUploadOpen(false)}
       />
 
