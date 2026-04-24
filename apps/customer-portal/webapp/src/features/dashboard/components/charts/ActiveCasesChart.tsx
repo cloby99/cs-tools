@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Card, Typography, Box, Skeleton, colors, alpha } from "@wso2/oxygen-ui";
+import { Card, Typography, Box, Skeleton, colors, alpha, useTheme } from "@wso2/oxygen-ui";
 import { Inbox } from "@wso2/oxygen-ui-icons-react";
 import {
   PieChart,
@@ -64,6 +64,7 @@ export const ActiveCasesChart = ({
   onSliceClick,
 }: ActiveCasesChartProps): JSX.Element => {
   const isDarkMode = useDarkMode();
+  const theme = useTheme();
   // safe data
   const safeData = data ?? EMPTY_ACTIVE_CASES_DATA;
   // series config
@@ -147,7 +148,15 @@ export const ActiveCasesChart = ({
               opacity: isError ? 0.3 : 1,
               filter: isError ? "grayscale(1)" : "none",
               "& *:focus": { outline: "none" },
-              ...(onSliceClick && !isError && { "& .recharts-pie-sector": { cursor: "pointer" } }),
+              ...(onSliceClick && !isError && {
+                "& .recharts-pie-sector": { cursor: "pointer" },
+                cursor: "pointer",
+                transition: "box-shadow 0.2s ease, transform 0.15s ease",
+                "&:hover": {
+                  boxShadow: `0 0 0 1px ${theme.palette.primary.main}, 0 4px 16px rgba(0,0,0,0.12)`,
+                  transform: "translateY(-2px)",
+                },
+              }),
             }}
           >
             <ResponsiveContainer width="100%" height="100%">
