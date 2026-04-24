@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Card, Typography, Box, Skeleton, colors, alpha, useTheme } from "@wso2/oxygen-ui";
+import { Card, Typography, Box, Skeleton, colors, alpha } from "@wso2/oxygen-ui";
 import { Inbox } from "@wso2/oxygen-ui-icons-react";
 import {
   PieChart,
@@ -22,7 +22,7 @@ import {
   Cell,
   ResponsiveContainer,
 } from "@wso2/oxygen-ui-charts-react";
-import { useMemo, type JSX } from "react";
+import { useMemo, useState, type JSX } from "react";
 import ErrorIndicator from "@components/error-indicator/ErrorIndicator";
 import { ChartLegend } from "@features/dashboard/components/charts/ChartLegend";
 import {
@@ -64,7 +64,7 @@ export const ActiveCasesChart = ({
   onSliceClick,
 }: ActiveCasesChartProps): JSX.Element => {
   const isDarkMode = useDarkMode();
-  const theme = useTheme();
+  const [activePieIndex, setActivePieIndex] = useState<number | undefined>(undefined);
   // safe data
   const safeData = data ?? EMPTY_ACTIVE_CASES_DATA;
   // series config
@@ -150,11 +150,6 @@ export const ActiveCasesChart = ({
               "& *:focus": { outline: "none" },
               ...(onSliceClick && !isError && {
                 "& .recharts-pie-sector": { cursor: "pointer" },
-                "& .recharts-pie-sector:hover path": {
-                  stroke: theme.palette.primary.main,
-                  strokeWidth: 2,
-                  filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.18))",
-                },
               }),
             }}
           >
@@ -174,6 +169,12 @@ export const ActiveCasesChart = ({
                   endAngle={-270}
                   label={false}
                   labelLine={false}
+                  onMouseEnter={
+                    onSliceClick && !isError
+                      ? (_data: unknown, index: number) => setActivePieIndex(index)
+                      : undefined
+                  }
+                  onMouseLeave={onSliceClick && !isError ? () => setActivePieIndex(undefined) : undefined}
                   onClick={
                     onSliceClick && !isError
                       ? (_data, index) => {
@@ -184,7 +185,13 @@ export const ActiveCasesChart = ({
                   }
                 >
                   {displayChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} stroke="none" opacity={isDarkMode ? DASHBOARD_CHART_DARK_MODE_OPACITY : 1} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.color}
+                      stroke={activePieIndex === index ? entry.color : "none"}
+                      strokeWidth={activePieIndex === index ? 3 : 0}
+                      opacity={isDarkMode ? DASHBOARD_CHART_DARK_MODE_OPACITY : 1}
+                    />
                   ))}
                 </Pie>
               </PieChart>

@@ -41,7 +41,11 @@ function shouldRetry(failureCount: number, error: Error): boolean {
   }
 
   // Check if error has a status code property
-  const statusCode = (error as any)?.response?.status || (error as any)?.status;
+  const errorWithStatus = error as Error & {
+    response?: { status?: number };
+    status?: number;
+  };
+  const statusCode = errorWithStatus.response?.status || errorWithStatus.status;
 
   // Only retry on 502 (Bad Gateway) and 503 (Service Unavailable)
   return statusCode === 502 || statusCode === 503;

@@ -83,6 +83,7 @@ export default function App(): JSX.Element {
                   <Route index element={<DashboardPage />} />
                   <Route path="action-required" element={<DashboardItemsPage mode="action-required" />} />
                   <Route path="outstanding-interactions" element={<DashboardItemsPage mode="outstanding-interactions" />} />
+                  <Route path="closed-last-30d" element={<DashboardItemsPage mode="closed-last-30d" />} />
                 </Route>
                 {/* Project Details */}
                 <Route path="project-details" element={<ProjectDetailsPage />} />
