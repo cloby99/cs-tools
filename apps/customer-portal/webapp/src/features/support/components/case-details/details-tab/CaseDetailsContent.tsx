@@ -150,6 +150,8 @@ export default function CaseDetailsContent({
   const hideCallsTab = isSecurityReportAnalysis || !isCallSchedulingAllowed;
   const hideKnowledgeBaseTab =
     isSecurityReportAnalysis || isEngagementRoute || isServiceRequest;
+  const hideRelatedChangeRequestsTab =
+    !isServiceRequest || !data?.changeRequests?.length;
 
   // Eagerly fetch KB recommendations so the tab count is available on page load.
   // React Query deduplicates the network call when the KB tab component mounts later.
@@ -176,8 +178,9 @@ export default function CaseDetailsContent({
       2,
       ...(hideCallsTab ? [] : [3]),
       ...(hideKnowledgeBaseTab ? [] : [4]),
+      ...(hideRelatedChangeRequestsTab ? [] : [5]),
     ],
-    [hideCallsTab, hideKnowledgeBaseTab],
+    [hideCallsTab, hideKnowledgeBaseTab, hideRelatedChangeRequestsTab],
   );
   const clampedActiveTab = Math.min(
     activeTab,
@@ -341,6 +344,7 @@ export default function CaseDetailsContent({
           hideKnowledgeBaseTab={hideKnowledgeBaseTab}
           knowledgeBaseCount={knowledgeBaseCount}
           knowledgeBaseCountLoading={knowledgeBaseCountLoading}
+          hideRelatedChangeRequestsTab={hideRelatedChangeRequestsTab}
         />
       </Paper>
 

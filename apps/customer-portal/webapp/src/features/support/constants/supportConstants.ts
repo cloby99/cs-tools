@@ -19,7 +19,6 @@ import {
   BookOpen,
   Bot,
   Calendar,
-  CalendarDays,
   CircleAlert,
   CircleCheck,
   CirclePause,
@@ -27,16 +26,17 @@ import {
   CircleX,
   Clock,
   FileText,
+  GitBranch,
   Info,
   MessageCircle,
   MessageSquare,
   Paperclip,
   Phone,
-  Server,
   TriangleAlert,
   RotateCcw,
   XCircle,
   FileCheck,
+  AlertCircle,
 } from "@wso2/oxygen-ui-icons-react";
 import type { ProjectCasesStats } from "@features/support/types/cases";
 import type {
@@ -309,6 +309,7 @@ export const CASE_DETAILS_TABS: CaseDetailsTabConfig[] = [
   { label: "Attachments (0)", Icon: Paperclip },
   { label: "Calls (0)", Icon: Phone },
   { label: "Knowledge Base (0)", Icon: BookOpen },
+  { label: "Related Change Requests", Icon: GitBranch },
 ];
 
 // Case status actions shown in the case details action row. Close button last.
@@ -567,13 +568,13 @@ export type OperationsStatKey =
  */
 export const OPERATIONS_STAT_CONFIGS: SupportStatConfig<OperationsStatKey>[] = [
   {
-    icon: Server,
+    icon: AlertCircle,
     iconColor: "info",
     key: "actionRequiredServiceRequests",
     label: "Action Required Service Requests",
   },
   {
-    icon: CalendarDays,
+    icon: Clock,
     iconColor: "primary",
     key: "outstandingServiceRequests",
     label: "Outstanding Service Requests",

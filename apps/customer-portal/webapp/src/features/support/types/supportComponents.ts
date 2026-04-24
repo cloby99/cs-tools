@@ -393,6 +393,7 @@ export type CaseDetailsTabsProps = {
   hideKnowledgeBaseTab?: boolean;
   knowledgeBaseCount?: number;
   knowledgeBaseCountLoading?: boolean;
+  hideRelatedChangeRequestsTab?: boolean;
 };
 
 export type CaseDetailsTabPanelsProps = {
@@ -437,6 +438,7 @@ export type CasesOverviewStatCardProps = {
   isLoading: boolean;
   isError?: boolean;
   stats: ProjectSupportStats | undefined;
+  onStatClick?: (key: keyof ProjectSupportStats) => void;
 };
 
 export type ChatHistoryListProps = {

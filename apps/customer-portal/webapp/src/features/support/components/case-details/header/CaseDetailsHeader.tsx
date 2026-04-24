@@ -15,7 +15,15 @@
 // under the License.
 
 import type { CaseDetailsHeaderProps } from "@features/support/types/supportComponents";
-import { Box, Chip, Divider, Stack, Tooltip, Typography, alpha } from "@wso2/oxygen-ui";
+import {
+  Box,
+  Chip,
+  Divider,
+  Stack,
+  Tooltip,
+  Typography,
+  alpha,
+} from "@wso2/oxygen-ui";
 import { useEffect, useRef, useState, type JSX } from "react";
 import { getSeverityLegendColor } from "@features/dashboard/utils/dashboard";
 import {
@@ -70,7 +78,12 @@ export default function CaseDetailsHeader({
 
   return (
     <Box>
-      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 0.5, flexWrap: "wrap" }}>
+      <Stack
+        direction="row"
+        spacing={1.5}
+        alignItems="center"
+        sx={{ mb: 0.5, flexWrap: "wrap" }}
+      >
         <Typography variant="body2" fontWeight={500} color="text.primary">
           {formatValue(caseNumber)}
         </Typography>
@@ -120,7 +133,7 @@ export default function CaseDetailsHeader({
           <>
             <Divider orientation="vertical" flexItem />
             <Typography variant="caption" color="text.secondary">
-              Support Engineer to: {assignedEngineerLabel}
+              Assigned to: {assignedEngineerLabel}
             </Typography>
           </>
         ) : null}

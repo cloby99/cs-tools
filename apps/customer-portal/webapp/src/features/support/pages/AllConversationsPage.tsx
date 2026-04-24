@@ -48,6 +48,7 @@ import {
   hasListSearchOrFilters,
   countListSearchAndFilters,
 } from "@features/support/utils/support";
+import { ConversationStatus } from "@features/support/constants/supportConstants";
 import { SortOrder } from "@/types/common";
 
 /**
@@ -62,6 +63,11 @@ export default function AllConversationsPage(): JSX.Element {
   const { projectId } = useParams<{ projectId: string }>();
   const [searchParams] = useSearchParams();
   const createdByMe = searchParams.get("createdByMe") === "true";
+  const rawStatusFilter = searchParams.get("statusFilter");
+  const statusFilter: "active" | "resolvedViaChat" | null =
+    rawStatusFilter === "active" || rawStatusFilter === "resolvedViaChat"
+      ? rawStatusFilter
+      : null;
 
   const sessionPrefix = `${projectId ?? "unknown"}-conversations`;
   const [searchTerm, setSearchTerm] = useSessionState(`${sessionPrefix}-search`, "", undefined, { popOnly: true });
@@ -74,11 +80,32 @@ export default function AllConversationsPage(): JSX.Element {
 
   const { data: filterMetadata } = useGetProjectFilters(projectId || "");
 
+  const fixedStateKeys = useMemo<number[] | undefined>(() => {
+    if (!statusFilter || !filterMetadata?.conversationStates) return undefined;
+    if (statusFilter === "active") {
+      return filterMetadata.conversationStates
+        .filter((s) => s.label === ConversationStatus.ACTIVE)
+        .map((s) => Number(s.id));
+    }
+    if (statusFilter === "resolvedViaChat") {
+      return filterMetadata.conversationStates
+        .filter(
+          (s) =>
+            s.label === ConversationStatus.RESOLVED ||
+            s.label === ConversationStatus.CONVERTED,
+        )
+        .map((s) => Number(s.id));
+    }
+    return undefined;
+  }, [statusFilter, filterMetadata?.conversationStates]);
+
   const searchRequest = useMemo(
     () => ({
       filters: {
         searchQuery: searchTerm.trim() || undefined,
-        stateKeys: filters.stateId ? [Number(filters.stateId)] : undefined,
+        stateKeys:
+          fixedStateKeys ??
+          (filters.stateId ? [Number(filters.stateId)] : undefined),
         createdByMe: createdByMe || undefined,
       },
       pagination: {
@@ -91,6 +118,7 @@ export default function AllConversationsPage(): JSX.Element {
       },
     }),
     [
+      fixedStateKeys,
       searchTerm,
       filters.stateId,
       page,
@@ -186,11 +214,23 @@ export default function AllConversationsPage(): JSX.Element {
   return (
     <Stack spacing={3}>
       <ListPageHeader
-        title={createdByMe ? "My Chat History" : "All Chat History"}
+        title={
+          statusFilter === "active"
+            ? "Active Chats"
+            : statusFilter === "resolvedViaChat"
+              ? "Resolved via Chat"
+              : createdByMe
+                ? "My Chat History"
+                : "All Chat History"
+        }
         description={
-          createdByMe
-            ? "Browse and search your conversation history with Novera"
-            : "Browse and search your complete conversation history with Novera"
+          statusFilter === "active"
+            ? "Conversations currently in progress"
+            : statusFilter === "resolvedViaChat"
+              ? "Conversations that were resolved or converted to cases"
+              : createdByMe
+                ? "Browse and search your conversation history with Novera"
+                : "Browse and search your complete conversation history with Novera"
         }
         backLabel="Back to Support Center"
         onBack={() => (returnTo ? navigate(returnTo) : navigate(".."))}

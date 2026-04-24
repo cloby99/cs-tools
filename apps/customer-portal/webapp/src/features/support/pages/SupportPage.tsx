@@ -132,6 +132,24 @@ export default function SupportPage(): JSX.Element {
 
   const isActuallyLoading = isAuthLoading || isLoading || (!stats && !isError);
 
+  const handleStatClick = (key: string) => {
+    const path = supportPath;
+    switch (key) {
+      case "ongoingCases":
+        navigate("cases?statusFilter=active", { state: { returnTo: path } });
+        break;
+      case "activeChats":
+        navigate("conversations?statusFilter=active", { state: { returnTo: path } });
+        break;
+      case "resolvedPast30DaysCasesCount":
+        navigate("cases?statusFilter=resolved", { state: { returnTo: path } });
+        break;
+      case "resolvedChats":
+        navigate("conversations?statusFilter=resolvedViaChat", { state: { returnTo: path } });
+        break;
+    }
+  };
+
   useEffect(() => {
     if (isError) {
       logger.error(`Failed to load support stats for project: ${projectId}`);
@@ -150,6 +168,7 @@ export default function SupportPage(): JSX.Element {
         isLoading={isActuallyLoading}
         isError={isError}
         stats={stats}
+        onStatClick={handleStatClick}
       />
       <Grid
         container

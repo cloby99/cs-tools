@@ -312,15 +312,19 @@ export default function AllCasesPage(): JSX.Element {
             if (dashboardDescription) {
               return dashboardDescription;
             }
+            if (statusFilter === "active") return "Cases that are currently in progress";
+            if (statusFilter === "resolved") return "Cases that have been resolved";
             return createdByMe
               ? "Manage and track your support cases"
               : "Manage and track all your support cases";
           })()
         }
         backLabel={
-          returnTo && (initialSeverityId || statusFilter !== null)
-            ? "Back to Dashboard"
-            : "Back to Support Center"
+          returnTo?.endsWith("/support")
+            ? "Back to Support Center"
+            : returnTo && (initialSeverityId || statusFilter !== null)
+              ? "Back to Dashboard"
+              : "Back to Support Center"
         }
         onBack={() => {
           if (returnTo) {
