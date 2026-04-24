@@ -128,8 +128,6 @@ public type Project record {|
     int activeChatsCount;
     # SLA status (e.g., "Needs Attention")
     string slaStatus;
-    # Action required case count
-    int actionRequiredCount;
     json...;
 |};
 
