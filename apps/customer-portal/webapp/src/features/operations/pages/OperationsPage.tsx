@@ -457,7 +457,7 @@ export default function OperationsPage(): JSX.Element {
                           onClick={() =>
                             navigate(
                               `/projects/${projectId}/operations/change-requests`,
-                              { state: { returnTo: operationsPath, outstandingOnly: true } },
+                              { state: { returnTo: operationsPath } },
                             )
                           }
                           endIcon={<ArrowRight size={16} />}

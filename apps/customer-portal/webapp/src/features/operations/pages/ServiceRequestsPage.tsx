@@ -29,7 +29,7 @@ import {
 } from "react";
 import { useSessionState } from "@hooks/useSessionState";
 import { useLoader } from "@context/linear-loader/LoaderContext";
-import { Box, Button, Stack, Typography } from "@wso2/oxygen-ui";
+import { Box, Button, Divider, Stack, Typography } from "@wso2/oxygen-ui";
 import { ArrowLeft, Plus } from "@wso2/oxygen-ui-icons-react";
 import useGetProjectDetails from "@api/useGetProjectDetails";
 import useGetProjectFeatures from "@api/useGetProjectFeatures";
@@ -97,8 +97,10 @@ export default function ServiceRequestsPage(): JSX.Element {
   const listMode = createdByMe ? "mine" : "all";
   const sessionPrefix = `${projectId ?? "unknown"}-service-requests-${listMode}`;
   const [searchTerm, setSearchTerm] = useSessionState(`${sessionPrefix}-search`, "", undefined, { popOnly: true });
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filters, setFilters] = useSessionState<AllCasesFilterValues>(`${sessionPrefix}-filters`, {}, undefined, { popOnly: true });
+  const [isFiltersOpen, setIsFiltersOpen] = useState(
+    () => hasListSearchOrFilters(searchTerm, filters),
+  );
   const [sortField, setSortField] = useSessionState<ServiceRequestCaseSortField>(`${sessionPrefix}-sortField`, ServiceRequestCaseSortField.CreatedOn, undefined, { popOnly: true });
   const [sortOrder, setSortOrder] = useSessionState<SortOrder>(`${sessionPrefix}-sortOrder`, SortOrder.DESC, undefined, { popOnly: true });
   const [page, setPage] = useSessionState<number>(`${sessionPrefix}-page`, 1, undefined, { popOnly: true });
@@ -378,38 +380,41 @@ export default function ServiceRequestsPage(): JSX.Element {
         actions={newRequestButton}
       />
 
-      <ListSearchPanel
-        searchTerm={searchTerm}
-        searchPlaceholder={SERVICE_REQUESTS_SEARCH_PLACEHOLDER}
-        onSearchChange={handleSearchChange}
-        isFiltersOpen={isFiltersOpen}
-        onFiltersToggle={() => setIsFiltersOpen(!isFiltersOpen)}
-        filters={filters}
-        filterMetadata={filterMetadata}
-        deployments={
-          projectDetailsReady && permissions.hasDeployments
-            ? deploymentsList
-            : []
-        }
-        onLoadMoreDeployments={() => {
-          if (
-            deploymentsQuery.hasNextPage &&
-            !deploymentsQuery.isFetchingNextPage
-          ) {
-            void deploymentsQuery.fetchNextPage();
+      {outstandingOnly || actionRequired ? (
+        <Divider />
+      ) : (
+        <ListSearchPanel
+          searchTerm={searchTerm}
+          searchPlaceholder={SERVICE_REQUESTS_SEARCH_PLACEHOLDER}
+          onSearchChange={handleSearchChange}
+          isFiltersOpen={isFiltersOpen}
+          onFiltersToggle={() => setIsFiltersOpen(!isFiltersOpen)}
+          filters={filters}
+          filterMetadata={filterMetadata}
+          deployments={
+            projectDetailsReady && permissions.hasDeployments
+              ? deploymentsList
+              : []
           }
-        }}
-        hasMoreDeployments={!!deploymentsQuery.hasNextPage}
-        isFetchingMoreDeployments={deploymentsQuery.isFetchingNextPage}
-        onFilterChange={handleFilterChange}
-        onClearFilters={handleClearFilters}
-        excludeS0={excludeS0}
-        restrictSeverityToLow={restrictSeverityToLow}
-        hideStatusFilter={outstandingOnly || actionRequired}
-        hideSeverityFilter
-        hideDeploymentFilter={!permissions.hasDeployments}
-        isProjectContextLoading={isProjectContextLoading}
-      />
+          onLoadMoreDeployments={() => {
+            if (
+              deploymentsQuery.hasNextPage &&
+              !deploymentsQuery.isFetchingNextPage
+            ) {
+              void deploymentsQuery.fetchNextPage();
+            }
+          }}
+          hasMoreDeployments={!!deploymentsQuery.hasNextPage}
+          isFetchingMoreDeployments={deploymentsQuery.isFetchingNextPage}
+          onFilterChange={handleFilterChange}
+          onClearFilters={handleClearFilters}
+          excludeS0={excludeS0}
+          restrictSeverityToLow={restrictSeverityToLow}
+          hideSeverityFilter
+          hideDeploymentFilter={!permissions.hasDeployments}
+          isProjectContextLoading={isProjectContextLoading}
+        />
+      )}
 
       <ListResultsBar
         shownCount={paginatedCases.length}

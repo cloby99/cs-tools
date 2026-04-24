@@ -63,10 +63,12 @@ export function getLastSelectedProjectId(): string | null {
 
 /**
  * Persists the last selected project id to localStorage.
+ * Only stores the id when it is exactly 32 characters (valid project id format).
  *
  * @param {string} projectId - The selected project id.
  */
 export function setLastSelectedProjectId(projectId: string): void {
+  if (projectId.length !== 32) return;
   try {
     localStorage.setItem(LAST_SELECTED_PROJECT_ID_KEY, projectId);
   } catch {

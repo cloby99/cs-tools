@@ -126,6 +126,8 @@ export default function CaseDetailsPage(): JSX.Element {
           description: data?.description ?? "",
           deploymentId: data?.deployment?.id,
           deploymentLabel: data?.deployment?.label,
+          deployedProductId: data?.deployedProduct?.id,
+          deployedProductLabel: data?.deployedProduct?.label,
         },
       },
     });

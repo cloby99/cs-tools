@@ -62,7 +62,7 @@ export default function SecurityStats({ onStatClick }: SecurityStatsProps): JSX.
         entityName={SECURITY_STATS_ENTITY_NAME}
         stats={stats}
         configs={SECURITY_STAT_CONFIGS}
-        itemSize={{ xs: 12, sm: 4, md: 4 }}
+        itemSize={{ xs: 12, sm: 6, md: 6 }}
         onStatClick={onStatClick}
       />
     </Box>
