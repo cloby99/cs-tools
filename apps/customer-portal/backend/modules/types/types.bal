@@ -189,6 +189,8 @@ public type ReferenceItem record {|
     string label;
     # Count
     int count?;
+    # WSO2 Internal ID
+    string? internalId?;
     # Number
     string? number?;
     # Abbreviation
@@ -361,6 +363,8 @@ public type Project record {|
     int activeCasesCount;
     # Active chats/conversations count
     int activeChatsCount;
+    # Action Required count
+    int actionRequiredCount;
     # SLA status (e.g., "Needs Attention")
     string slaStatus;
 |};

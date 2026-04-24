@@ -5474,6 +5474,10 @@ components:
           type: integer
           description: Count
           format: int64
+        internalId:
+          type: string
+          description: WSO2 Internal ID
+          nullable: true
         number:
           type: string
           description: Number

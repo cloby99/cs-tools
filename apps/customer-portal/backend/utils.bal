@@ -847,7 +847,7 @@ public isolated function mapChangeRequestResponse(entity:ChangeRequestResponse r
         createdOn: response.createdOn,
         updatedOn: response.updatedOn,
         project: project != () ? {id: project.id, label: project.name, number: project?.number} : (),
-        case: case != () ? {id: case.id, label: case.name, number: case?.number} : (),
+        case: case != () ? {id: case.id, label: case.name, number: case?.number, internalId: case?.internalId} : (),
         deployment: deployment != () ? {id: deployment.id, label: deployment.name, number: deployment?.number} : (),
         deployedProduct: deployedProduct != () ?
             {id: deployedProduct.id, label: deployedProduct.name, number: deployedProduct?.number} : (),
@@ -906,6 +906,7 @@ public isolated function mapProjectsResponse(entity:ProjectsResponse response) r
             closureState: project.closureState,
             'type: {id: project.'type.id, label: project.'type.name},
             hasPdpSubscription: project.hasPdpSubscription,
+            actionRequiredCount: project.actionRequiredCount,
             hasAgent: project.hasAgent,
             hasKbReferences: project.hasKbReferences,
             activeCasesCount: project.activeCasesCount,
