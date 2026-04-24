@@ -70,7 +70,6 @@ export function useResolvedInlineImageHtml(
     });
   }, [idsFromHtml, inlineAttachments]);
 
-  const { dataUrls, isLoading } = useAttachmentPreviews(attachmentIds);
   const { dataUrls, isLoading } = useAttachmentPreviews([]);
 
   const resolvedHtml = useMemo(() => {

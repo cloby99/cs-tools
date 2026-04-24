@@ -27,6 +27,7 @@ import {
   CircleX,
   Clock,
   FileText,
+  GitBranch,
   Info,
   MessageCircle,
   MessageSquare,
@@ -309,6 +310,7 @@ export const CASE_DETAILS_TABS: CaseDetailsTabConfig[] = [
   { label: "Attachments (0)", Icon: Paperclip },
   { label: "Calls (0)", Icon: Phone },
   { label: "Knowledge Base (0)", Icon: BookOpen },
+  { label: "Related Change Requests", Icon: GitBranch },
 ];
 
 // Case status actions shown in the case details action row. Close button last.
