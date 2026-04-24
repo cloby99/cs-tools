@@ -357,15 +357,15 @@ export default function ServiceRequestsPage(): JSX.Element {
   return (
     <Stack spacing={3}>
       <ListPageHeader
-        title={
-          actionRequired
+        title={(() => {
+          return actionRequired
             ? SERVICE_REQUESTS_PAGE_TITLE_ACTION_REQUIRED
             : outstandingOnly
             ? SERVICE_REQUESTS_PAGE_TITLE_OUTSTANDING
             : createdByMe
             ? SERVICE_REQUESTS_PAGE_TITLE_MINE
-            : SERVICE_REQUESTS_PAGE_TITLE_ALL
-        }
+            : SERVICE_REQUESTS_PAGE_TITLE_ALL;
+        })()}
         description={
           actionRequired
             ? SERVICE_REQUESTS_PAGE_DESCRIPTION_ACTION_REQUIRED
@@ -434,6 +434,7 @@ export default function ServiceRequestsPage(): JSX.Element {
         hasListRefinement={listHasRefinement}
         entityName={SERVICE_REQUESTS_ENTITY_LABEL}
         hideSeverity
+        showInternalId
         onCaseClick={(c) =>
           navigate(
             `/projects/${projectId}/${navSegment}/service-requests/${c.id}`,

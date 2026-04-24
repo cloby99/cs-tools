@@ -34,6 +34,7 @@ export type ProjectListItem = {
   hasKbReferences?: boolean;
   activeCasesCount: number;
   activeChatsCount: number;
+  actionRequiredCount: number;
   slaStatus: string;
 };
 
