@@ -69,7 +69,6 @@ export default function CaseDetailsContent({
 }: CaseDetailsContentProps): JSX.Element {
   const theme = useTheme();
   const location = useLocation();
-  const hasReturnTo = !!(location.state as { returnTo?: string } | null)?.returnTo;
   const [activeTab, setActiveTab] = useState(0);
   const [focusMode, setFocusMode] = useState(false);
 
@@ -209,12 +208,10 @@ export default function CaseDetailsContent({
     return (
       <Box>
         <Paper variant="outlined" sx={{ p: 2 }}>
-          {hasReturnTo && (
-            <CaseDetailsBackButton
-              onClick={onBack}
-              sx={{ mb: 2, ml: -0.5, alignSelf: "flex-start" }}
-            />
-          )}
+          <CaseDetailsBackButton
+            onClick={onBack}
+            sx={{ mb: 2, ml: -0.5, alignSelf: "flex-start" }}
+          />
           <CaseDetailsSkeleton
             hideActionRow={hideActionRow}
             showEngineerOnly={showEngineerOnly}
@@ -246,16 +243,14 @@ export default function CaseDetailsContent({
           borderRadius: 0,
         }}
       >
-        {hasReturnTo && (
-          <CaseDetailsBackButton
-            onClick={onBack}
-            sx={{
-              ml: focusMode ? 2 : -0.5,
-              mt: focusMode ? 2 : 0,
-              alignSelf: "flex-start",
-            }}
-          />
-        )}
+        <CaseDetailsBackButton
+          onClick={onBack}
+          sx={{
+            ml: focusMode ? 2 : -0.5,
+            mt: focusMode ? 2 : 0,
+            alignSelf: "flex-start",
+          }}
+        />
 
         {isError ? (
           <Box
