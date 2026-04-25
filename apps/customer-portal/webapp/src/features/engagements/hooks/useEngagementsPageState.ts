@@ -25,6 +25,7 @@ import { useLoader } from "@context/linear-loader/LoaderContext";
 import { getProjectSeverityPolicy } from "@utils/permission";
 import { isS0Case } from "@features/support/utils/support";
 import { hasListSearchOrFilters } from "@features/support/utils/support";
+import { normalizeEngagementLabel } from "@features/dashboard/utils/dashboard";
 import type { AllCasesFilterValues } from "@features/support/types/cases";
 import { CaseStatus, CaseType } from "@features/support/constants/supportConstants";
 import { SortOrder } from "@/types/common";
@@ -54,8 +55,12 @@ export function useEngagementsPageState() {
     location.state as { engagementTypeId?: string } | null
   )?.engagementTypeId;
 
+  const initialEngagementTypeLabel = (
+    location.state as { engagementTypeLabel?: string } | null
+  )?.engagementTypeLabel;
+
   const initialEngagementTypeKeys = initialEngagementTypeId
-    ? [Number(initialEngagementTypeId)]
+    ? initialEngagementTypeId.split(",").map(Number).filter(Boolean)
     : undefined;
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -103,22 +108,51 @@ export function useEngagementsPageState() {
     projectId,
   );
 
+  const isChartNavigation = !!initialEngagementTypeId;
+
+  // Outstanding (non-closed) status IDs — applied when navigating from the engagements chart.
+  const chartNavStatusIds = useMemo(() => {
+    if (!isChartNavigation || !filterMetadata?.caseStates) return undefined;
+    const closedState = filterMetadata.caseStates.find(
+      (s) => s.label === CaseStatus.CLOSED,
+    );
+    const closedId = closedState != null ? Number(closedState.id) : null;
+    return filterMetadata.caseStates
+      .map((s) => Number(s.id))
+      .filter((id) => closedId === null || id !== closedId);
+  }, [isChartNavigation, filterMetadata]);
+
+  const chartNavEngagementLabel = useMemo(() => {
+    if (!initialEngagementTypeId) return undefined;
+    // Use label passed directly in navigation state (no loading wait).
+    if (initialEngagementTypeLabel) return initialEngagementTypeLabel;
+    // Fallback: derive from stats once loaded.
+    if (!stats?.engagementTypeCount) return undefined;
+    const ids = initialEngagementTypeId.split(",");
+    const found = stats.engagementTypeCount.find((t) => ids.includes(t.id));
+    return found ? normalizeEngagementLabel(found.label) : undefined;
+  }, [initialEngagementTypeId, initialEngagementTypeLabel, stats]);
+
   const engagementSearchRequest = useMemo(() => {
     const base = buildEngagementSearchRequest(filters, searchTerm, sortField, sortOrder);
     const withEngagementType = initialEngagementTypeKeys
       ? { ...base, filters: { ...base.filters, engagementTypeKeys: initialEngagementTypeKeys } }
       : base;
+    // Apply outstanding filter for chart navigation (non-closed states).
+    const withChartStatus = isChartNavigation && chartNavStatusIds
+      ? { ...withEngagementType, filters: { ...withEngagementType.filters, statusIds: chartNavStatusIds } }
+      : withEngagementType;
     if (fixedStatusIds !== undefined) {
       return {
-        ...withEngagementType,
+        ...withChartStatus,
         filters: {
-          ...withEngagementType.filters,
+          ...withChartStatus.filters,
           statusIds: fixedStatusIds.length > 0 ? fixedStatusIds : undefined,
         },
       };
     }
-    return withEngagementType;
-  }, [filters, searchTerm, sortField, sortOrder, fixedStatusIds, initialEngagementTypeKeys]);
+    return withChartStatus;
+  }, [filters, searchTerm, sortField, sortOrder, fixedStatusIds, initialEngagementTypeKeys, isChartNavigation, chartNavStatusIds]);
 
   const {
     data,
@@ -266,6 +300,22 @@ export function useEngagementsPageState() {
           navigate(buildEngagementDetailPath(projectId, caseItem.id))
       : undefined;
 
+  const engagementTypeOptions = useMemo(() => {
+    if (!stats?.engagementTypeCount) return [];
+    const DISPLAY_NAMES = ["Consultancy", "Onboarding", "Migration", "Follow Up"];
+    const DISPLAY_BY_LOWER = new Map(DISPLAY_NAMES.map((n) => [n.toLowerCase(), n]));
+    const grouped = new Map<string, string[]>();
+    for (const t of stats.engagementTypeCount) {
+      const displayName = DISPLAY_BY_LOWER.get(t.label.toLowerCase());
+      if (!displayName) continue;
+      if (!grouped.has(displayName)) grouped.set(displayName, []);
+      grouped.get(displayName)!.push(t.id);
+    }
+    return DISPLAY_NAMES
+      .filter((name) => grouped.has(name))
+      .map((name) => ({ value: grouped.get(name)!.join(","), label: name }));
+  }, [stats]);
+
   return {
     projectId,
     projectReady,
@@ -300,5 +350,8 @@ export function useEngagementsPageState() {
     activeStatKey,
     clearStatFilter: () => { setFixedStatusIds(undefined); setActiveStatKey(undefined); setPage(1); },
     onCaseClick,
+    isChartNavigation,
+    chartNavEngagementLabel,
+    engagementTypeOptions,
   };
 }

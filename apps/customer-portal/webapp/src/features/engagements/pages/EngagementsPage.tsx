@@ -42,8 +42,6 @@ export default function EngagementsPage(): JSX.Element {
 
   const {
     projectReady,
-    excludeS0,
-    restrictSeverityToLow,
     filterMetadata,
     stats,
     isStatsLoading,
@@ -73,17 +71,24 @@ export default function EngagementsPage(): JSX.Element {
     activeStatKey,
     clearStatFilter,
     onCaseClick,
+    isChartNavigation,
+    chartNavEngagementLabel,
+    engagementTypeOptions,
   } = useEngagementsPageState();
+
+  const showSimplifiedView = isStatFiltered || isChartNavigation;
 
   return (
     <Stack spacing={3}>
-      {(returnTo || isStatFiltered) && (
+      {(returnTo || showSimplifiedView) && (
         <Box>
           <Button
             startIcon={<ArrowLeft size={16} />}
             onClick={() => {
               if (isStatFiltered) {
                 clearStatFilter();
+              } else if (isChartNavigation) {
+                navigate(-1);
               } else if (returnTo) {
                 navigate(returnTo);
               }
@@ -94,13 +99,17 @@ export default function EngagementsPage(): JSX.Element {
           </Button>
         </Box>
       )}
-      {isStatFiltered ? (
+      {showSimplifiedView ? (
         <Box>
           <Typography variant="h5" color="text.primary" sx={{ mb: 0.5 }}>
-            {activeStatKey ? ENGAGEMENT_STAT_FILTER_INFO[activeStatKey].title : ""}
+            {isChartNavigation
+              ? `Outstanding ${chartNavEngagementLabel ? `${chartNavEngagementLabel} ` : ""}Engagements`
+              : (activeStatKey ? ENGAGEMENT_STAT_FILTER_INFO[activeStatKey].title : "")}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {activeStatKey ? ENGAGEMENT_STAT_FILTER_INFO[activeStatKey].subtitle : ""}
+            {isChartNavigation
+              ? `Outstanding${chartNavEngagementLabel ? ` ${chartNavEngagementLabel}` : ""} engagements without closed state`
+              : (activeStatKey ? ENGAGEMENT_STAT_FILTER_INFO[activeStatKey].subtitle : "")}
           </Typography>
         </Box>
       ) : (
@@ -120,9 +129,8 @@ export default function EngagementsPage(): JSX.Element {
         filterMetadata={filterMetadata}
         onFilterChange={handleFilterChange}
         onClearFilters={handleClearFilters}
-        isStatFiltered={isStatFiltered}
-        excludeS0={excludeS0}
-        restrictSeverityToLow={restrictSeverityToLow}
+        isStatFiltered={showSimplifiedView}
+        engagementTypeOptions={engagementTypeOptions}
         isProjectContextLoading={!projectReady}
         sortField={sortField}
         onSortFieldChange={handleSortFieldUiChange}
