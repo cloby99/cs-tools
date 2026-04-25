@@ -38,6 +38,7 @@ import { usePostProjectDeploymentsSearchInfinite } from "@api/usePostProjectDepl
 import {
   hasListSearchOrFilters,
   isS0Case,
+  getLast30DaysUtcRange,
 } from "@features/support/utils/support";
 import {
   buildDashboardCaseSearchFilters,
@@ -159,6 +160,7 @@ export default function AllCasesPage(): JSX.Element {
               filters.severityId === initialSeverityId) ||
             statusFilter === "active",
         }),
+        ...(statusFilter === "resolved" ? getLast30DaysUtcRange() : {}),
       },
       sortBy: {
         field: sortField,

@@ -30,6 +30,7 @@ import { SecurityStatKey, SecurityTabId } from "@features/security/types/securit
 import { parseSecurityTabQueryParam } from "@features/security/utils/securityPage";
 import { getProjectPermissions } from "@utils/permission";
 import { CaseStatus } from "@features/support/constants/supportConstants";
+import { getLast30DaysUtcRange } from "@features/support/utils/support";
 
 const SECURITY_STAT_FILTER_INFO: Record<SecurityStatKey, { title: string; subtitle: string }> = {
   [SecurityStatKey.activeSecurityReports]: {
@@ -56,12 +57,16 @@ const SecurityPage = (): JSX.Element => {
   const { data: filterMetadata } = useGetProjectFilters(projectId || "");
   const [fixedStatusIds, setFixedStatusIds] = useState<number[] | undefined>(undefined);
   const [activeStatKey, setActiveStatKey] = useState<SecurityStatKey | undefined>(undefined);
+  const [fixedClosedDateRange, setFixedClosedDateRange] = useState<
+    { closedStartDate: string; closedEndDate: string } | undefined
+  >(undefined);
 
   const isStatFiltered = fixedStatusIds !== undefined;
 
   const clearStatFilter = () => {
     setFixedStatusIds(undefined);
     setActiveStatKey(undefined);
+    setFixedClosedDateRange(undefined);
   };
 
   const tabParam = searchParams.get("tab");
@@ -97,15 +102,18 @@ const SecurityPage = (): JSX.Element => {
         case SecurityStatKey.activeSecurityReports: {
           const closedId = getStateId(CaseStatus.CLOSED);
           ids = filterMetadata.caseStates.map((s) => Number(s.id)).filter((id) => id !== closedId);
+          setFixedClosedDateRange(undefined);
           break;
         }
         case SecurityStatKey.resolvedSecurityReports: {
           const id = getStateId(CaseStatus.CLOSED);
           ids = id != null ? [id] : undefined;
+          setFixedClosedDateRange(getLast30DaysUtcRange());
           break;
         }
         default:
           ids = undefined;
+          setFixedClosedDateRange(undefined);
       }
       setFixedStatusIds(ids);
       setActiveStatKey(key);
@@ -185,7 +193,10 @@ const SecurityPage = (): JSX.Element => {
       )}
       <Box>
         {isStatFiltered ? (
-          <SecurityReportAnalysis fixedStatusIds={fixedStatusIds} />
+          <SecurityReportAnalysis
+            fixedStatusIds={fixedStatusIds}
+            fixedClosedDateRange={fixedClosedDateRange}
+          />
         ) : (
           renderTabContent()
         )}
