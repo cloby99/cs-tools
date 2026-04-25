@@ -74,7 +74,6 @@ import {
 import { SecurityTabId } from "@features/security/types/security";
 import {
   filterDeploymentsForCaseCreation,
-  getProductCategoriesForCaseCreation,
   getProjectSeverityPolicy,
   shouldRestrictToPrimaryProductionDeployments,
 } from "@utils/permission";
@@ -84,7 +83,7 @@ import {
 } from "@features/support/utils/richTextEditor";
 import UploadAttachmentModal from "@features/support/components/case-details/attachments-tab/UploadAttachmentModal";
 import { ROUTE_PREVIOUS_PAGE } from "@features/project-hub/constants/navigationConstants";
-import type { ProjectDeploymentItem } from "@features/project-details/types/deployments";
+import type { ProductCategory, ProjectDeploymentItem } from "@features/project-details/types/deployments";
 import type {
   RelatedCaseState,
 } from "@features/support/types/createCasePage";
@@ -198,7 +197,7 @@ export default function CreateCasePage(): JSX.Element {
     {
       pageSize: 10,
       enabled: !!selectedDeploymentId,
-      request: { filters: { productCategories: getProductCategoriesForCaseCreation(projectDetails?.type?.label) } },
+      request: { filters: { productCategories: (projectFeatures?.defaultCaseProductCategories ?? undefined) as ProductCategory[] | undefined } },
     },
   );
   const deploymentProductsLoading = deploymentProductsQuery.isLoading;
