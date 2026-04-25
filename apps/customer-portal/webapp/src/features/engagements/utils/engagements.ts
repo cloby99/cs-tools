@@ -80,6 +80,7 @@ export function buildEngagementSearchRequest(
       issueId: filters.issueTypes ? Number(filters.issueTypes) : undefined,
       deploymentId: filters.deploymentId || undefined,
       searchQuery: searchTerm.trim() || undefined,
+      engagementTypeKeys: filters.engagementTypeKeys,
     },
     sortBy: {
       field: normalizedSortField,

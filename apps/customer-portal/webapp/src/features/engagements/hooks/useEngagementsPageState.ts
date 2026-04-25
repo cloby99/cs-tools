@@ -54,10 +54,12 @@ export function useEngagementsPageState() {
     location.state as { engagementTypeId?: string } | null
   )?.engagementTypeId;
 
+  const initialEngagementTypeKeys = initialEngagementTypeId
+    ? [Number(initialEngagementTypeId)]
+    : undefined;
+
   const [searchTerm, setSearchTerm] = useState("");
-  const [filters, setFilters] = useState<AllCasesFilterValues>(() =>
-    initialEngagementTypeId ? { issueTypes: initialEngagementTypeId } : {},
-  );
+  const [filters, setFilters] = useState<AllCasesFilterValues>(() => ({}));
   const [isFiltersOpen, setIsFiltersOpen] = useState(
     () => hasListSearchOrFilters(searchTerm, filters),
   );
@@ -103,17 +105,20 @@ export function useEngagementsPageState() {
 
   const engagementSearchRequest = useMemo(() => {
     const base = buildEngagementSearchRequest(filters, searchTerm, sortField, sortOrder);
+    const withEngagementType = initialEngagementTypeKeys
+      ? { ...base, filters: { ...base.filters, engagementTypeKeys: initialEngagementTypeKeys } }
+      : base;
     if (fixedStatusIds !== undefined) {
       return {
-        ...base,
+        ...withEngagementType,
         filters: {
-          ...base.filters,
+          ...withEngagementType.filters,
           statusIds: fixedStatusIds.length > 0 ? fixedStatusIds : undefined,
         },
       };
     }
-    return base;
-  }, [filters, searchTerm, sortField, sortOrder, fixedStatusIds]);
+    return withEngagementType;
+  }, [filters, searchTerm, sortField, sortOrder, fixedStatusIds, initialEngagementTypeKeys]);
 
   const {
     data,
