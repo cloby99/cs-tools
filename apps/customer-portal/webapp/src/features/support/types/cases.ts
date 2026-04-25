@@ -304,6 +304,7 @@ export type AllCasesFilterValues = {
   severityId?: string;
   issueTypes?: string;
   deploymentId?: string;
+  engagementTypeKey?: string;
 };
 
 // Item type for a case attachment.
