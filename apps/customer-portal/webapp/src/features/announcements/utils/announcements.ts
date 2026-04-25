@@ -168,7 +168,38 @@ export function formatAnnouncementsClearFiltersButtonLabel(
 }
 
 /**
+ * Strips hardcoded light-mode color declarations from inline `style` attributes so
+ * the browser falls back to theme-inherited values in dark mode.
+ * Semantic colors (reds, greens, etc.) are intentionally preserved.
+ *
+ * @param html - Raw HTML string.
+ * @returns HTML with light-mode-only style declarations removed.
+ */
+function stripLightModeInlineStyles(html: string): string {
+  return html.replace(/style\s*=\s*"([^"]*)"/gi, (_match, styleContent: string) => {
+    const declarations = styleContent.split(";");
+    const filtered = declarations.filter((decl) => {
+      const normalized = decl.toLowerCase().replace(/\s+/g, " ").trim();
+      if (!normalized) return false;
+      // White / near-white / light-grey backgrounds
+      if (/^background(-color)?\s*:\s*(#fff(fff)?|white|#f4f4f4|#f0f0f0|#e9e9e9)/.test(normalized)) return false;
+      // Neutral grey and link-blue text colors
+      if (/^color\s*:\s*(#555(555)?|#007bff)/.test(normalized)) return false;
+      // Light border colors
+      if (/^border(-\w+)?\s*:.*?(#ddd|#eee|#ccc)/.test(normalized)) return false;
+      // Box shadows (hardcoded values never match dark backgrounds)
+      if (/^box-shadow/.test(normalized)) return false;
+      return true;
+    });
+    const cleaned = filtered.join(";").replace(/;+$/, "").trim();
+    if (!cleaned) return "";
+    return `style="${cleaned}"`;
+  });
+}
+
+/**
  * Normalizes announcement HTML:
+ * - Strips hardcoded light-mode inline colors so dark mode inherits theme values.
  * - Converts empty `<code>` blocks to a newline (`<br />`) so we do not render useless whitespace.
  * - Converts `<code><n/><code/>`-style placeholders (and bare `<n/>`) into newlines.
  *
@@ -176,7 +207,7 @@ export function formatAnnouncementsClearFiltersButtonLabel(
  * @returns Normalized HTML.
  */
 export function normalizeAnnouncementDescriptionHtml(html: string): string {
-  let normalized = html;
+  let normalized = stripLightModeInlineStyles(html);
 
   normalized = normalized.replace(
     /<p>\s*<code>\s*(?:&nbsp;|\s|<br\s*\/?>)*<\/code>\s*<\/p>/gi,
