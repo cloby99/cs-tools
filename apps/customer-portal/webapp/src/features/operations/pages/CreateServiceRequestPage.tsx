@@ -32,7 +32,7 @@ import {
 } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePostProjectDeploymentsSearchInfinite } from "@api/usePostProjectDeploymentsSearch";
-import type { ProjectDeploymentItem } from "@features/project-details/types/deployments";
+import type { ProductCategory, ProjectDeploymentItem } from "@features/project-details/types/deployments";
 import {
   extractDeploymentProducts,
   usePostDeploymentProductsSearchInfinite,
@@ -69,7 +69,6 @@ import {
 } from "@features/operations/utils/caseRefresh";
 import {
   filterDeploymentsForCaseCreation,
-  getProductCategoriesForServiceRequest,
   getProjectPermissions,
   shouldRestrictToPrimaryProductionDeployments,
 } from "@utils/permission";
@@ -282,9 +281,7 @@ export default function CreateServiceRequestPage(): JSX.Element {
   );
   const selectedDeploymentId = selectedDeploymentMatch?.id ?? "";
 
-  const srProductCategories = getProductCategoriesForServiceRequest(
-    projectDetails?.type?.label,
-  );
+  const srProductCategories = (projectFeatures?.srProductCategories ?? undefined) as ProductCategory[] | undefined;
   const deploymentProductsQuery = usePostDeploymentProductsSearchInfinite(
     selectedDeploymentId,
     {
