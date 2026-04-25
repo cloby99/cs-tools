@@ -363,6 +363,7 @@ export type CaseSearchFilters = {
   createdByMe?: boolean;
   closedStartDate?: string;
   closedEndDate?: string;
+  engagementTypeKeys?: number[];
 };
 
 // Request type for searching cases.
