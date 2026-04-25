@@ -168,12 +168,13 @@ export function formatAnnouncementsClearFiltersButtonLabel(
 }
 
 /**
- * Strips hardcoded light-mode color declarations from inline `style` attributes so
- * the browser falls back to theme-inherited values in dark mode.
- * Semantic colors (reds, greens, etc.) are intentionally preserved.
+ * Strips pure-white inline background declarations from style attributes so
+ * dark-mode containers no longer render white boxes on a dark background.
+ * Everything else (code-block backgrounds, borders, shadows, text colors) is
+ * intentionally left untouched so light-mode and structural styling stay intact.
  *
  * @param html - Raw HTML string.
- * @returns HTML with light-mode-only style declarations removed.
+ * @returns HTML with pure-white background declarations removed.
  */
 function stripLightModeInlineStyles(html: string): string {
   return html.replace(/style\s*=\s*"([^"]*)"/gi, (_match, styleContent: string) => {
@@ -181,14 +182,7 @@ function stripLightModeInlineStyles(html: string): string {
     const filtered = declarations.filter((decl) => {
       const normalized = decl.toLowerCase().replace(/\s+/g, " ").trim();
       if (!normalized) return false;
-      // White / near-white / light-grey backgrounds
-      if (/^background(-color)?\s*:\s*(#fff(fff)?|white|#f4f4f4|#f0f0f0|#e9e9e9)/.test(normalized)) return false;
-      // Neutral grey and link-blue text colors
-      if (/^color\s*:\s*(#555(555)?|#007bff)/.test(normalized)) return false;
-      // Light border colors
-      if (/^border(-\w+)?\s*:.*?(#ddd|#eee|#ccc)/.test(normalized)) return false;
-      // Box shadows (hardcoded values never match dark backgrounds)
-      if (/^box-shadow/.test(normalized)) return false;
+      if (/^background(-color)?\s*:\s*(#fff(fff)?|white|#f4f4f4|#f5f5f5|#f0f0f0|#f9f9f9|#f8f8f8|#fafafa|#e9e9e9)\s*$/.test(normalized)) return false;
       return true;
     });
     const cleaned = filtered.join(";").replace(/;+$/, "").trim();
@@ -199,15 +193,16 @@ function stripLightModeInlineStyles(html: string): string {
 
 /**
  * Normalizes announcement HTML:
- * - Strips hardcoded light-mode inline colors so dark mode inherits theme values.
+ * - Strips pure-white inline backgrounds in dark mode so containers don't clash.
  * - Converts empty `<code>` blocks to a newline (`<br />`) so we do not render useless whitespace.
  * - Converts `<code><n/><code/>`-style placeholders (and bare `<n/>`) into newlines.
  *
  * @param html - Raw HTML from backend.
+ * @param isDarkMode - When true, strips pure-white inline backgrounds.
  * @returns Normalized HTML.
  */
-export function normalizeAnnouncementDescriptionHtml(html: string): string {
-  let normalized = stripLightModeInlineStyles(html);
+export function normalizeAnnouncementDescriptionHtml(html: string, isDarkMode = false): string {
+  let normalized = isDarkMode ? stripLightModeInlineStyles(html) : html;
 
   normalized = normalized.replace(
     /<p>\s*<code>\s*(?:&nbsp;|\s|<br\s*\/?>)*<\/code>\s*<\/p>/gi,
