@@ -153,7 +153,7 @@ export default function OperationsPage(): JSX.Element {
     () =>
       changeRequests.map((cr) => ({
         id: cr.id,
-        internalId: cr.internalId ?? undefined,
+        internalId: cr.case?.internalId ?? cr.internalId ?? undefined,
         number: cr.number,
         title: cr.title,
         description: cr.description ?? "",
