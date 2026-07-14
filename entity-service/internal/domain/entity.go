@@ -2268,6 +2268,7 @@ type SearchIncidentView struct {
 	State           *string `json:"state"`
 	Category        *string `json:"category"`
 	Parent          *EntityRef           `json:"parent"`
+	ParentIncident  *EntityRef           `json:"parentIncident"`
 	AssignmentGroup *EntityRef           `json:"assignmentGroup"`
 	AssignedTo      *EntityRef           `json:"assignedTo"`
 	CreatedOn       string               `json:"createdOn"`
@@ -2388,6 +2389,7 @@ type CreateIncidentRequest struct {
 	AdditionalComments  *string              `json:"additionalComments,omitempty"`
 	WorkNotes           *string              `json:"workNotes,omitempty"`
 	ParentID            *string              `json:"parentId,omitempty"`
+	ParentIncidentID    *string              `json:"parentIncidentId,omitempty"`
 	ChangeRequestID     *string              `json:"changeRequestId,omitempty"`
 	ProblemID           *string              `json:"problemId,omitempty"`
 	CausedByID          *string              `json:"causedById,omitempty"`
@@ -2423,6 +2425,7 @@ type IncidentView struct {
 	Category           *string    `json:"category"`
 	Subcategory        *string    `json:"subcategory"`
 	Parent             *EntityRef `json:"parent"`
+	ParentIncident     *EntityRef `json:"parentIncident"`
 	AssignmentGroup    *EntityRef `json:"assignmentGroup"`
 	AssignedTo         *EntityRef `json:"assignedTo"`
 	Service            *EntityRef `json:"service"`
