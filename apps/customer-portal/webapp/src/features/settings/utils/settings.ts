@@ -15,7 +15,15 @@
 // under the License.
 
 import { colors } from "@wso2/oxygen-ui";
-import { Code, Crown, Monitor, Shield, Star, Users } from "@wso2/oxygen-ui-icons-react";
+import {
+  Code,
+  Crown,
+  Monitor,
+  Shield,
+  ShieldOff,
+  Star,
+  Users,
+} from "@wso2/oxygen-ui-icons-react";
 import {
   NULL_PLACEHOLDER,
   SETTINGS_AVATAR_BACKGROUND_COLORS,
@@ -50,7 +58,13 @@ export function getRoleBadges(contact: ProjectContact): SettingsRoleBadge[] {
       badges.push({ label: "Security User", Icon: Shield, chipColor: "error" });
     }
     if (!contact.isPortalUser && !contact.isSecurityContact) {
-      badges.push({ label: "Portal User", Icon: Monitor, chipColor: "default" });
+      badges.push({
+        label: "Not Available",
+        Icon: ShieldOff,
+        chipColor: "default",
+        tooltip:
+          "Please contact your customer admin or account manager to enable the required role(s).",
+      });
     }
   }
 

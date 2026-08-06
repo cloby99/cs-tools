@@ -346,17 +346,26 @@ export default function SettingsUserManagement({
                   </TableCell>
                   <TableCell>
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                      {getRoleBadges(contact).map((badge) => (
-                        <Chip
-                          key={badge.label}
-                          size="small"
-                          icon={<badge.Icon size={12} />}
-                          label={badge.label}
-                          variant="outlined"
-                          color={badge.chipColor}
-                          sx={getRoleChipSx(badge.chipColor)}
-                        />
-                      ))}
+                      {getRoleBadges(contact).map((badge) => {
+                        const chip = (
+                          <Chip
+                            key={badge.label}
+                            size="small"
+                            icon={<badge.Icon size={12} />}
+                            label={badge.label}
+                            variant="outlined"
+                            color={badge.chipColor}
+                            sx={getRoleChipSx(badge.chipColor)}
+                          />
+                        );
+                        return badge.tooltip ? (
+                          <Tooltip key={badge.label} title={badge.tooltip}>
+                            <span>{chip}</span>
+                          </Tooltip>
+                        ) : (
+                          chip
+                        );
+                      })}
                     </Box>
                   </TableCell>
                   <TableCell>

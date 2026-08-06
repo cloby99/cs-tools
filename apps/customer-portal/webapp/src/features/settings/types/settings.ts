@@ -73,6 +73,8 @@ export type SettingsRoleBadge = {
   label: string;
   Icon: ComponentType<{ size?: number }>;
   chipColor: "primary" | "info" | "error" | "default" | "warning";
+  /** Tooltip shown on hover, e.g. to explain a "Not Available" role. */
+  tooltip?: string;
 };
 
 export type SettingsUserManagementProps = {
