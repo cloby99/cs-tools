@@ -95,15 +95,16 @@ func deploymentAttachmentIsVisible(ctx context.Context, client entityAttachmentC
 // Does NOT reliably branch on attachment.ReferenceType — an earlier revision
 // of this function did, and it was wrong in practice, confirmed live: under
 // DATA_SOURCE=postgres-servicenow-dual-write, entity-service's
-// GetAttachmentByID reports ReferenceType "case" when it reads its own
-// Postgres case_attachment table (which hardcodes that value on every row —
-// see that repository method's own doc comment) and reports it nil when it
-// falls back to the ServiceNow mirror, which it always does for a
-// deployment-referenced attachment specifically (case_attachment.case_id has
-// a hard FK into "case", so such a row can never exist there in the first
-// place — see CreateCaseAttachmentFromServiceNow's own doc comment). So
-// ReferenceType is never actually "deployment" on any path this backend can
-// observe, live-dual-write or not.
+// GetAttachmentByID reports ReferenceType "case" when it reads its own rows
+// in work_item_attachment (which hardcodes that value on every row — see
+// that repository method's own doc comment; this table replaced the old
+// case_attachment table it used to read) and reports it nil when it falls
+// back to the ServiceNow mirror, which it always does for a
+// deployment-referenced attachment specifically (CreateCaseAttachment's own
+// case-like-work-item check means such a row can never exist there in the
+// first place — see CreateCaseAttachmentFromServiceNow's own doc comment).
+// So ReferenceType is never actually "deployment" on any path this backend
+// can observe, live-dual-write or not.
 //
 // What actually happens here instead: try the case-based check (GetCase)
 // first, since that is the common case and entity-service already scopes it
