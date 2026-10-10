@@ -148,8 +148,8 @@ func TestCaseAttachmentDualWriteService_CreateCaseAttachment_Succeeds(t *testing
 	if gotSizeBytes != 5 {
 		t.Errorf("repo got sizeBytes %d, want 5", gotSizeBytes)
 	}
-	if gotUploadedBy != "user-jane" {
-		t.Errorf("repo got uploadedBy %q, want the resolved actor id %q (not a ServiceNow identity string)", gotUploadedBy, "user-jane")
+	if gotUploadedBy != "jane.doe@example.com" {
+		t.Errorf("repo got uploadedBy %q, want the resolved actor's email %q (no uploaded_by FK, not a ServiceNow identity string)", gotUploadedBy, "jane.doe@example.com")
 	}
 	if !resp.Attachment.CreatedOn.Equal(storedOn) {
 		t.Errorf("response CreatedOn = %v, want the stored row's %v, not ServiceNow's %v", resp.Attachment.CreatedOn, storedOn, snCreatedOn)
@@ -168,7 +168,7 @@ func TestCaseAttachmentDualWriteService_CreateCaseAttachment_Succeeds(t *testing
 // zone-less "YYYY-MM-DD HH:MM:SS" in a ServiceNow-side timezone (+5:30 for the
 // Colombo uploader it was found with), and snCaseService parses that layout as
 // UTC, so the value it hands up is 5h30 ahead of the real upload moment. Storing
-// it put case_attachment.created_on in the future (19:42:05 against a real
+// it put work_item_attachment.created_on in the future (19:42:05 against a real
 // 14:12:05 UTC).
 //
 // This runs the real snCaseService (against a fake ServiceNow that answers with
@@ -260,14 +260,16 @@ func TestCaseAttachmentDualWriteService_CreateCaseAttachment_IgnoresZonelessServ
 }
 
 // TestCaseAttachmentDualWriteService_CreateCaseAttachment_DeploymentSkipsPostgres
-// covers the real bug this skip fixes: case_attachment.case_id has a hard FK
-// into "case", so inserting a deployment-referenced attachment there always
-// failed with a 23503 foreign-key violation -- reported back to the caller
-// as an error even though ServiceNow had already accepted the upload (the
-// live-reported symptom was "the upload doesn't show as submitted, but shows
-// up after a page refresh"). Neither the repo insert nor actor resolution
-// (which that insert alone needed, for uploaded_by) should be reached at
-// all for a deployment reference -- stubCaseRepo panics on
+// covers the real bug this skip fixes: entity-service's own attachment-create
+// queries only ever accept a case-like work item (originally a hard FK from
+// the old case_attachment.case_id into "case", now the EXISTS/work_item.type
+// check inside CreateCaseAttachment/CreateCaseAttachmentFromServiceNow's own
+// work_item_attachment queries, see case_repo.go and migration 0220), so
+// inserting a deployment-referenced attachment there always failed --
+// reported back to the caller as an error even though ServiceNow had already
+// accepted the upload (the live-reported symptom was "the upload doesn't
+// show as submitted, but shows up after a page refresh"). Neither the repo insert nor actor resolution
+// should be reached at all for a deployment reference -- stubCaseRepo panics on
 // CreateCaseAttachmentFromServiceNow and stubUserRepo{} (no GetUserByEmail
 // configured) panics on actor resolution, so either happening fails the test.
 func TestCaseAttachmentDualWriteService_CreateCaseAttachment_DeploymentSkipsPostgres(t *testing.T) {
@@ -335,8 +337,9 @@ func TestCaseAttachmentDualWriteService_CreateCaseAttachment_SNFailureLeavesPost
 // TestCaseAttachmentDualWriteService_CreateCaseAttachment_RejectsUnauthenticatedCaller
 // proves the actor is resolved BEFORE ServiceNow is ever called: neither the
 // mirror nor the repository should be reached for an unauthenticated caller
-// (case_attachment.uploaded_by is a real FK to "user"(id), so there is no
-// point attempting the ServiceNow upload before a Postgres user is known).
+// (resolveActor itself requires a matching Postgres "user" row for the
+// caller, so there is no point attempting the ServiceNow upload before
+// that's confirmed to exist).
 func TestCaseAttachmentDualWriteService_CreateCaseAttachment_RejectsUnauthenticatedCaller(t *testing.T) {
 	mirror := &stubCaseAttachmentSNMirror{
 		createCaseAttachment: func(context.Context, domain.CreateAttachmentRequest) (domain.CreateAttachmentResponse, error) {

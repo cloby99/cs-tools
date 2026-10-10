@@ -467,8 +467,10 @@ func TestAnnouncementVisibilityCreateCallRequestIntegration(t *testing.T) {
 // announcement's comments and watchers must be hidden along with it, and a
 // caller who cannot see the announcement cannot add to it. Before 0175 a
 // project member not cleared for a security announcement could read its
-// comments by work-item UUID. (case_attachment needs no such rule: it
-// references "case", so an announcement cannot own an attachment.)
+// comments by work-item UUID. (work_item_attachment needs no such rule: its
+// write paths (CreateCaseAttachment/CreateCaseAttachmentFromServiceNow, see
+// case_repo.go) only ever accept caseLikeNonAnnouncementTypes, which excludes
+// ANNOUNCEMENT, so an announcement cannot own an attachment regardless.)
 func TestAnnouncementVisibilityChildRowsIntegration(t *testing.T) {
 	pool := announcementVisibilityPool(t)
 	seedAnnouncementVisibilityFixtures(t, pool)

@@ -41,6 +41,14 @@ import (
 // directory. Keep this list and the migrations in sync: a table added here
 // with no matching migration, or a migration adding FORCE without a
 // matching entry here, is exactly the drift this test exists to catch.
+//
+// work_item_attachment joined this list later, via migration 100025, once
+// entity-service started WRITING to it (migration 0220's storage_key/
+// description/status columns) and needed the same direct protection
+// case_attachment has always had -- see that migration's own comment.
+// case_attachment itself stays listed: migration 0220 only stopped
+// any Go code from reading or writing it, it did not drop the table or its
+// policies, so the physical protection this test checks is still there.
 var rlsProtectedTables = []string{
 	"announcement",
 	"case_escalation",
@@ -57,6 +65,7 @@ var rlsProtectedTables = []string{
 	"comment",
 	"comment_edit_history",
 	"case_attachment",
+	"work_item_attachment",
 	"work_item_tag",
 	"work_item_watcher",
 	"work_item_activity",

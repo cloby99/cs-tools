@@ -59,9 +59,9 @@ func TestCaseAttachmentRoutes_UsePostgresUnderPlainPostgres(t *testing.T) {
 // (service.caseAttachmentDualWriteService): POST /attachments must route
 // through that hybrid, not bypass it, and the hybrid's CreateCaseAttachment
 // resolves the caller's Postgres actor BEFORE ever calling ServiceNow (see
-// that method's own doc comment -- case_attachment.uploaded_by is a real FK
-// to "user"(id), so there's no point uploading to ServiceNow before a
-// Postgres user is known). An unauthenticated request therefore must get a
+// that method's own doc comment -- resolveActor itself requires a matching
+// Postgres "user" row for the caller, so there's no point uploading to
+// ServiceNow before that's confirmed to exist). An unauthenticated request therefore must get a
 // 401 without the fake ServiceNow server ever seeing a call -- proving
 // routing reaches the new hybrid (which performs this check) rather than,
 // say, the plain Postgres path (which would 400 on a missing storageKey

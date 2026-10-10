@@ -118,19 +118,23 @@ func NewCaseAttachmentDualWriteService(base CaseService, mirror caseAttachmentSN
 // failed. Calling ServiceNow first, and only writing to Postgres once that
 // succeeds, makes that impossible.
 //
-// The actor is resolved BEFORE calling ServiceNow, not after: this data
-// source's case_attachment.uploaded_by is a real FK to "user"(id) (unlike
-// deployment.created_by/deployed_product.created_by, which are free-text
-// VARCHAR columns ServiceNow's own createdBy string can populate directly),
-// so a Postgres user record must exist for the caller before there's any
-// point attempting the ServiceNow upload at all -- failing fast here avoids
-// creating a ServiceNow attachment that Postgres could never record.
+// The actor is resolved BEFORE calling ServiceNow, not after: resolveActor
+// itself requires a matching Postgres "user" row for the caller's email
+// (userRepo.GetUserByEmail) regardless of what work_item_attachment's own
+// columns require -- work_item_attachment.created_by/updated_by are
+// free-text (no uploaded_by FK, see CaseRepository.CreateCaseAttachment's
+// own doc comment), but resolveActor can still fail (no Postgres user for
+// this caller at all) independently of that. Failing fast here, before
+// ServiceNow is ever called, avoids creating a ServiceNow attachment that
+// the Postgres insert below could then never actually run for.
 //
 // A deployment-referenced attachment skips both the actor resolution and the
 // Postgres insert entirely -- same "no Postgres deployment attachment table
 // yet" gap SearchCaseAttachments already works around (see that method's own
-// doc comment). case_attachment.case_id has a hard FK into "case", so a
-// deployment id can never satisfy it; attempting the insert below failed
+// doc comment). The repository's own CreateCaseAttachment/
+// CreateCaseAttachmentFromServiceNow only insert when the referenced id is a
+// case-like work item (the EXISTS check in case_repo.go), so a deployment id
+// never satisfies it; attempting the insert below failed
 // every deployment attachment upload with a 23503 foreign-key violation,
 // reported back to the caller as an error even though ServiceNow had already
 // accepted it -- the live-reported symptom was "the upload doesn't show as
@@ -162,7 +166,10 @@ func (s *caseAttachmentDualWriteService) CreateCaseAttachment(ctx context.Contex
 	// with), and parsing it as UTC put the row hours in the future. The row
 	// takes the database's own clock instead, which is what the response below
 	// reports back too.
-	a, err := s.repo.CreateCaseAttachmentFromServiceNow(ctx, req, snResp.Attachment.ID, snResp.Attachment.SizeBytes, user.ID)
+	// user.Email, not user.ID: work_item_attachment has no uploaded_by FK --
+	// see CaseRepository.CreateCaseAttachment's own doc comment -- so this
+	// populates the table's free-text created_by/updated_by columns instead.
+	a, err := s.repo.CreateCaseAttachmentFromServiceNow(ctx, req, snResp.Attachment.ID, snResp.Attachment.SizeBytes, user.Email)
 	if err != nil {
 		// ServiceNow already has the attachment at this point -- this is now
 		// real drift (ServiceNow has it, Postgres doesn't) needing operator

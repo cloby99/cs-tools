@@ -15,11 +15,14 @@
 // under the License.
 
 // This is an integration test: SearchCaseActivities' UNION ALL feed has to
-// merge case_attachment and the synced work_item_attachment table, and
-// whether its count and rows agree (no fan-out, no duplicate, no PENDING) can
-// only be shown by real SQL against the real schema. Same DSN and
-// skip-when-unset pattern as case_attachment_sn_repo_integration_test.go
-// (same package, so caseStatsPool is reused):
+// merge comments with work_item_attachment rows of two different shapes --
+// entity-service's own (status = 'complete'/'pending') and pure sync-job rows
+// csm-sync-service populated directly from ServiceNow (status NULL, a
+// state) -- and whether its count and rows agree (no fan-out, no duplicate,
+// no PENDING/pending-in-progress row) can only be shown by real SQL against
+// the real schema. Same DSN and skip-when-unset pattern as
+// case_attachment_sn_repo_integration_test.go (same package, so
+// caseStatsPool is reused):
 //
 //	CASE_STATS_TEST_DSN=postgres://... go test ./internal/repository/ -run CaseActivitySyncedAttachments
 
@@ -49,7 +52,6 @@ func TestCaseActivitySyncedAttachmentsIntegration(t *testing.T) {
 
 	cleanup := func() {
 		_, _ = scoped.Exec(ctx, `DELETE FROM comment WHERE work_item_id = $1`, activityAttCaseID)
-		_, _ = scoped.Exec(ctx, `DELETE FROM case_attachment WHERE case_id = $1`, activityAttCaseID)
 		_, _ = scoped.Exec(ctx, `DELETE FROM work_item_attachment WHERE work_item_id = $1`, activityAttCaseID)
 		_, _ = scoped.Exec(ctx, `DELETE FROM "case" WHERE id = $1`, activityAttCaseID)
 		_, _ = scoped.Exec(ctx, `DELETE FROM work_item WHERE id = $1`, activityAttCaseID)
@@ -88,31 +90,51 @@ func TestCaseActivitySyncedAttachmentsIntegration(t *testing.T) {
 		mustExec(`INSERT INTO comment (id, created_on, created_by, type, work_item_id, content)
 		          VALUES ($1, $2, $3, 'COMMENT', $4, $5)`, id, ts, activityAttUploader, activityAttCaseID, content)
 	}
+	// synced inserts a pure sync-job row: csm-sync-service's own shape --
+	// status NULL, a state, created_by a free-text email never backed by a
+	// real uploaded_by FK.
 	synced := func(id string, ts time.Time, name, createdBy, state string) {
 		mustExec(`INSERT INTO work_item_attachment (id, created_on, updated_on, created_by, updated_by, name, content_type, work_item_id, size_bytes, state)
 		          VALUES ($1, $2, $2, $3, $3, $4, 'text/plain', $5, 42, $6::work_item_attachment_state_enum)`,
 			id, ts, createdBy, name, activityAttCaseID, state)
 	}
+	// entityOwned inserts a row entity-service itself wrote: status set
+	// ('complete' or 'pending') is the only thing distinguishing it from a
+	// pure sync-job row -- created_by/updated_by hold the uploader's email,
+	// the exact same free-text shape a sync-job row's created_by already has
+	// (there is no uploaded_by FK, see CaseRepository.CreateCaseAttachment's
+	// own doc comment), so both kinds of row resolve their author identically.
+	entityOwned := func(id string, ts time.Time, name, createdBy, status string) {
+		mustExec(`INSERT INTO work_item_attachment (id, created_on, updated_on, created_by, updated_by, name, content_type, work_item_id, size_bytes, status)
+		          VALUES ($1, $2, $2, $3, $3, $4, 'text/plain', $5, 42, $6)`,
+			id, ts, createdBy, name, activityAttCaseID, status)
+	}
 
 	const (
-		commentOne    = "5a000000-0000-0000-0000-0000000000c1"
-		commentTwo    = "5a000000-0000-0000-0000-0000000000c2"
-		syncedOnly    = "5a000000-0000-0000-0000-0000000000a1"
-		syncedPending = "5a000000-0000-0000-0000-0000000000a2"
-		inBothTables  = "5a000000-0000-0000-0000-0000000000a3"
-		syncedGhost   = "5a000000-0000-0000-0000-0000000000a4"
+		commentOne          = "5a000000-0000-0000-0000-0000000000c1"
+		commentTwo          = "5a000000-0000-0000-0000-0000000000c2"
+		syncedOnly          = "5a000000-0000-0000-0000-0000000000a1"
+		syncedPending       = "5a000000-0000-0000-0000-0000000000a2"
+		entityOwnedComplete = "5a000000-0000-0000-0000-0000000000a3"
+		syncedGhost         = "5a000000-0000-0000-0000-0000000000a4"
+		entityOwnedPending  = "5a000000-0000-0000-0000-0000000000a5"
 	)
 	comment(commentOne, at(0), "first")
+	// A pure sync-job row csm-sync-service populated directly from ServiceNow
+	// -- never touched by this service's own attachment-create paths.
 	synced(syncedOnly, at(1), "synced.txt", activityAttUploader, "AVAILABLE")
 	comment(commentTwo, at(2), "second")
+	// Excluded: a pure sync-job row still PENDING in ServiceNow.
 	synced(syncedPending, at(3), "pending.txt", activityAttUploader, "PENDING")
-	// The same file as a dual-write upload: one row in each table, one id.
-	mustExec(`INSERT INTO case_attachment (id, case_id, storage_key, filename, mime_type, size_bytes, uploaded_by, status, created_on)
-	          VALUES ($1, $2, NULL, 'both.txt', 'text/plain', 42, $3, 'complete', $4)`,
-		inBothTables, activityAttCaseID, activityAttUserID1, at(4))
-	synced(inBothTables, at(4), "both.txt", activityAttUploader, "AVAILABLE")
+	// An entity-service-owned row (CSM-native upload or SN-dual-write mirror):
+	// status = 'complete' is the discriminator, not a shared id with any
+	// other table -- there is only ever one row per real file now.
+	entityOwned(entityOwnedComplete, at(4), "mirrored.txt", activityAttUploader, "complete")
 	// Uploader with no user row at all.
 	synced(syncedGhost, at(5), "ghost.txt", "nobody@example.com", "AVAILABLE")
+	// Excluded: an entity-service-owned row still mid-upload (status =
+	// 'pending'), the entity-service-owned analogue of syncedPending above.
+	entityOwned(entityOwnedPending, at(6), "uploading.txt", activityAttUploader, "pending")
 
 	repo := repository.NewCaseRepository(scoped)
 	activity, total, err := repo.SearchCaseActivities(ctx, domain.SearchCaseActivitiesRequest{
@@ -123,9 +145,11 @@ func TestCaseActivitySyncedAttachmentsIntegration(t *testing.T) {
 		t.Fatalf("SearchCaseActivities: %v", err)
 	}
 
-	// Newest first. The PENDING row is absent, the both-tables file shows
-	// once, and the unresolved uploader's row is still returned.
-	wantIDs := []string{syncedGhost, inBothTables, commentTwo, syncedOnly, commentOne}
+	// Newest first. Both PENDING/pending rows (one pure sync-job, one
+	// entity-service-owned) are absent, the entity-service-owned row shows
+	// exactly once, and the unresolved uploader's pure sync-job row is still
+	// returned.
+	wantIDs := []string{syncedGhost, entityOwnedComplete, commentTwo, syncedOnly, commentOne}
 	if total != len(wantIDs) {
 		t.Errorf("total = %d, want %d", total, len(wantIDs))
 	}
@@ -156,6 +180,22 @@ func TestCaseActivitySyncedAttachmentsIntegration(t *testing.T) {
 	if g.Type != domain.ActivityTypeAttachment || g.FileName != "ghost.txt" || g.CreatedBy == nil || g.CreatedBy.Email != "nobody@example.com" {
 		t.Errorf("unresolved-uploader attachment = %+v", g)
 	}
+	e := byID[entityOwnedComplete]
+	if e.Type != domain.ActivityTypeAttachment || e.FileName != "mirrored.txt" || e.ContentType != "text/plain" || e.SizeBytes != 42 {
+		t.Errorf("entity-owned attachment = %+v", e)
+	}
+	// Resolved by the exact same email-match join as syncedOnly above --
+	// there is no separate uploaded_by-FK path for an entity-owned row to
+	// take instead (see entityOwned's own doc comment).
+	if e.CreatedBy == nil || e.CreatedBy.Email != activityAttUploader || e.CreatedBy.Name != "Jane Doe" || e.CreatedByFirstName != "Jane" || e.CreatedByLastName != "Doe" {
+		t.Errorf("entity-owned attachment uploader = %+v (%s %s)", e.CreatedBy, e.CreatedByFirstName, e.CreatedByLastName)
+	}
+	if _, stillPending := byID[syncedPending]; stillPending {
+		t.Errorf("PENDING sync-job row must not appear in the feed")
+	}
+	if _, stillPending := byID[entityOwnedPending]; stillPending {
+		t.Errorf("pending entity-service-owned row must not appear in the feed")
+	}
 
 	// A page smaller than the feed still reports the full total.
 	page, pageTotal, err := repo.SearchCaseActivities(ctx, domain.SearchCaseActivitiesRequest{
@@ -165,7 +205,7 @@ func TestCaseActivitySyncedAttachmentsIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SearchCaseActivities (paged): %v", err)
 	}
-	if pageTotal != len(wantIDs) || len(page) != 2 || page[0].ID != inBothTables {
+	if pageTotal != len(wantIDs) || len(page) != 2 || page[0].ID != entityOwnedComplete {
 		t.Errorf("paged: total=%d rows=%d first=%v", pageTotal, len(page), page)
 	}
 }

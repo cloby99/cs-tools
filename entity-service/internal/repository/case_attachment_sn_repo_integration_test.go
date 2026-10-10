@@ -49,6 +49,12 @@ const (
 	// are proven to handle BOTH a NULL and a non-NULL storage_key in the same
 	// result set -- not just a table that happens to contain only one shape.
 	caseAttachmentPGTestAttachmentID = "4bbbbbbb-0000-0000-0000-000000000001"
+	// caseAttachmentSNTestUserEmail is what entity-service's own rows now
+	// store in created_by/updated_by -- there is no uploaded_by FK on
+	// work_item_attachment (see CaseRepository.CreateCaseAttachment's own doc
+	// comment), so an id would not resolve back to this user via the
+	// email-match author-resolution join the read paths use.
+	caseAttachmentSNTestUserEmail = "case-attachment-sn-test@example.com"
 )
 
 func seedCaseAttachmentSNFixture(t *testing.T, pool *pgxpool.Pool) {
@@ -57,7 +63,7 @@ func seedCaseAttachmentSNFixture(t *testing.T, pool *pgxpool.Pool) {
 	scoped := repository.NewScoped(pool)
 
 	cleanup := func() {
-		_, _ = scoped.Exec(ctx, `DELETE FROM case_attachment WHERE case_id = $1`, caseAttachmentSNTestCaseID)
+		_, _ = scoped.Exec(ctx, `DELETE FROM work_item_attachment WHERE work_item_id = $1`, caseAttachmentSNTestCaseID)
 		_, _ = scoped.Exec(ctx, `DELETE FROM "case" WHERE id = $1`, caseAttachmentSNTestCaseID)
 		_, _ = scoped.Exec(ctx, `DELETE FROM work_item WHERE id = $1`, caseAttachmentSNTestCaseID)
 		_, _ = pool.Exec(ctx, `DELETE FROM "user" WHERE id = $1`, caseAttachmentSNTestUserID)
@@ -88,10 +94,15 @@ func seedCaseAttachmentSNFixture(t *testing.T, pool *pgxpool.Pool) {
 
 	// A plain, SFTPGo-backed (storage_key set) row, seeded directly rather
 	// than through CreateCaseAttachment, so this fixture doesn't depend on
-	// that method's own behavior -- only on the schema shape.
-	mustExec(`INSERT INTO case_attachment (id, case_id, storage_key, filename, mime_type, size_bytes, uploaded_by, status, created_on)
-	          VALUES ($1, $2, 'cases/pg-backed/notes.txt', 'notes.txt', 'text/plain', 11, $3, 'complete', now())`,
-		caseAttachmentPGTestAttachmentID, caseAttachmentSNTestCaseID, caseAttachmentSNTestUserID)
+	// that method's own behavior -- only on the schema shape. Entity-service's
+	// own rows live in work_item_attachment now (migration 0220), identified
+	// by status IS NOT NULL -- case_attachment itself still exists but is no
+	// longer read or written by any code path. created_by/updated_by hold the
+	// uploader's email (no uploaded_by FK -- see caseAttachmentSNTestUserEmail's
+	// own comment).
+	mustExec(`INSERT INTO work_item_attachment (id, created_on, updated_on, created_by, updated_by, work_item_id, storage_key, name, content_type, size_bytes, status)
+	          VALUES ($1, now(), now(), $3, $3, $2, 'cases/pg-backed/notes.txt', 'notes.txt', 'text/plain', 11, 'complete')`,
+		caseAttachmentPGTestAttachmentID, caseAttachmentSNTestCaseID, caseAttachmentSNTestUserEmail)
 }
 
 // TestCaseAttachmentSNIntegration_CreateAndReadBackWithNullStorageKey is the
@@ -124,7 +135,7 @@ func TestCaseAttachmentSNIntegration_CreateAndReadBackWithNullStorageKey(t *test
 	if err := pool.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&before); err != nil {
 		t.Fatalf("read database clock: %v", err)
 	}
-	created, err := repo.CreateCaseAttachmentFromServiceNow(ctx, req, caseAttachmentSNTestAttachmentID, 2048, caseAttachmentSNTestUserID)
+	created, err := repo.CreateCaseAttachmentFromServiceNow(ctx, req, caseAttachmentSNTestAttachmentID, 2048, caseAttachmentSNTestUserEmail)
 	if err != nil {
 		t.Fatalf("CreateCaseAttachmentFromServiceNow() error = %v", err)
 	}

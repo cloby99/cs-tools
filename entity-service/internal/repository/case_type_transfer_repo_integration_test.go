@@ -21,8 +21,9 @@
 // against a real Postgres, as a role that does not bypass row-level security,
 // for both flavours of "case": an Incident (S0-S3) and a Query (S4), moved out
 // of and into "case". Skipped without CASE_STATS_TEST_DSN, which needs
-// migrations 0184 (work_state/resolution_code on the other types) and 0210
-// (case_attachment references work_item).
+// migrations 0184 (work_state/resolution_code on the other types) and 0220
+// (work_item_attachment carries entity-service's own attachment rows, see
+// that migration's own comment).
 //
 //	CASE_STATS_TEST_DSN=postgres://... go test ./internal/repository/ -run CaseTypeTransferIntegration
 
@@ -74,7 +75,7 @@ func (f *ctFixture) exec(t *testing.T, sql string, args ...any) {
 func (f *ctFixture) clean() {
 	for _, id := range ctAllIDs {
 		_, _ = f.scoped.Exec(f.ctx, `DELETE FROM time_card WHERE case_id = $1`, id)
-		_, _ = f.scoped.Exec(f.ctx, `DELETE FROM case_attachment WHERE case_id = $1`, id)
+		_, _ = f.scoped.Exec(f.ctx, `DELETE FROM work_item_attachment WHERE work_item_id = $1`, id)
 		_, _ = f.scoped.Exec(f.ctx, `DELETE FROM work_item WHERE id = $1`, id)
 	}
 	_, _ = f.scoped.Exec(f.ctx, `DELETE FROM "user" WHERE id = $1`, ctUserID)
@@ -122,8 +123,11 @@ func newCTFixture(t *testing.T) *ctFixture {
 			VALUES (gen_random_uuid(), $2, $2, 'test', 'test', $1, $3, CURRENT_DATE, $4, 'SUBMITTED')`, id, now, f.userID, billable)
 	}
 	attachment := func(id string) {
-		f.exec(t, `INSERT INTO case_attachment (id, case_id, storage_key, filename, mime_type, size_bytes, uploaded_by, status)
-			VALUES (gen_random_uuid(), $1, 'type-transfer-test', 'a.txt', 'text/plain', 1, $2, 'complete')`, id, f.userID)
+		// created_by/updated_by hold the uploader's email -- work_item_attachment
+		// has no uploaded_by FK (see CaseRepository.CreateCaseAttachment's own
+		// doc comment).
+		f.exec(t, `INSERT INTO work_item_attachment (id, created_on, updated_on, created_by, updated_by, work_item_id, storage_key, name, content_type, size_bytes, status)
+			VALUES (gen_random_uuid(), now(), now(), $2, $2, $1, 'type-transfer-test', 'a.txt', 'text/plain', 1, 'complete')`, id, ctActor)
 	}
 	closedOn := now.Add(-time.Hour)
 
@@ -214,7 +218,7 @@ func (f *ctFixture) billable(t *testing.T, id string) bool {
 func (f *ctFixture) attachments(t *testing.T, id string) int {
 	t.Helper()
 	var n int
-	if err := f.scoped.QueryRow(f.ctx, `SELECT COUNT(*) FROM case_attachment WHERE case_id = $1`, id).Scan(&n); err != nil {
+	if err := f.scoped.QueryRow(f.ctx, `SELECT COUNT(*) FROM work_item_attachment WHERE work_item_id = $1`, id).Scan(&n); err != nil {
 		t.Fatalf("count attachments: %v", err)
 	}
 	return n
@@ -506,10 +510,15 @@ func TestCaseTypeTransferIntegration_Refusals(t *testing.T) {
 	f.assertOnlyIn(t, ctEngagementID, "engagement")
 }
 
-// The table's old foreign key to "case"(id) was also what kept an attachment off
-// every work item that is not a case. It now points at work_item (migration 0210,
-// so a case that changes type keeps its attachments), and the insert itself keeps
-// the narrower rule: the four case-like types own attachments, an announcement, a
+// Before the attachment write path moved onto work_item_attachment (migration
+// 0220), the old case_attachment table's foreign key to "case"(id) was what kept
+// an attachment off every work item that is not a case-like type, and migration
+// 0210 repointed it at work_item(id) instead so a case that changes type keeps
+// its attachments. work_item_attachment.work_item_id has always referenced
+// work_item(id) with no such restriction of its own (migration 0085); the
+// case-like-only rule now lives entirely in the EXISTS check inside
+// CreateCaseAttachment/CreateCaseAttachmentFromServiceNow's own queries (see
+// case_repo.go): the four case-like types own attachments, an announcement, a
 // change request or an incident does not. This guards both insert paths.
 func TestCaseTypeTransferIntegration_OnlyCaseLikeWorkItemsOwnAttachments(t *testing.T) {
 	f := newCTFixture(t)
@@ -524,17 +533,20 @@ func TestCaseTypeTransferIntegration_OnlyCaseLikeWorkItemsOwnAttachments(t *test
 	}
 
 	key := "type-transfer-test"
+	// CreatedBy/the ServiceNow-create uploadedBy param are both the actor's
+	// email now, not their user id -- work_item_attachment has no uploaded_by
+	// FK (see CaseRepository.CreateCaseAttachment's own doc comment).
 	create := func(id string) error {
 		_, err := cases.CreateCaseAttachment(f.ctx, domain.CreateAttachmentRequest{
 			ReferenceID: id, ReferenceType: domain.ReferenceTypeCase, Name: "b.txt", Type: "text/plain",
-			StorageKey: &key, SizeBytes: 1, CreatedBy: f.userID, Status: domain.AttachmentStatusComplete,
+			StorageKey: &key, SizeBytes: 1, CreatedBy: ctActor, Status: domain.AttachmentStatusComplete,
 		})
 		return err
 	}
 	fromServiceNow := func(id string) error {
 		_, err := cases.CreateCaseAttachmentFromServiceNow(f.ctx, domain.CreateAttachmentRequest{
 			ReferenceID: id, ReferenceType: domain.ReferenceTypeCase, Name: "c.txt", Type: "text/plain",
-		}, "92000000-0000-0000-0000-0000000000b0", 1, f.userID)
+		}, "92000000-0000-0000-0000-0000000000b0", 1, ctActor)
 		return err
 	}
 
@@ -549,7 +561,7 @@ func TestCaseTypeTransferIntegration_OnlyCaseLikeWorkItemsOwnAttachments(t *test
 	if err := fromServiceNow(ctQueryID); err != nil {
 		t.Errorf("a ServiceNow-sourced attachment on a case: %v", err)
 	}
-	_, _ = f.scoped.Exec(f.ctx, `DELETE FROM case_attachment WHERE id = '92000000-0000-0000-0000-0000000000b0'`)
+	_, _ = f.scoped.Exec(f.ctx, `DELETE FROM work_item_attachment WHERE id = '92000000-0000-0000-0000-0000000000b0'`)
 
 	for name, id := range map[string]string{"announcement": ctAnnouncementID, "change request": ctChangeReqID, "incident": ctIncidentWIID, "unknown id": ctMissingID} {
 		for path, do := range map[string]func(string) error{"create": create, "from ServiceNow": fromServiceNow} {

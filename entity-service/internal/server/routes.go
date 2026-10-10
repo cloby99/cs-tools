@@ -918,8 +918,10 @@ func NewRouter(db *pgxpool.Pool, cfg *config.Config) (http.Handler, func()) {
 		// the previous permanent "attachments are ServiceNow-only" override:
 		// that reasoning (the sftpgo-backed Postgres attachment
 		// implementation wasn't production-ready for the Oct 4 go-live) is
-		// now obsolete — case_attachment.storage_key is nullable (migration
-		// 0185) precisely so a ServiceNow-sourced row can have metadata-only
+		// now obsolete — work_item_attachment.storage_key is nullable
+		// (originally migration 0185 on the case_attachment table this
+		// replaced, migration 0220 carries the same nullability forward)
+		// precisely so a ServiceNow-sourced row can have metadata-only
 		// Postgres rows alongside the existing SFTPGo-backed ones.
 		//
 		// service.NewCaseAttachmentDualWriteService wraps activeCaseSvc

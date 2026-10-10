@@ -912,9 +912,11 @@ var githubIssueURLPattern = regexp.MustCompile(`https://github\.com/\S+`)
 // scanCaseActivity's exact query/column shape (case_repo.go) -- an activity
 // feed entry (comment or field change) is not inherently case-specific, and
 // work_item_activity/comment are both keyed by the generic work_item_id.
-// There are no incident attachments table equivalent to case_attachment
-// (that table is case-specific by name and FK), so this feed never has an
-// "attachment" kind entry, unlike SearchCaseActivities.
+// Incident attachments do exist (work_item_attachment, read via
+// SearchWorkItemAttachments), but this query was never extended to merge
+// them in the way SearchCaseActivities now merges a case's own
+// work_item_attachment rows, so this feed never has an "attachment" kind
+// entry.
 func (r *incidentRepo) SearchIncidentActivities(ctx context.Context, req domain.SearchIncidentActivitiesRequest) ([]domain.CaseActivity, int, error) {
 	// Confirm req.IncidentID is actually an incident before reading its
 	// activity feed -- comment/work_item_activity are both keyed by the

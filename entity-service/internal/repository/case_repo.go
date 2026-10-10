@@ -426,19 +426,21 @@ type CaseRepository interface {
 	// storage_key is always NULL (see migration 0185's own comment) and
 	// status is always 'complete': ServiceNow's attachment upload is
 	// synchronous, there is no pending/in-progress state to track.
-	// uploadedBy must be an existing user.id (the resolved actor, not a raw
-	// ServiceNow identity string) -- unlike deployment.created_by/
-	// deployment_product.created_by, case_attachment.uploaded_by is a real
-	// FK to "user"(id).
+	// uploadedBy is the resolved actor's email (not a raw ServiceNow identity
+	// string, and not an id -- work_item_attachment has no uploaded_by FK,
+	// see CreateCaseAttachment's own doc comment), stored into the table's
+	// free-text created_by/updated_by columns.
 	//
-	// created_on is deliberately NOT a parameter: it takes the column default,
-	// the database's own clock. ServiceNow's attachment-create reply carries a
-	// zone-less "YYYY-MM-DD HH:MM:SS" createdOn that is not UTC (it is rendered
-	// in a ServiceNow-side timezone), so storing it -- as this method used to --
-	// wrote local wall-clock time into a timestamptz as if it were UTC and put
-	// the row hours in the future. The clock here is the same one the plain
-	// CreateCaseAttachment path uses, and sits within the create call's latency
-	// of the moment ServiceNow accepted the file.
+	// created_on is deliberately NOT ServiceNow's own value: it takes the
+	// database's own clock (passed explicitly as NOW() in the query -- unlike
+	// the old case_attachment table, work_item_attachment.created_on has no
+	// column default to rely on). ServiceNow's attachment-create reply
+	// carries a zone-less "YYYY-MM-DD HH:MM:SS" createdOn that is not UTC (it
+	// is rendered in a ServiceNow-side timezone), so storing it -- as this
+	// method used to -- wrote local wall-clock time into a timestamptz as if
+	// it were UTC and put the row hours in the future. The clock here is the
+	// same one the plain CreateCaseAttachment path uses, and sits within the
+	// create call's latency of the moment ServiceNow accepted the file.
 	CreateCaseAttachmentFromServiceNow(ctx context.Context, req domain.CreateAttachmentRequest, id string, sizeBytes int, uploadedBy string) (domain.Attachment, error)
 	// SearchCaseAttachments returns a paginated slice of attachments for the given
 	// case, most recently created first, together with the total matching count.
@@ -446,8 +448,11 @@ type CaseRepository interface {
 	// SearchWorkItemAttachments returns a paginated slice of attachment
 	// metadata for a non-case work item (conversation, change_request or
 	// incident), most recently created first, together with the total
-	// matching count. Backed by work_item_attachment (migration 0085), not
-	// case_attachment. A work item with no attachments yields an empty slice
+	// matching count. Backed by work_item_attachment (migration 0085), same
+	// table SearchCaseAttachments now also reads (migration 0220) -- there is
+	// no overlap because ReferenceTypeToWorkItemType's types are disjoint
+	// from caseLikeNonAnnouncementTypes, not because this query filters by
+	// status itself. A work item with no attachments yields an empty slice
 	// and total 0, never an error. An unsupported referenceType (including
 	// "deployment", which is not a work_item subtype) returns a
 	// ValidationError.
@@ -665,7 +670,7 @@ type CaseRepository interface {
 	MarkCaseFixIssued(ctx context.Context, caseID string) (fixIssued time.Time, alreadySet bool, err error)
 	// SearchCaseActivities returns a paginated, newest-first feed combining
 	// the case's comments (comment, migration 0040) and complete
-	// attachments (case_attachment, migration 0106) into one merged
+	// attachments (work_item_attachment, migration 0220) into one merged
 	// timeline, together with the total matching count. There is no
 	// field-change audit table in this schema, so entries of that kind are
 	// never produced regardless of req.IncludeFieldChanges -- an absent
@@ -2623,28 +2628,37 @@ func (r *caseRepo) UpdateCase(ctx context.Context, req domain.UpdateCaseRequest,
 }
 
 // CreateCaseAttachment implements CaseRepository.
+//
+// Writes work_item_attachment (migration 0220 added the storage_key/
+// description/status columns this needs; case_attachment, which used to own
+// this write, has been retired). There is no dedicated uploaded_by FK --
+// req.CreatedBy carries the uploader's EMAIL (set by the caller, see
+// CaseService.CreateCaseAttachment) into the free-text created_by/updated_by
+// columns this table already had, the same convention comment.created_by and
+// a pure sync-job row's own created_by already use. status IS NOT NULL is
+// what marks a row as entity-service's own, as opposed to a pure sync-job
+// row sharing the same table -- see 0220's own migration comment.
 func (r *caseRepo) CreateCaseAttachment(ctx context.Context, req domain.CreateAttachmentRequest) (domain.Attachment, error) {
-	// The EXISTS is the check the table's old foreign key to "case"(id) used to make
-	// for free: only a case-like work item (never an announcement, a change request,
-	// an incident...) owns an attachment. The key now points at work_item (migration
-	// 0210) so a case that changes type keeps its attachments, which makes this
-	// the only thing keeping the narrower rule. A non-matching id inserts nothing.
+	// The EXISTS is the check the old case_attachment table's foreign key to
+	// "case"(id) used to make for free: only a case-like work item (never an
+	// announcement, a change request, an incident...) owns an attachment
+	// created through this path. A non-matching id inserts nothing.
 	const query = `
-		INSERT INTO case_attachment (case_id, storage_key, filename, mime_type, size_bytes, description, uploaded_by, status)
-		SELECT $1::uuid, $2::text, $3::text, $4::text, $5::bigint, $6::text, $7::uuid, $8::text
+		INSERT INTO work_item_attachment (id, created_on, updated_on, created_by, updated_by, work_item_id, storage_key, name, content_type, size_bytes, description, status)
+		SELECT gen_random_uuid(), NOW(), NOW(), $7::text, $7::text, $1::uuid, $2::text, $3::text, $4::text, $5::bigint, $6::text, $8::text
 		WHERE EXISTS (SELECT 1 FROM work_item w WHERE w.id = $1::uuid AND w.type = ANY(` + caseLikeNonAnnouncementTypes + `))
-		RETURNING id, case_id, storage_key, filename, mime_type, size_bytes, description, uploaded_by, created_on, status`
+		RETURNING id, work_item_id, storage_key, name, content_type, size_bytes, description, created_by, created_on, status`
 
 	var (
-		a            domain.Attachment
-		storageKey   string
-		uploadedByID string
+		a          domain.Attachment
+		storageKey string
+		createdBy  string
 	)
 	err := r.db.QueryRow(ctx, query,
 		req.ReferenceID, req.StorageKey, req.Name, req.Type, req.SizeBytes, req.Description, req.CreatedBy, req.Status,
 	).Scan(
 		&a.ID, &a.ReferenceID, &storageKey, &a.Name, &a.Type, &a.SizeBytes, &a.Description,
-		&uploadedByID, &a.CreatedOn, &a.Status,
+		&createdBy, &a.CreatedOn, &a.Status,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// No case-like work item with this id (see the EXISTS above) -- the same
@@ -2654,9 +2668,9 @@ func (r *caseRepo) CreateCaseAttachment(ctx context.Context, req domain.CreateAt
 	if err != nil {
 		if pgErr := (*pgconn.PgError)(nil); errors.As(err, &pgErr) {
 			switch pgErr.Code {
-			case "23503": // foreign_key_violation — case_id or uploaded_by does not exist
+			case "23503": // foreign_key_violation — work_item_id does not exist
 				return domain.Attachment{}, &apierror.ValidationError{Msg: "one or more referenced IDs do not exist: " + pgErr.Detail}
-			case "23514": // check_violation — e.g. size_bytes <= 0 or an invalid status
+			case "23514": // check_violation — an invalid status
 				return domain.Attachment{}, &apierror.ValidationError{Msg: pgErr.Message}
 			}
 		}
@@ -2664,10 +2678,10 @@ func (r *caseRepo) CreateCaseAttachment(ctx context.Context, req domain.CreateAt
 	}
 	a.ReferenceType = domain.ReferenceTypeCase
 	a.StorageKey = &storageKey
-	// The insert returns only the uploader's id; email and display name would
-	// need a further join, so the reference carries the id alone, same as
-	// CreateCaseComment above.
-	a.CreatedBy = domain.NewUserReference(uploadedByID, "", "")
+	// The insert returns only the uploader's email (no id -- there is no
+	// uploaded_by FK); a display name would need a further join, so the
+	// reference carries the email alone, same as CreateCaseComment above.
+	a.CreatedBy = domain.NewUserReference("", createdBy, "")
 	return a, nil
 }
 
@@ -2675,25 +2689,42 @@ func (r *caseRepo) CreateCaseAttachment(ctx context.Context, req domain.CreateAt
 // interface doc comment for the identity/storage_key/status conventions this
 // follows -- id is supplied by the caller (ServiceNow's own attachment
 // sys_id, converted), not generated, and storage_key is always NULL.
+// uploadedBy is the actor's EMAIL (not an id -- there is no uploaded_by FK,
+// see CreateCaseAttachment's own doc comment), stored into the free-text
+// created_by/updated_by columns.
+//
+// KNOWN RISK: this writes to work_item_attachment under the same id
+// csm-sync-service's own sync job eventually uses for the same real-world
+// ServiceNow attachment (that shared-id convention is exactly what made the
+// old two-table case_attachment/work_item_attachment dedupe in
+// SearchCaseActivities possible). Now that both writers target the SAME
+// table, whichever one inserts second hits 23505 here -- previously harmless
+// because a retried mirror write from this same service was the only
+// plausible cause; now a legitimate, independent sync-job insert for the
+// same attachment can also trigger it. This needs resolving with whoever
+// owns csm-sync-service (e.g. an ON CONFLICT policy agreed on both sides)
+// before this is safe to run against a shared environment.
 func (r *caseRepo) CreateCaseAttachmentFromServiceNow(ctx context.Context, req domain.CreateAttachmentRequest, id string, sizeBytes int, uploadedBy string) (domain.Attachment, error) {
 	// Same case-like-only rule as CreateCaseAttachment, for the same reason.
-	// created_on is left out so the column default (NOW()) applies -- see the
-	// interface doc comment for why ServiceNow's own createdOn is not used.
+	// created_on is left out so the column default... no default exists on
+	// work_item_attachment.created_on (unlike the old case_attachment), so
+	// NOW() is passed explicitly here instead -- see the interface doc
+	// comment for why ServiceNow's own createdOn is not used regardless.
 	const query = `
-		INSERT INTO case_attachment (id, case_id, storage_key, filename, mime_type, size_bytes, description, uploaded_by, status)
-		SELECT $1::uuid, $2::uuid, NULL, $3::text, $4::text, $5::bigint, $6::text, $7::uuid, 'complete'
+		INSERT INTO work_item_attachment (id, created_on, updated_on, created_by, updated_by, work_item_id, storage_key, name, content_type, size_bytes, description, status)
+		SELECT $1::uuid, NOW(), NOW(), $7::text, $7::text, $2::uuid, NULL, $3::text, $4::text, $5::bigint, $6::text, 'complete'
 		WHERE EXISTS (SELECT 1 FROM work_item w WHERE w.id = $2::uuid AND w.type = ANY(` + caseLikeNonAnnouncementTypes + `))
-		RETURNING id, case_id, filename, mime_type, size_bytes, description, uploaded_by, created_on, status`
+		RETURNING id, work_item_id, name, content_type, size_bytes, description, created_by, created_on, status`
 
 	var (
-		a            domain.Attachment
-		uploadedByID string
+		a         domain.Attachment
+		createdBy string
 	)
 	err := r.db.QueryRow(ctx, query,
 		id, req.ReferenceID, req.Name, req.Type, sizeBytes, req.Description, uploadedBy,
 	).Scan(
 		&a.ID, &a.ReferenceID, &a.Name, &a.Type, &a.SizeBytes, &a.Description,
-		&uploadedByID, &a.CreatedOn, &a.Status,
+		&createdBy, &a.CreatedOn, &a.Status,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Attachment{}, &apierror.ValidationError{Msg: "one or more referenced IDs do not exist"}
@@ -2703,9 +2734,9 @@ func (r *caseRepo) CreateCaseAttachmentFromServiceNow(ctx context.Context, req d
 			switch pgErr.Code {
 			case "23505": // unique_violation -- id already exists (e.g. a retried mirror write)
 				return domain.Attachment{}, &apierror.ValidationError{Msg: "an attachment with this identity already exists"}
-			case "23503": // foreign_key_violation -- case_id or uploaded_by does not exist
+			case "23503": // foreign_key_violation -- work_item_id does not exist
 				return domain.Attachment{}, &apierror.ValidationError{Msg: "one or more referenced IDs do not exist: " + pgErr.Detail}
-			case "23514": // check_violation -- e.g. size_bytes <= 0
+			case "23514": // check_violation -- e.g. an invalid status
 				return domain.Attachment{}, &apierror.ValidationError{Msg: pgErr.Message}
 			}
 		}
@@ -2716,26 +2747,26 @@ func (r *caseRepo) CreateCaseAttachmentFromServiceNow(ctx context.Context, req d
 	// in ServiceNow, addressed by this row's own id (see uuidToSysid), not by
 	// a storage_key. Left nil, same zero value SearchCaseAttachments/
 	// GetCaseAttachmentByID now return for any row with a NULL storage_key.
-	a.CreatedBy = domain.NewUserReference(uploadedByID, "", "")
+	a.CreatedBy = domain.NewUserReference("", createdBy, "")
 	return a, nil
 }
 
 // ConfirmCaseAttachment implements CaseRepository.
 func (r *caseRepo) ConfirmCaseAttachment(ctx context.Context, id string) (domain.Attachment, error) {
 	const query = `
-		UPDATE case_attachment
+		UPDATE work_item_attachment
 		SET status = 'complete', updated_on = NOW()
 		WHERE id = $1 AND status = 'pending'
-		RETURNING id, case_id, storage_key, filename, mime_type, size_bytes, description, uploaded_by, created_on, status`
+		RETURNING id, work_item_id, storage_key, name, content_type, size_bytes, description, created_by, created_on, status`
 
 	var (
-		a            domain.Attachment
-		storageKey   string
-		uploadedByID string
+		a          domain.Attachment
+		storageKey string
+		createdBy  string
 	)
 	err := r.db.QueryRow(ctx, query, id).Scan(
 		&a.ID, &a.ReferenceID, &storageKey, &a.Name, &a.Type, &a.SizeBytes, &a.Description,
-		&uploadedByID, &a.CreatedOn, &a.Status,
+		&createdBy, &a.CreatedOn, &a.Status,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Attachment{}, &apierror.ConflictError{Msg: "attachment is not pending (it may already be confirmed, or was confirmed/deleted concurrently)"}
@@ -2745,25 +2776,47 @@ func (r *caseRepo) ConfirmCaseAttachment(ctx context.Context, id string) (domain
 	}
 	a.ReferenceType = domain.ReferenceTypeCase
 	a.StorageKey = &storageKey
-	a.CreatedBy = domain.NewUserReference(uploadedByID, "", "")
+	a.CreatedBy = domain.NewUserReference("", createdBy, "")
 	return a, nil
 }
 
 // SearchCaseAttachments implements CaseRepository.
 //
-// Both queries filter to status = 'complete' -- see the doc comment on
-// CaseService.SearchCaseAttachments for why pending (still-uploading) rows
-// are excluded from the default list/search response rather than shown with
-// a visible status.
+// Reads work_item_attachment for BOTH entity-service's own rows (status =
+// 'complete') and pure sync-job rows (status IS NULL AND state IS DISTINCT
+// FROM 'PENDING') -- the latter is what the old DATA_SOURCE=postgres-
+// servicenow-dual-write ServiceNow-search stopgap used to cover (see
+// CaseService.SearchCaseAttachments's doc comment): a case migrated into
+// dual-write can have attachments that only ever existed as a
+// csm-sync-service-synced row, never as one entity-service itself wrote.
+// Reading both kinds from this one table, rather than falling back to a
+// second data source when Postgres came back empty, is what lets that
+// stopgap be removed.
+//
+// Author resolution is one email match against the free-text created_by for
+// EVERY row, entity-service's own included -- there is no uploaded_by FK
+// (see CreateCaseAttachment's own doc comment), so an entity-service row's
+// created_by is already its uploader's email verbatim, the same shape a
+// sync-job row's created_by already had. The LATERAL join only enriches the
+// result with a resolvable id/display name; ca.created_by itself is used
+// directly as the email, with no dependency on the join succeeding.
 func (r *caseRepo) SearchCaseAttachments(ctx context.Context, caseID string, pagination domain.Pagination) ([]domain.Attachment, int, error) {
-	const countQuery = `SELECT COUNT(*) FROM case_attachment WHERE case_id = $1 AND status = 'complete'`
+	const filter = `AND ((ca.status = 'complete') OR (ca.status IS NULL AND ca.state IS DISTINCT FROM 'PENDING'))`
+	const countQuery = `SELECT COUNT(*) FROM work_item_attachment ca WHERE ca.work_item_id = $1 ` + filter
 	const dataQuery = `
-		SELECT ca.id, ca.case_id, ca.filename, ca.mime_type, ca.size_bytes, ca.description,
-		       u.id, u.email, COALESCE(u.name, NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), '') AS full_name,
-		       ca.created_on, ca.storage_key, ca.status
-		FROM case_attachment ca
-		JOIN "user" u ON u.id = ca.uploaded_by
-		WHERE ca.case_id = $1 AND ca.status = 'complete'
+		SELECT ca.id, ca.work_item_id, COALESCE(ca.name, ''), COALESCE(ca.content_type, ''), COALESCE(ca.size_bytes, 0), ca.description,
+		       COALESCE(u.id::text, ''), ca.created_by,
+		       COALESCE(u.name, NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), ''),
+		       ca.created_on, ca.storage_key, COALESCE(ca.status, 'complete')
+		FROM work_item_attachment ca
+		LEFT JOIN LATERAL (
+			SELECT u2.id, u2.first_name, u2.last_name, u2.name
+			FROM "user" u2
+			WHERE LOWER(u2.email) = LOWER(ca.created_by)
+			ORDER BY u2.id
+			LIMIT 1
+		) u ON TRUE
+		WHERE ca.work_item_id = $1 ` + filter + `
 		ORDER BY ca.created_on DESC, ca.id
 		LIMIT $2 OFFSET $3`
 
@@ -2786,24 +2839,26 @@ func (r *caseRepo) SearchCaseAttachments(ctx context.Context, caseID string, pag
 		}
 		defer rows.Close()
 
+		var sizeBytes int64
 		result := make([]domain.Attachment, 0, pagination.Limit)
 		for rows.Next() {
 			var (
 				a                         domain.Attachment
 				uploaderID, uploaderEmail string
 				uploaderName              string
-				// storageKey is nullable: a dual-write (ServiceNow-sourced)
-				// row has no storage_key at all -- see migration 0185's own
-				// comment. *string (not string) is required here so a NULL
-				// column value scans as a nil pointer instead of erroring.
+				// storageKey is nullable: a dual-write (ServiceNow-sourced) or
+				// pure sync-job row has no storage_key at all -- see migration
+				// 0185's own comment. *string (not string) is required here so
+				// a NULL column value scans as a nil pointer instead of erroring.
 				storageKey *string
 			)
 			if err := rows.Scan(
-				&a.ID, &a.ReferenceID, &a.Name, &a.Type, &a.SizeBytes, &a.Description,
+				&a.ID, &a.ReferenceID, &a.Name, &a.Type, &sizeBytes, &a.Description,
 				&uploaderID, &uploaderEmail, &uploaderName, &a.CreatedOn, &storageKey, &a.Status,
 			); err != nil {
 				return fmt.Errorf("scan case attachment: %w", err)
 			}
+			a.SizeBytes = int(sizeBytes)
 			a.ReferenceType = domain.ReferenceTypeCase
 			a.CreatedBy = domain.NewUserReference(uploaderID, uploaderEmail, uploaderName)
 			a.StorageKey = storageKey
@@ -2942,18 +2997,36 @@ func (r *caseRepo) SearchWorkItemAttachments(ctx context.Context, workItemID str
 // uploader can check on their own in-flight upload. See the doc comment on
 // CaseService.SearchCaseAttachments for the read-path status decision.
 func (r *caseRepo) GetCaseAttachmentByID(ctx context.Context, id string) (domain.Attachment, error) {
+	// status IS NOT NULL is what excludes a pure sync-job row sharing this
+	// table -- the same discriminator SearchCaseAttachments/DeleteCaseAttachment
+	// use, except this lookup allows BOTH 'pending' and 'complete' (a pending
+	// row needs to resolve here too, see the doc comment above), so it cannot
+	// filter on a specific status value. Author resolution is a best-effort
+	// email match (LEFT JOIN, not JOIN): ca.created_by itself is already the
+	// uploader's email (see CreateCaseAttachment's own doc comment on why
+	// there is no uploaded_by FK to join on), used directly below regardless
+	// of whether a "user" row still matches it.
 	const query = `
-		SELECT ca.id, ca.case_id, ca.filename, ca.mime_type, ca.size_bytes, ca.description,
-		       u.id, u.email, COALESCE(u.name, NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), '') AS full_name,
+		SELECT ca.id, ca.work_item_id, ca.name, ca.content_type, ca.size_bytes, ca.description,
+		       u.id, ca.created_by, COALESCE(u.name, NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), '') AS full_name,
 		       ca.created_on, ca.storage_key, ca.status
-		FROM case_attachment ca
-		JOIN "user" u ON u.id = ca.uploaded_by
-		WHERE ca.id = $1`
+		FROM work_item_attachment ca
+		LEFT JOIN LATERAL (
+			SELECT u2.id, u2.first_name, u2.last_name, u2.name
+			FROM "user" u2
+			WHERE LOWER(u2.email) = LOWER(ca.created_by)
+			ORDER BY u2.id
+			LIMIT 1
+		) u ON TRUE
+		WHERE ca.id = $1 AND ca.status IS NOT NULL`
 
 	var (
-		a                         domain.Attachment
-		uploaderID, uploaderEmail string
-		uploaderName              string
+		a             domain.Attachment
+		uploaderEmail string
+		uploaderName  string
+		// uploaderID is nullable: the LEFT JOIN LATERAL above is best-effort
+		// and may not resolve any current "user" row for ca.created_by.
+		uploaderID *string
 		// storageKey is nullable -- see SearchCaseAttachments' identical
 		// comment: a dual-write (ServiceNow-sourced) row has no storage_key.
 		storageKey *string
@@ -2969,14 +3042,24 @@ func (r *caseRepo) GetCaseAttachmentByID(ctx context.Context, id string) (domain
 		return domain.Attachment{}, fmt.Errorf("get case attachment by id: %w", err)
 	}
 	a.ReferenceType = domain.ReferenceTypeCase
-	a.CreatedBy = domain.NewUserReference(uploaderID, uploaderEmail, uploaderName)
+	var resolvedID string
+	if uploaderID != nil {
+		resolvedID = *uploaderID
+	}
+	a.CreatedBy = domain.NewUserReference(resolvedID, uploaderEmail, uploaderName)
 	a.StorageKey = storageKey
 	return a, nil
 }
 
 // DeleteCaseAttachment implements CaseRepository.
+//
+// status IS NOT NULL scopes this to rows entity-service itself owns, so a
+// caller can never reach a pure sync-job row sharing this table -- in
+// practice this never changes which id is ever passed in, since every id
+// reaching here was previously returned by GetCaseAttachmentByID/
+// SearchCaseAttachments, which already apply the same filter.
 func (r *caseRepo) DeleteCaseAttachment(ctx context.Context, id string) error {
-	tag, err := r.db.Exec(ctx, `DELETE FROM case_attachment WHERE id = $1`, id)
+	tag, err := r.db.Exec(ctx, `DELETE FROM work_item_attachment WHERE id = $1 AND status IS NOT NULL`, id)
 	if err != nil {
 		return fmt.Errorf("delete case attachment: %w", err)
 	}
@@ -2986,12 +3069,13 @@ func (r *caseRepo) DeleteCaseAttachment(ctx context.Context, id string) error {
 	return nil
 }
 
-// UpdateCaseAttachmentName implements CaseRepository.
+// UpdateCaseAttachmentName implements CaseRepository. status IS NOT NULL
+// scopes this the same way DeleteCaseAttachment's own comment explains.
 func (r *caseRepo) UpdateCaseAttachmentName(ctx context.Context, id, name, updatedBy string) (time.Time, error) {
 	const query = `
-		UPDATE case_attachment
-		SET filename = $2, updated_on = NOW(), updated_by = $3
-		WHERE id = $1
+		UPDATE work_item_attachment
+		SET name = $2, updated_on = NOW(), updated_by = $3
+		WHERE id = $1 AND status IS NOT NULL
 		RETURNING updated_on`
 
 	var updatedOn time.Time
@@ -4651,32 +4735,30 @@ func (r *caseRepo) SearchCaseActivities(ctx context.Context, req domain.SearchCa
 		commentWorkNoteDataFilter = ` AND cm.type IS DISTINCT FROM 'WORK_NOTE'::comment_type_enum`
 	}
 
-	// Synced attachments live in work_item_attachment, not case_attachment. A
-	// row is skipped while PENDING, and when case_attachment already holds the
-	// same id: a dual-write upload is mirrored into case_attachment under the
-	// backing data source's own attachment identity, which is also the id the
-	// sync gives its work_item_attachment row, so the two tables describe one
-	// file and it must show once. Shared by both queries so total and rows agree.
-	const syncedAttachmentFilter = `
-			  AND wa.state IS DISTINCT FROM 'PENDING'
-			  AND NOT EXISTS (SELECT 1 FROM case_attachment ca WHERE ca.id = wa.id)`
+	// case_attachment is retired; attachments now live entirely in
+	// work_item_attachment, both entity-service's own rows (status =
+	// 'complete', excluding 'pending' still-uploading ones, same filter
+	// SearchCaseAttachments applies) and pure sync-job rows (status IS NULL,
+	// excluding 'PENDING' state). There is only ever one row per real file
+	// now -- no more id-based dedupe between two tables.
+	const attachmentFilter = `
+			  AND ((a.status = 'complete') OR (a.status IS NULL AND a.state IS DISTINCT FROM 'PENDING'))`
 
 	countQuery := `
 		SELECT
 			(SELECT COUNT(*) FROM comment WHERE work_item_id = $1` + commentWorkNoteFilter + `) +
-			(SELECT COUNT(*) FROM case_attachment WHERE case_id = $1 AND status = 'complete') +
-			(SELECT COUNT(*) FROM work_item_attachment wa JOIN work_item wi ON wi.id = wa.work_item_id
-			 WHERE wa.work_item_id = $1` + syncedAttachmentFilter + `)`
+			(SELECT COUNT(*) FROM work_item_attachment a WHERE a.work_item_id = $1` + attachmentFilter + `)`
 	if includeFieldChanges {
 		countQuery += ` + (SELECT COUNT(*) FROM work_item_activity WHERE work_item_id = $1)`
 	}
 
-	// UNION ALL merges the tables into one timeline. Comment/field-change
-	// rows resolve their (free-text VARCHAR) author by email match against
-	// "user"; case_attachment rows join it directly, since uploaded_by is a
-	// real UUID FK (migration 0106), while synced work_item_attachment rows
-	// carry a free-text created_by and match by email like comments -- see
-	// this file's other created_by fixes for why they differ.
+	// UNION ALL merges comments, attachments, and (optionally) field changes
+	// into one timeline. Comment/field-change and attachment rows alike
+	// resolve their (free-text VARCHAR) author by email match against "user"
+	// -- there is no uploaded_by FK on work_item_attachment (see
+	// CreateCaseAttachment's own doc comment), so an entity-service-owned
+	// row's created_by is already its uploader's email verbatim, the same
+	// shape a sync-job row's created_by already had.
 	//
 	// The comment/field-change branches' email joins are each wrapped in
 	// their own DISTINCT ON subquery: "user".email has no unique constraint
@@ -4707,34 +4789,20 @@ func (r *caseRepo) SearchCaseActivities(ctx context.Context, req domain.SearchCa
 
 			SELECT
 				a.id, 'attachment' AS kind, COALESCE(a.description, '') AS content, a.created_on AS created_on,
-				u2.email, u2.first_name, u2.last_name,
-				COALESCE(u2.name, NULLIF(TRIM(CONCAT_WS(' ', u2.first_name, u2.last_name)), '')) AS name,
+				a.created_by, ua.first_name, ua.last_name,
+				COALESCE(ua.name, NULLIF(TRIM(CONCAT_WS(' ', ua.first_name, ua.last_name)), '')) AS name,
 				NULL::text AS comment_type,
-				a.filename, a.mime_type, a.size_bytes,
+				COALESCE(a.name, '')::text, COALESCE(a.content_type, '')::text, COALESCE(a.size_bytes, 0)::bigint,
 				NULL::text AS field_name, NULL::text AS old_value, NULL::text AS new_value
-			FROM case_attachment a
-			JOIN "user" u2 ON u2.id = a.uploaded_by
-			WHERE a.case_id = $1 AND a.status = 'complete'
-
-			UNION ALL
-
-			SELECT
-				wa.id, 'attachment' AS kind, '' AS content, wa.created_on AS created_on,
-				COALESCE(u4.email, wa.created_by), u4.first_name, u4.last_name,
-				COALESCE(u4.name, NULLIF(TRIM(CONCAT_WS(' ', u4.first_name, u4.last_name)), '')) AS name,
-				NULL::text AS comment_type,
-				COALESCE(wa.name, '')::text, COALESCE(wa.content_type, '')::text, COALESCE(wa.size_bytes, 0)::bigint,
-				NULL::text AS field_name, NULL::text AS old_value, NULL::text AS new_value
-			FROM work_item_attachment wa
-			JOIN work_item wi ON wi.id = wa.work_item_id
+			FROM work_item_attachment a
 			LEFT JOIN LATERAL (
-				SELECT u.email, u.first_name, u.last_name, u.name
+				SELECT u.first_name, u.last_name, u.name
 				FROM "user" u
-				WHERE LOWER(u.email) = LOWER(wa.created_by)
+				WHERE LOWER(u.email) = LOWER(a.created_by)
 				ORDER BY u.id
 				LIMIT 1
-			) u4 ON TRUE
-			WHERE wa.work_item_id = $1` + syncedAttachmentFilter
+			) ua ON TRUE
+			WHERE a.work_item_id = $1` + attachmentFilter
 	if includeFieldChanges {
 		dataQuery += `
 

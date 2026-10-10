@@ -338,11 +338,18 @@ func (r *caseRepo) TransferCaseType(ctx context.Context, plan CaseTypeTransfer, 
 		// 3. Replace the extension row: delete the old, insert the new.
 		if _, err := tx.Exec(ctx, fmt.Sprintf(`DELETE FROM %s WHERE id = $1::uuid`, caseTypeExtensions[previousType].table), plan.CaseID); err != nil {
 			if pgErr := (*pgconn.PgError)(nil); errors.As(err, &pgErr) && pgErr.Code == "23503" {
-				// case_attachment.case_id references "case"(id) with no cascade (migration
-				// 0106), so an attachment keeps its case row from being replaced.
+				// Attachments do NOT trigger this: work_item_attachment.
+				// work_item_id (like the old case_attachment.case_id before
+				// it, since migration 0210) references work_item(id), not
+				// this per-type extension row, so a case's attachments
+				// survive this DELETE/INSERT untouched regardless of which
+				// table holds them -- see
+				// TestCaseTypeTransferIntegration_AttachmentsAreAvailableOnTheConvertedTicket.
+				// Kept as a safety net for any other FK into the old
+				// extension row this transfer doesn't know about.
 				slog.ErrorContext(ctx, "transfer case type: the old extension row is still referenced",
 					"caseId", plan.CaseID, "from", previousType, "constraint", pgErr.ConstraintName, "table", pgErr.TableName)
-				return &apierror.ConflictError{Msg: "this case has attachments that still point at its current type, so it cannot be moved to another type until the attachment storage is updated; contact the platform team"}
+				return &apierror.ConflictError{Msg: "this case still has related records that prevent it from being moved to another type; contact the platform team"}
 			}
 			return fmt.Errorf("transfer case type: delete %s row: %w", previousType, err)
 		}

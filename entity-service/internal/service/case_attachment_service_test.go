@@ -87,8 +87,8 @@ func TestCaseService_CreateCaseAttachment_Succeeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateCaseAttachment returned error: %v", err)
 	}
-	if capturedReq.CreatedBy != "user-jane" {
-		t.Fatalf("expected repo to receive resolved actor id, got %q", capturedReq.CreatedBy)
+	if capturedReq.CreatedBy != "jane.doe@example.com" {
+		t.Fatalf("expected repo to receive the resolved actor's email (no uploaded_by FK), got %q", capturedReq.CreatedBy)
 	}
 	if resp.Attachment.ID != testAttachmentID {
 		t.Fatalf("expected attachment id %q, got %q", testAttachmentID, resp.Attachment.ID)
@@ -519,10 +519,11 @@ func (m *stubAttachmentByIDMirror) DeleteCaseAttachment(ctx context.Context, req
 
 // TestCaseService_GetAttachmentByID_FallsBackToServiceNowForDeploymentAttachment
 // covers the real bug this fallback fixes: a deployment-referenced
-// attachment has no case_attachment row at all under
-// DATA_SOURCE=postgres-servicenow-dual-write (its id can never satisfy that
-// table's hard FK into "case" -- see CreateCaseAttachmentFromServiceNow's own
-// doc comment), so the Postgres lookup always misses for one. Before this
+// attachment has no work_item_attachment row entity-service itself ever
+// wrote under DATA_SOURCE=postgres-servicenow-dual-write (its id can never
+// satisfy the case-like-only check CreateCaseAttachmentFromServiceNow's own
+// insert applies -- see that method's own doc comment and case_repo.go), so
+// the Postgres lookup always misses for one. Before this
 // fix, that NotFoundError was returned straight to the caller -- GetAttachment/
 // GetAttachmentContent/DeleteAttachment 404'd unconditionally for every
 // deployment-tab attachment regardless of who uploaded it or whether
@@ -620,7 +621,7 @@ func TestCaseService_DeleteCaseAttachment_RemovesRow(t *testing.T) {
 // mirrors TestCaseService_GetAttachmentByID_FallsBackToServiceNowForDeploymentAttachment
 // for the delete path -- the exact regression reported live: a deployment-tab
 // attachment's own uploader could not delete it because the Postgres
-// case_attachment row never existed to delete in the first place.
+// work_item_attachment row never existed to delete in the first place.
 func TestCaseService_DeleteCaseAttachment_FallsBackToServiceNowForDeploymentAttachment(t *testing.T) {
 	repo := &stubCaseRepo{
 		deleteCaseAttachment: func(context.Context, string) error {
@@ -727,8 +728,8 @@ func TestCaseService_UpdateAttachment_RenamesFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateAttachment returned error: %v", err)
 	}
-	if gotID != testAttachmentID || gotName != "renamed.log" || gotUpdatedBy != "user-jane" {
-		t.Fatalf("unexpected repo call: id=%q name=%q updatedBy=%q", gotID, gotName, gotUpdatedBy)
+	if gotID != testAttachmentID || gotName != "renamed.log" || gotUpdatedBy != "jane.doe@example.com" {
+		t.Fatalf("unexpected repo call: id=%q name=%q updatedBy=%q (want the actor's email, no uploaded_by FK)", gotID, gotName, gotUpdatedBy)
 	}
 	if resp.Attachment.UpdatedBy != "jane.doe@example.com" {
 		t.Fatalf("expected updatedBy email, got %q", resp.Attachment.UpdatedBy)

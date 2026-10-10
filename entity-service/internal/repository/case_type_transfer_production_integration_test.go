@@ -49,7 +49,7 @@ func (f *ctFixture) cleanupExtras(t *testing.T) {
 		for _, sql := range []string{
 			`DELETE FROM comment WHERE created_by = '` + ctBulkMarker + `'`,
 			`DELETE FROM time_card WHERE created_by = '` + ctBulkMarker + `'`,
-			`DELETE FROM case_attachment WHERE storage_key = '` + ctBulkMarker + `'`,
+			`DELETE FROM work_item_attachment WHERE storage_key = '` + ctBulkMarker + `'`,
 			`DELETE FROM work_item_watcher WHERE work_item_id IN ('` + ctIncidentID + `', '` + ctQueryID + `')`,
 			`DELETE FROM work_item_tag WHERE tag_id = '` + ctTagID + `'`,
 			`DELETE FROM tag WHERE id = '` + ctTagID + `'`,
@@ -216,22 +216,25 @@ func TestCaseTypeTransferIntegration_AttachmentsAreAvailableOnTheConvertedTicket
 	f.cleanupExtras(t)
 	cases := repository.NewCaseRepository(f.scoped)
 
+	// CreatedBy/uploadedBy are the actor's email -- work_item_attachment has
+	// no uploaded_by FK (see CaseRepository.CreateCaseAttachment's own doc
+	// comment).
 	portalKey := ctBulkMarker
 	fromPortal, err := cases.CreateCaseAttachment(f.ctx, domain.CreateAttachmentRequest{
 		ReferenceID: ctQueryID, ReferenceType: domain.ReferenceTypeCase, Name: "customer-logs.zip", Type: "application/zip",
-		StorageKey: &portalKey, SizeBytes: 2048, CreatedBy: f.userID, Status: domain.AttachmentStatusComplete,
+		StorageKey: &portalKey, SizeBytes: 2048, CreatedBy: ctActor, Status: domain.AttachmentStatusComplete,
 	})
 	if err != nil {
 		t.Fatalf("seed a portal attachment: %v", err)
 	}
 	fromSN, err := cases.CreateCaseAttachmentFromServiceNow(f.ctx, domain.CreateAttachmentRequest{
 		ReferenceID: ctQueryID, ReferenceType: domain.ReferenceTypeCase, Name: "config.xml", Type: "text/xml",
-	}, "92000000-0000-0000-0000-0000000000b1", 512, f.userID)
+	}, "92000000-0000-0000-0000-0000000000b1", 512, ctActor)
 	if err != nil {
 		t.Fatalf("seed a ServiceNow attachment: %v", err)
 	}
-	f.exec(t, `INSERT INTO case_attachment (id, case_id, storage_key, filename, mime_type, size_bytes, uploaded_by, status)
-		VALUES (gen_random_uuid(), $1, $2, 'still-uploading.bin', 'application/octet-stream', 1, $3, 'pending')`, ctQueryID, ctBulkMarker, f.userID)
+	f.exec(t, `INSERT INTO work_item_attachment (id, created_on, updated_on, created_by, updated_by, work_item_id, storage_key, name, content_type, size_bytes, status)
+		VALUES (gen_random_uuid(), now(), now(), $3, $3, $1, $2, 'still-uploading.bin', 'application/octet-stream', 1, 'pending')`, ctQueryID, ctBulkMarker, ctActor)
 
 	if _, err := f.repo.TransferCaseType(f.ctx, ctEngagementPlan(ctQueryID), nil); err != nil {
 		t.Fatalf("TransferCaseType: %v", err)
@@ -306,7 +309,7 @@ func TestCaseTypeTransferIntegration_LinkedItemsAreNotTouched(t *testing.T) {
 		scan("watchers", `SELECT COUNT(*) FROM work_item_watcher WHERE work_item_id = '`+ctIncidentID+`'`)
 		scan("tags", `SELECT COUNT(*) FROM work_item_tag WHERE work_item_id = '`+ctIncidentID+`'`)
 		scan("comments", `SELECT COUNT(*) FROM comment WHERE work_item_id = '`+ctIncidentID+`'`)
-		scan("attachments", `SELECT COUNT(*) FROM case_attachment WHERE case_id = '`+ctIncidentID+`'`)
+		scan("attachments", `SELECT COUNT(*) FROM work_item_attachment WHERE work_item_id = '`+ctIncidentID+`'`)
 		scan("time cards", `SELECT COUNT(*) FROM time_card WHERE case_id = '`+ctIncidentID+`'`)
 		scan("the incident's own project, deployment, account", `SELECT concat_ws('|', project_id, deployment_id, deployed_product_id, account_id, number, wso2_id, subject, created_by, created_on) FROM work_item WHERE id = '`+ctIncidentID+`'`)
 		return out
@@ -347,8 +350,10 @@ func TestCaseTypeTransferIntegration_ALargeTicketMovesWholeAndQuickly(t *testing
 
 	f.exec(t, `INSERT INTO comment (id, created_on, created_by, type, work_item_id, content)
 		SELECT gen_random_uuid(), $1, $2, 'COMMENT', $3, repeat('x', 400) FROM generate_series(1, $4) g`, now, ctBulkMarker, ctQueryID, comments)
-	f.exec(t, `INSERT INTO case_attachment (id, case_id, storage_key, filename, mime_type, size_bytes, uploaded_by, status)
-		SELECT gen_random_uuid(), $1, $2, 'f' || g, 'text/plain', 1, $3, 'complete' FROM generate_series(1, $4) g`, ctQueryID, ctBulkMarker, f.userID, attachments)
+	// created_by/updated_by are the actor's email -- no uploaded_by FK (see
+	// CaseRepository.CreateCaseAttachment's own doc comment).
+	f.exec(t, `INSERT INTO work_item_attachment (id, created_on, updated_on, created_by, updated_by, work_item_id, storage_key, name, content_type, size_bytes, status)
+		SELECT gen_random_uuid(), $1, $1, $3, $3, $2, $5, 'f' || g, 'text/plain', 1, 'complete' FROM generate_series(1, $4) g`, now, ctQueryID, ctActor, attachments, ctBulkMarker)
 	f.exec(t, `INSERT INTO time_card (id, created_on, updated_on, created_by, updated_by, case_id, user_id, work_date, is_billable, state)
 		SELECT gen_random_uuid(), $1, $1, $2, $2, $3, $4, CURRENT_DATE - g, TRUE, 'SUBMITTED' FROM generate_series(1, $5) g`, now, ctBulkMarker, ctQueryID, f.userID, timeCards)
 	f.exec(t, `INSERT INTO work_item (id, created_on, updated_on, created_by, updated_by, number, wso2_id, subject, type, parent_id)
@@ -368,7 +373,7 @@ func TestCaseTypeTransferIntegration_ALargeTicketMovesWholeAndQuickly(t *testing
 	if got := f.count(t, `SELECT COUNT(*) FROM comment WHERE work_item_id = $1`, ctQueryID); got != comments {
 		t.Errorf("comments = %d, want %d", got, comments)
 	}
-	if got := f.count(t, `SELECT COUNT(*) FROM case_attachment WHERE case_id = $1`, ctQueryID); got != attachments+1 {
+	if got := f.count(t, `SELECT COUNT(*) FROM work_item_attachment WHERE work_item_id = $1`, ctQueryID); got != attachments+1 {
 		t.Errorf("attachments = %d, want %d (the fixture's own plus %d)", got, attachments+1, attachments)
 	}
 	if got := f.count(t, `SELECT COUNT(*) FROM work_item WHERE parent_id = $1`, ctQueryID); got != children {

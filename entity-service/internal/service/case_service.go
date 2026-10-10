@@ -3154,7 +3154,11 @@ func (s *caseService) CreateCaseAttachment(ctx context.Context, req domain.Creat
 	if err != nil {
 		return domain.CreateAttachmentResponse{}, err
 	}
-	req.CreatedBy = user.ID
+	// work_item_attachment has no uploaded_by FK (see CaseRepository.
+	// CreateCaseAttachment's own doc comment) -- req.CreatedBy carries the
+	// actor's email into the table's free-text created_by column, the same
+	// convention a sync-job row's own created_by already uses.
+	req.CreatedBy = user.Email
 
 	a, err := s.repo.CreateCaseAttachment(ctx, req)
 	if err != nil {
@@ -3205,7 +3209,13 @@ func (s *caseService) ConfirmCaseAttachment(ctx context.Context, id string) (dom
 	if err != nil {
 		return domain.ConfirmAttachmentResponse{}, err
 	}
-	if existing.CreatedBy == nil || existing.CreatedBy.ID == nil || *existing.CreatedBy.ID != user.ID {
+	// Compared by email, not id: work_item_attachment has no uploaded_by FK
+	// (see CaseRepository.CreateCaseAttachment's own doc comment), so
+	// existing.CreatedBy.Email is the row's created_by column verbatim --
+	// the exact value this same actor's own CreateCaseAttachment call wrote
+	// it as, unlike .ID, which is only a best-effort, possibly-unresolved
+	// join result.
+	if existing.CreatedBy == nil || !strings.EqualFold(existing.CreatedBy.Email, user.Email) {
 		return domain.ConfirmAttachmentResponse{}, &apierror.ForbiddenError{Msg: "attachment was not created by the current user"}
 	}
 	if existing.Status != domain.AttachmentStatusPending {
@@ -3233,24 +3243,24 @@ func (s *caseService) ConfirmCaseAttachment(ctx context.Context, id string) (dom
 // SearchCaseAttachments implements CaseService for the CSM-native (Postgres)
 // data source.
 //
-// referenceType "case" reads case_attachment (unchanged). "change_request",
-// "incident" and "conversation" are work_item subtypes and read the generic
-// work_item_attachment table via CaseRepository.SearchWorkItemAttachments;
-// "deployment" is not a work_item subtype and has no attachment table on
-// plain Postgres, where it is rejected with a validation error. Metadata
-// only: a work item with no attachments is a successful empty result.
+// referenceType "case" and "change_request"/"incident"/"conversation" all
+// read work_item_attachment now (migration 0220 retired the separate
+// case_attachment table) -- "case" via CaseRepository.SearchCaseAttachments
+// (entity-service's own rows, status IS NOT NULL) and the others via
+// SearchWorkItemAttachments (pure sync-job rows). "deployment" is not a
+// work_item subtype and has no attachment table on plain Postgres, where it
+// is rejected with a validation error. Metadata only: a work item with no
+// attachments is a successful empty result.
 //
 // Stopgap: under DATA_SOURCE=postgres-servicenow-dual-write (s.snMirror !=
-// nil) a "deployment" search is delegated to the mirrored data source and its
-// response or error is returned as-is, until a Postgres-native deployment
-// attachment store exists. Likewise a "case" search that returns zero rows
-// from Postgres at offset 0 falls back to the mirrored data source, because
-// attachments of migrated cases were synced into work_item_attachment, which
-// the case read path does not consult. A Postgres error is returned as-is
-// (no fallback), and a non-zero offset never falls back so paging past the
-// end of a non-empty Postgres list is not masked. Remove this fallback once
-// the case read path reads work_item_attachment. Every other reference type
-// is unaffected.
+// nil) a "deployment" search is still delegated to the mirrored data source
+// and its response or error returned as-is, until a Postgres-native
+// deployment attachment store exists. The equivalent "case" fallback this
+// doc comment used to describe (falling back to ServiceNow when Postgres
+// returned zero rows, because synced attachments lived in a table the case
+// read path didn't consult) is gone: SearchCaseAttachments now reads
+// work_item_attachment directly, the same table synced attachments land in,
+// so there is nothing left for Postgres to miss.
 //
 // Read-path status decision: the underlying repository query filters out
 // 'pending' rows entirely (see caseRepo.SearchCaseAttachments), so a case's
@@ -3364,14 +3374,15 @@ func (s *caseService) DeleteCaseAttachment(ctx context.Context, req domain.Delet
 		return domain.DeleteAttachmentResponse{}, err
 	}
 	if err := s.repo.DeleteCaseAttachment(ctx, req.AttachmentID); err != nil {
-		// No Postgres case_attachment row for this id -- same "no Postgres
-		// deployment attachment table yet" gap SearchCaseAttachments already
-		// falls back to ServiceNow for (see that method's own doc comment):
-		// a deployment-referenced attachment has no case_attachment row at
-		// all in dual-write mode (its id never satisfies case_attachment's
-		// hard FK into "case"), so a bare NotFoundError here is just as
-		// likely "this is a deployment attachment, not a missing one" as a
-		// genuinely absent attachment. Try ServiceNow before giving up.
+		// No matching work_item_attachment row for this id (status IS NOT
+		// NULL, i.e. entity-service's own) -- same "no Postgres deployment
+		// attachment table yet" gap SearchCaseAttachments already falls back
+		// to ServiceNow for (see that method's own doc comment): a
+		// deployment-referenced attachment has no such row at all in
+		// dual-write mode (its id never satisfies CreateCaseAttachment's
+		// case-like-work-item EXISTS check), so a bare NotFoundError here is
+		// just as likely "this is a deployment attachment, not a missing
+		// one" as a genuinely absent attachment. Try ServiceNow before giving up.
 		var notFound *apierror.NotFoundError
 		if s.snMirror != nil && errors.As(err, &notFound) {
 			return s.snMirror.DeleteCaseAttachment(ctx, req)
@@ -3761,7 +3772,10 @@ func (s *caseService) UpdateAttachment(ctx context.Context, req domain.UpdateAtt
 		return domain.UpdateAttachmentResponse{}, err
 	}
 
-	updatedOn, err := s.repo.UpdateCaseAttachmentName(ctx, req.AttachmentID, strings.TrimSpace(*req.Name), user.ID)
+	// updated_by is free-text (no FK, see CreateCaseAttachment's own doc
+	// comment on uploaded_by) -- the actor's email, same convention as
+	// created_by.
+	updatedOn, err := s.repo.UpdateCaseAttachmentName(ctx, req.AttachmentID, strings.TrimSpace(*req.Name), user.Email)
 	if err != nil {
 		return domain.UpdateAttachmentResponse{}, err
 	}
