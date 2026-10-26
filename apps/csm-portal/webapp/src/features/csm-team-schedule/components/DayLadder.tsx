@@ -22,12 +22,14 @@ import type { ScheduleAbsence, ScheduleAbsenceKind, ScheduleAssignment, Schedule
 import {
   dayLabel,
   groupBy,
+  HALF_DAY_LEAVE_CODES,
   initialsOf,
   partsInZone,
   placeOnDay,
   timeOf,
   toIsoDate,
 } from "../utils/rota";
+import { coverSideOf, handoverBands, minuteLabel, spanLength, type HandoverBand } from "../utils/handover";
 import { accentOf } from "../utils/rotaHues";
 import { useTeamColour, useTeamName } from "../utils/teamColourContext";
 
@@ -86,6 +88,17 @@ export interface LadderLane {
    * scanning; off a labelled row it is immediate.
    */
   layout?: "flat" | "zone";
+  /**
+   * A flat lane whose cards cover two offices' days (CRE: the Sri Lankan day
+   * and the Americas day). Where the two overlap, the cards are kept in a
+   * column per side rather than packed by time, and the overlap is marked
+   * across the lane.
+   */
+  regions?: boolean;
+  /** The zone's tiers are one crew for every team (SaaS TZ3, the night
+   *  cover): its escalation card is titled as such, and each person on it
+   *  says which team they are on, since the crew mixes them. */
+  shared?: boolean;
 }
 
 interface DayLadderProps {
@@ -94,6 +107,10 @@ interface DayLadderProps {
   tz: string;
   /** Short name for that clock, shown at the head of the hour axis. */
   zoneLabel: string;
+  /** The clocks the reader may read the day on (IST, PDT, ...); with fewer
+   *  than two there is nothing to pick and no control is drawn. */
+  clockOptions?: readonly { value: string; label: string }[];
+  onClockChange?: (timeZone: string) => void;
   lanes: LadderLane[];
   shifts: Map<string, ScheduleShift>;
   zones: ScheduleZone[];
@@ -147,6 +164,14 @@ interface Block {
   /** The sections are the escalation ladder, L1 to L3: every tier is shown,
    *  empty ones included, each ruled off from the next. */
   tiered?: boolean;
+  /** Each person carries their team's name: the card is one crew drawn from
+   *  several teams (the night cover), and the avatar colour alone does not
+   *  say which. */
+  teamTags?: boolean;
+  /** List the people under a heading per team, as the Leave card does: a
+   *  zone's regular hours mix teams, and the avatar colour alone does not say
+   *  where one ends and the next begins. */
+  byTeam?: boolean;
 }
 
 /** The escalation tiers, in the order the rota talks about them. */
@@ -208,6 +233,8 @@ export default function DayLadder({
   teamDefaultShift,
   tz,
   zoneLabel,
+  clockOptions,
+  onClockChange,
   family,
   onFamilyChange,
   teamKey,
@@ -219,14 +246,19 @@ export default function DayLadder({
   onRotaChange,
 }: DayLadderProps): JSX.Element {
   const teamNameOf = useTeamName();
-  // Who is off the rota. Two kinds of span are left out:
+  // Who is off the rota. Three kinds of span are left out:
   //  - a stint that is rota work on another team -- the Brazil rotation,
   //    worked on the Americas rota -- which is not time off it;
   //  - a retired tag, such as Onboarding: no longer a reason anybody is away
   //    today. Its old days keep their label on the month roster, which is
-  //    the record; this column answers who to plan around now.
+  //    the record; this column answers who to plan around now;
+  //  - Excluded from rota: somebody who is never on the rota is not away from
+  //    it today, so a card of them says nothing about who to plan around. The
+  //    roster still marks them.
   const offRota = useMemo(() => {
-    const leaveOut = new Set(absenceKinds.filter((k) => k.worksRotaThere || k.retired).map((k) => k.code));
+    const leaveOut = new Set(
+      absenceKinds.filter((k) => k.worksRotaThere || k.retired || k.bucket === "EXCLUDED").map((k) => k.code),
+    );
     return absences.filter((a) => !leaveOut.has(a.kindCode));
   }, [absences, absenceKinds]);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -375,7 +407,12 @@ export default function DayLadder({
 
       // A zone that crosses midnight shows up twice: the piece it worked
       // yesterday and the piece it works today. They are different cards.
-      const bySegment = groupBy(placed, (x) => (x.p.startedPreviousDay ? "carried-in" : "own"));
+      // So are two rota days that both land on a reader's day far from the
+      // office -- Monday's escalation and Tuesday's are not one stretch.
+      const bySegment = groupBy(
+        placed,
+        (x) => `${x.a.rotaDate}:${x.p.startedPreviousDay ? "carried-in" : "own"}`,
+      );
 
       return [...bySegment.entries()]
         .map(([segment, items]) => {
@@ -404,9 +441,26 @@ export default function DayLadder({
         .sort((a, b) => a.startMin - b.startMin);
     };
 
+    const noBands: HandoverBand[] = [];
     return lanes.map((lane) => {
       if (lane.layout !== "zone") {
-        return { ...lane, columns: packIntoColumns(cardsPerWindow(lane.name, lane.assignments)) };
+        const cards = cardsPerWindow(lane.name, lane.assignments);
+        if (!lane.regions) return { ...lane, columns: packIntoColumns(cards), bands: noBands, usFrom: 0 };
+        const sides = cards.map((c) => coverSideOf(c.shift));
+        const bands = handoverBands(cards.map((c, i) => ({ startMin: c.startMin, endMin: c.endMin, side: sides[i] })));
+        // The Sri Lankan rota on the left and the US rota on the right, every
+        // day, whether or not they overlap: packed by time instead, a card
+        // landed in whichever column was free, so the Americas moved from side
+        // to side from one day to the next. The overlap then reads as the rows
+        // where both columns hold a card. Only a day with one side on screen
+        // (one team picked, or nobody on the other side) is a single column.
+        const lk = cards.filter((_, i) => sides[i] === "lk");
+        const americas = cards.filter((_, i) => sides[i] === "americas");
+        if (lk.length === 0 || americas.length === 0) {
+          return { ...lane, columns: packIntoColumns(cards), bands, usFrom: 0 };
+        }
+        const lkColumns = packIntoColumns(lk);
+        return { ...lane, columns: [...lkColumns, ...packIntoColumns(americas)], bands, usFrom: lkColumns.length };
       }
       const tiered = lane.assignments.filter((a) => a.tier);
       const ordinary = lane.assignments.filter((a) => !a.tier);
@@ -414,6 +468,7 @@ export default function DayLadder({
         ...c,
         title: `Others in ${lane.name}`,
         hideTags: true,
+        byTeam: true,
       }));
       // A zone whose regular hours are the same stretch as its escalation
       // window -- TZ3, 21:00-06:00, with no middle of the day to cover -- is
@@ -421,7 +476,9 @@ export default function DayLadder({
       // regular-hours people become a last section of the escalation card.
       // TZ1 and TZ2 work regular hours wider than their escalation block, so
       // theirs stay cards of their own.
-      const escalation = escalationCards(lane.name, tiered);
+      const escalation = escalationCards(lane.name, tiered).map((c) =>
+        lane.shared ? { ...c, title: "Night cover", teamTags: true } : c,
+      );
       const apart = others.filter((o) => {
         const same = escalation.find((e) => e.startMin === o.startMin && e.endMin === o.endMin);
         if (!same) return true;
@@ -433,7 +490,7 @@ export default function DayLadder({
       // on ordinary hours that day should not hold half its width open for
       // them, while the zones beside it cut their card titles short.
       const columns = [escalation, apart].filter((c) => c.length > 0);
-      return { ...lane, columns: columns.length > 0 ? columns : [[]] };
+      return { ...lane, columns: columns.length > 0 ? columns : [[]], bands: noBands, usFrom: 0 };
     });
   }, [day, lanes, shifts, tz]);
 
@@ -470,10 +527,15 @@ export default function DayLadder({
   for (let h = 0; h <= 24; h += 2) hours.push(h);
 
   /** Distinct people on the rota today, not cards: one engineer holding an
-   *  escalation tier and an ordinary window is one engineer. */
+   *  escalation tier and an ordinary window is one engineer. Only those on
+   *  during the reader's day -- the read takes in the rota days either side,
+   *  for a reader whose day is not the office's. */
   const headcount = useMemo(
-    () => new Set(lanes.flatMap((l) => l.assignments.map((a) => a.engineer.userId))).size,
-    [lanes],
+    () =>
+      new Set(
+        lanes.flatMap((l) => l.assignments.filter((a) => placeOnDay(a, day, tz)).map((a) => a.engineer.userId)),
+      ).size,
+    [lanes, day, tz],
   );
 
   return (
@@ -514,6 +576,21 @@ export default function DayLadder({
             {day.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
             {day.getDay() === 0 || day.getDay() === 6 ? " · weekend" : ""}
           </span>
+          {clockOptions && clockOptions.length > 1 && onClockChange ? (
+            <select
+              className="teampick clockpick"
+              aria-label="Read the day on"
+              title="The clock the day is drawn on"
+              value={tz}
+              onChange={(e) => onClockChange(e.target.value)}
+            >
+              {clockOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <select
             className="teampick"
             aria-label="Show one team"
@@ -542,7 +619,7 @@ export default function DayLadder({
             aligned with the hours below it -- the same place a table puts a
             unit. A sentence above the card said the same thing in a whole row
             of space, nowhere near the numbers it was about. */}
-        <span className="axistz" title={`${tz} — from your CSM profile`}>
+        <span className="axistz" title={tz}>
           {zoneLabel}
         </span>
         {built.map((lane) => (
@@ -577,6 +654,19 @@ export default function DayLadder({
                 {String(h % 24).padStart(2, "0")}:00
               </span>
             ))}
+            {/* The overlap again against the clock, so its time reads off the
+                same axis as every card's. */}
+            {built
+              .filter((lane) => lane.usFrom > 0)
+              .flatMap((lane) => lane.bands)
+              .map((band) => (
+                <span
+                  key={band.startMin}
+                  className="laxhand"
+                  aria-hidden="true"
+                  style={{ top: px(band.startMin), height: Math.max(px(band.endMin - band.startMin), 2) }}
+                />
+              ))}
           </div>
           <div className="lgrid">
             {hours.map((h) => (
@@ -603,6 +693,11 @@ export default function DayLadder({
                       {column.map((block) => (
                         <LadderBlock key={block.key} block={block} tz={tz} teamDefaultShift={teamDefaultShift} />
                       ))}
+                      {/* Where the two rotas overlap, a link across the edge
+                          the LK and US columns share. */}
+                      {lane.usFrom > 0 && columnIndex === lane.usFrom
+                        ? lane.bands.map((band) => <HandoverMark key={band.startMin} band={band} />)
+                        : null}
                     </div>
                   ))}
                 </div>
@@ -642,6 +737,29 @@ export default function DayLadder({
   );
 }
 
+/**
+ * Where the Sri Lankan day and the Americas day are both at work: a small
+ * link on the edge the two columns share, spanning the overlap, so it joins
+ * the two cards without lying over either one's hours or names. The time is
+ * in its tooltip and said to a screen reader; on screen it is only the mark.
+ */
+function HandoverMark({ band }: { band: HandoverBand }): JSX.Element {
+  const range = `${minuteLabel(band.startMin)}–${minuteLabel(band.endMin)}`;
+  const said = `Overlap ${range}, ${spanLength(band.endMin - band.startMin)}: the Sri Lankan day and the Americas day are both on`;
+  const height = px(band.endMin - band.startMin);
+  return (
+    <div
+      className="lhand handover"
+      style={{ top: px(band.startMin), height: Math.max(height, 2) }}
+      role="note"
+      aria-label={said}
+      title={said}
+    >
+      <i aria-hidden="true">⇄</i>
+    </div>
+  );
+}
+
 /** One card on the ladder: its hours as a chip, its label, and who is on it. */
 function LadderBlock({
   block,
@@ -652,6 +770,7 @@ function LadderBlock({
   tz: string;
   teamDefaultShift?: Readonly<Record<string, string>>;
 }): JSX.Element {
+  const teamNameOf = useTeamName();
   const token = block.chipToken ?? block.shift?.colourToken ?? "";
   const first = block.rows[0];
   // Who works the hours, then who is only on call for them. Among those who
@@ -663,14 +782,17 @@ function LadderBlock({
     .filter((a) => !a.isOnCall)
     .sort((a, b) => Number(always(b)) - Number(always(a)));
   const onCall = block.rows.filter((a) => a.isOnCall);
-  const shown = working.slice(0, NAME_LIMIT);
-  const hidden = working.length - shown.length;
   // A card with more people than it can list is not a list -- seventy names is
   // nothing anyone reads. The teams become the list, and a team hands over its
   // own people when the cursor rests on it. Counted on who works the hours:
   // whoever is on call keeps their own column either way, so a big shift's
-  // team list never takes them in as one more person working it.
-  const crowded = working.length > NAME_LIMIT;
+  // team list never takes them in as one more person working it. A card of
+  // one team (the Americas team on its own hours) has no teams to split by, so
+  // it lists every name, however many.
+  const teamsOnCard = new Set(working.map((a) => a.teamKey.toLowerCase())).size;
+  const crowded = working.length > NAME_LIMIT && teamsOnCard > 1;
+  const shown = crowded ? working.slice(0, NAME_LIMIT) : working;
+  const hidden = working.length - shown.length;
 
   // A card is as tall as its hours, and some hours are short: the Americas
   // weekend night shows only 21:00-24:00 on the Sunday it starts, three hours
@@ -743,7 +865,7 @@ function LadderBlock({
               {section.list.map((a) => (
                 // The tier is the row's heading, so repeating it against every
                 // name costs width that the name itself needs.
-                <NameRow key={a.id} assignment={a} hideTag />
+                <NameRow key={a.id} assignment={a} hideTag showTeam={block.teamTags} />
               ))}
               {section.list.length === 0 ? <span className="gap">Nobody rostered</span> : null}
             </div>
@@ -759,6 +881,25 @@ function LadderBlock({
             {crowded ? (
               <div className="zwork">
                 <TeamSplit rows={working} />
+              </div>
+            ) : shown.length > 0 && block.byTeam ? (
+              <div className="zwork">
+                {/* A heading per team, then its names, the way the Leave card
+                    lists who is away. */}
+                {[...groupBy(shown, (a) => a.teamKey).entries()].map(([team, teamRows]) => (
+                  <div className="zteam" key={team}>
+                    <div className="offgh">
+                      {teamNameOf(team)}
+                      <b>{teamRows.length}</b>
+                    </div>
+                    <div className="zsec zflow">
+                      {teamRows.map((a) => (
+                        <NameRow key={a.id} assignment={a} hideTag={block.hideTags} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {hidden > 0 ? <span className="lmore">+{hidden} more</span> : null}
               </div>
             ) : shown.length > 0 ? (
               <div className="zwork">
@@ -874,11 +1015,15 @@ function TeamSplit({ rows }: { rows: ScheduleAssignment[] }): JSX.Element {
 function NameRow({
   assignment,
   hideTag,
+  showTeam,
 }: {
   assignment: ScheduleAssignment;
   /** Inside a team pane the team is already the heading, so repeating it on
    *  every row would be noise. */
   hideTag?: boolean;
+  /** Spell the team out after the name: on a card that mixes teams (the
+   *  night cover) it is the thing the reader is looking for. */
+  showTeam?: boolean;
 }): JSX.Element {
   const teamColourOf = useTeamColour();
   const teamNameOf = useTeamName();
@@ -895,6 +1040,7 @@ function NameRow({
       </span>
       <span className="who">{assignment.engineer.name}</span>
       {assignment.engineer.isLead ? <i className="tag lead-t">Lead</i> : null}
+      {showTeam ? <i className="tag team-t">{teamNameOf(assignment.teamKey)}</i> : null}
       {hideTag || !tag ? null : (
         <i className={`tier-t${assignment.isOnCall ? " oc-t" : ""}`}>{tag}</i>
       )}
@@ -928,6 +1074,12 @@ function OffRotaStack({
   // about the gap it leaves, a card per kind split one question ("who is
   // away?") across several, and the kind -- maternity, sick -- is the
   // person's own business on a view the whole team reads.
+  //
+  // A half day is the exception: still off the rota for the day, but which
+  // half they are away is what a lead needs to reach them, and it says
+  // nothing private. Its chip (HD-AM / HD-PM) sits beside the name.
+  const halfDayOf = (kindCode: string): ScheduleAbsenceKind | undefined =>
+    HALF_DAY_LEAVE_CODES.has(kindCode) ? kinds.find((k) => k.code === kindCode) : undefined;
   const BUCKET_ORDER: Record<string, number> = { LEAVE: 0, ALLOCATION: 1, EXCLUDED: 2 };
   const leaveCodes = new Set(kinds.filter((k) => k.bucket === "LEAVE").map((k) => k.code));
   const leaveRows = absences.filter((a) => leaveCodes.has(a.kindCode));
@@ -973,14 +1125,22 @@ function OffRotaStack({
                     <b>{teamRows.length}</b>
                   </div>
                   <div className="offp">
-                    {teamRows.map((r) => (
-                      <span className="lnm" key={r.id} title={r.engineer.name}>
-                        <span className="av" style={{ background: teamColourOf(r.teamKey) }}>
-                          {initialsOf(r.engineer.name)}
+                    {teamRows.map((r) => {
+                      const half = halfDayOf(r.kindCode);
+                      return (
+                        <span
+                          className="lnm"
+                          key={r.id}
+                          title={half ? `${r.engineer.name} · ${half.label}` : r.engineer.name}
+                        >
+                          <span className="av" style={{ background: teamColourOf(r.teamKey) }}>
+                            {initialsOf(r.engineer.name)}
+                          </span>
+                          <span className="who">{r.engineer.name}</span>
+                          {half ? <span className={`chip sm hdflag ${half.colourToken}`}>{half.shortCode}</span> : null}
                         </span>
-                        <span className="who">{r.engineer.name}</span>
-                      </span>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))

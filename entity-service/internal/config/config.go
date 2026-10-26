@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/wso2-open-operations/cs-tools/entity-service/internal/github"
 	"github.com/wso2-open-operations/cs-tools/entity-service/internal/validate"
 )
 
@@ -60,6 +61,91 @@ const (
 	DataSourcePostgresServiceNowDualWrite DataSource = "postgres-servicenow-dual-write"
 )
 
+// UsageReadMode selects how the instance and usage/metrics reads are routed
+// under DATA_SOURCE=postgres-servicenow-dual-write. The covered reads are
+// InstanceService's five methods and DeployedProductService's
+// SearchDeployedProductMetrics/SearchDeployedProductUsageCounts.
+// UsageReadRoute is the single place that turns DataSource + UsageReadMode
+// into a routing decision. Other DATA_SOURCE values are not affected by it.
+type UsageReadMode string
+
+const (
+	// UsageReadModePostgres always reads these from Postgres (except
+	// instances under DATA_SOURCE=servicenow, which has no pool). The default.
+	UsageReadModePostgres UsageReadMode = "postgres"
+	// UsageReadModeLegacy restores the previous read routing: under
+	// DATA_SOURCE=postgres-servicenow-dual-write these reads go to the
+	// backing system the dual-write mode mirrors to, not to Postgres.
+	UsageReadModeLegacy UsageReadMode = "legacy"
+)
+
+// UsageReadRoute is the read source UsageReadRoute picks for the instance and
+// usage/metrics reads.
+type UsageReadRoute int
+
+const (
+	// UsageReadRoutePostgres reads this service's own Postgres tables.
+	UsageReadRoutePostgres UsageReadRoute = iota
+	// UsageReadRouteServiceNowOnly is DATA_SOURCE=servicenow: the whole
+	// service is backed by the integration service, there is no Postgres.
+	UsageReadRouteServiceNowOnly
+	// UsageReadRoutePreviousPathFallback is the legacy dual-write routing:
+	// Postgres-backed service whose usage/metrics reads are delegated to the
+	// mirror service.
+	UsageReadRoutePreviousPathFallback
+)
+
+// SLADataSource identifies which backend SLA-related reads use -- task SLAs
+// (GET /slas/{id}, POST /slas/search, what backs a case's SLA display) and
+// the slaBreached/taskSLABusinessElapsedPercent case-search filters, and the
+// averageResponseTime figure of GET /projects/{id}/cases/stats (internal
+// callers only; the rest of that response stays on DataSource).
+// Independent of DataSource: a deployment can run DataSource=postgres for
+// every other entity while still pointing SLA reads specifically at
+// ServiceNow, or vice versa. GET /sla-status and GET /sla-status/clock-state
+// are NOT affected by this setting -- they have no ServiceNow equivalent at
+// all (see that handler's own doc comment) and always read Postgres.
+type SLADataSource string
+
+const (
+	// SLADataSourcePostgres reads SLA data from this service's own Postgres
+	// tables (sla_live). The default.
+	SLADataSourcePostgres SLADataSource = "postgres"
+	// SLADataSourceServiceNow reads SLA data live from the ServiceNow
+	// integration service instead.
+	SLADataSourceServiceNow SLADataSource = "servicenow"
+)
+
+// AttachmentDataSource identifies which backend three case attachment reads
+// (GET /attachments/{id}, POST /attachments/search, GET
+// /attachments/{id}/content) and the case activity feed (POST
+// /cases/{id}/activities/search) use. GetAttachmentByID (GET
+// /attachments/{id}) is included even though it is metadata, not content:
+// backend-v2's content-download route resolves an attachment's owning case
+// through it first, purely for its own authorization check, before ever
+// calling the content route -- leaving it on DataSource would silently
+// reintroduce a 404 in front of the content route this flag exists to fix.
+// It does NOT affect PATCH/DELETE /attachments/{id}, POST /attachments, or
+// POST /attachments/{id}/confirm -- those always follow DataSource, because
+// the ServiceNow-backed implementation this switches to is read-only and
+// cannot serve those writes. Independent of DataSource and SLADataSource,
+// same reasoning as SLADataSource: a deployment can run DataSource=postgres
+// for every other entity while pointing these three attachment reads and the
+// activity feed specifically at ServiceNow. This is a stopgap for while
+// Postgres-synced attachment content and activity history aren't reliable
+// yet, meant to go away once that migration lands -- see routes.go for the
+// wiring.
+type AttachmentDataSource string
+
+const (
+	// AttachmentDataSourcePostgres reads case attachments and the activity
+	// feed from this service's own Postgres tables. The default.
+	AttachmentDataSourcePostgres AttachmentDataSource = "postgres"
+	// AttachmentDataSourceServiceNow reads case attachments and the activity
+	// feed live from the ServiceNow integration service instead.
+	AttachmentDataSourceServiceNow AttachmentDataSource = "servicenow"
+)
+
 // Config holds all environment-driven settings for the service.
 type Config struct {
 	DBHost string
@@ -69,6 +155,23 @@ type Config struct {
 	// (Asia/Colombo), which is what ServiceNow's running engine actually
 	// uses — it is the system zone, NOT the commitment's recorded one.
 	AvailabilityTimezone string
+
+	// WorklogReportTeamTypes scopes the CS Worklogs reports: the
+	// team.type values whose teams get a section. Defaults to the CRE
+	// delivery teams, which is what the delivered mails cover -- the
+	// SME and SRE teams appear in neither.
+	WorklogReportTeamTypes []string
+	// WorklogReportExcludedTeamKeys drops individual teams from that
+	// scope by key. A type filter is broad by nature and catches teams
+	// nobody wants in the report; this takes them out without
+	// narrowing the type list to the point of brittleness.
+	WorklogReportExcludedTeamKeys []string
+	// QueryHourInternalEmailDomain restricts the query-hour report's
+	// derived audience to internal addresses. ServiceNow checks
+	// `includes("@wso2.com")` before adding an account owner, so a
+	// customer contact mistakenly recorded as an owner is not mailed an
+	// internal report.
+	QueryHourInternalEmailDomain string
 
 	DBUser     string
 	DBPassword string
@@ -115,11 +218,25 @@ type Config struct {
 	HealthPort string
 	// DataSource controls which backend is used. Defaults to "postgres".
 	DataSource DataSource
+	// SLADataSource controls which backend SLA-related reads use,
+	// independent of DataSource. Defaults to "postgres" -- see
+	// SLADataSource's own doc comment.
+	SLADataSource SLADataSource
+	// UsageReadMode selects the read routing of the instance and
+	// usage/metrics reads under DATA_SOURCE=postgres-servicenow-dual-write.
+	// Defaults to "postgres" -- see UsageReadMode's own doc comment.
+	UsageReadMode UsageReadMode
+	// AttachmentDataSource controls which backend two case attachment reads
+	// and the activity feed use, independent of DataSource and
+	// SLADataSource. Defaults to "postgres" -- see AttachmentDataSource's
+	// own doc comment.
+	AttachmentDataSource AttachmentDataSource
 	// ServiceNowIntegrationServiceBaseURL is the base URL for the ServiceNow integration service API.
-	// Required when DataSource is "servicenow".
+	// Required when DataSource is "servicenow" (or SLADataSource is "servicenow" -- see Validate).
 	ServiceNowIntegrationServiceBaseURL string
 	// OAuth2 client credentials for the ServiceNow integration service.
-	// All four fields are required when DataSource is "servicenow".
+	// All four fields are required when DataSource is "servicenow" (or
+	// SLADataSource is "servicenow" -- see Validate).
 	ServiceNowIntegrationServiceTokenURL     string
 	ServiceNowIntegrationServiceClientID     string
 	ServiceNowIntegrationServiceClientSecret string
@@ -141,6 +258,12 @@ type Config struct {
 	// constructs EventPublisherService when both this is true AND
 	// EventHubBroker is set.
 	EventPublishingEnabled bool
+	// UsageRollupEnabled makes an offline usage import rebuild the monthly usage rows of
+	// every month its rows fall in, in the same transaction (USAGE_ROLLUP_ENABLED, exactly
+	// "true"; default off). It is the switch csm-scheduled-tasks' usage rollup tasks use
+	// too, and it stays off while the previous system's aggregation jobs and csm-sync's
+	// mirroring still write monthly_usage_summary, which would otherwise have two writers.
+	UsageRollupEnabled bool
 	// CSMMigrationSalesforceMembershipIngestEnabled turns on the
 	// Project_Contact__c / Contact branch of POST /salesforce/events (the
 	// customer onboarding database write), from
@@ -219,6 +342,11 @@ type Config struct {
 	GithubBaseURL string
 	// GithubToken authenticates our calls out to GitHub.
 	GithubToken string
+	// GithubRepoTokens is GITHUB_REPO_TOKENS, a secret: one line of JSON mapping
+	// "owner/repository" (or "owner") to the token for that repository, as
+	// ServiceNow kept a credential per repository. A repository it does not
+	// name uses GithubToken. See github.Router.
+	GithubRepoTokens string
 	// GithubIntegrationLogin is our own GitHub account. Events it sent are our
 	// own writes coming back, and are dropped by identity rather than by
 	// pattern-matching the comment body.
@@ -229,6 +357,15 @@ type Config struct {
 	// ServiceNow's integration reads. A repository without it falls back to
 	// account_github_repo.
 	GithubRepoConfigPath string
+	// GithubSRServiceNowFirst is GITHUB_SR_SERVICENOW_FIRST. "true" under
+	// DATA_SOURCE=postgres-servicenow-dual-write creates a service request
+	// raised from an issue in ServiceNow first, through the ServiceNow
+	// integration service's /github-cases, so it takes ServiceNow's CS number
+	// and WSO2 Case ID as a portal-created one does. Off by default: turn it on
+	// once the integration service serving /github-cases is deployed, or every
+	// new issue fails to create. Off, an issue's SR is written to Postgres only
+	// and numbered SR-GH-<n>. See GithubServiceNowFirst.
+	GithubSRServiceNowFirst bool
 	// GithubOutboundInterval is how often to drain the outbound queue when the
 	// last pass came back short. A backlog drains at full speed regardless.
 	GithubOutboundInterval time.Duration
@@ -245,6 +382,14 @@ type Config struct {
 	// created unassigned and logged as an error. Validated as a UUID; checked
 	// at startup (best effort, logged only) to exist and have a support group.
 	IncidentDefaultServiceID string
+	// IncidentExtraAssignmentGroupIDs is INCIDENT_EXTRA_ASSIGNMENT_GROUP_IDS:
+	// group ids ("group".id, UUIDs) an incident may be created in even though
+	// they are the support group of no service. They join the set POST
+	// /incidents accepts and POST /groups/search (supportGroupsOnly) offers.
+	// Comma-separated; trimmed, empty entries dropped, duplicates removed.
+	// Each is validated as a UUID at startup. Empty: only service support
+	// groups are assignable.
+	IncidentExtraAssignmentGroupIDs []string
 	// SpecialistHandoffGithubTokens is SPECIALIST_HANDOFF_GITHUB_TOKENS, a
 	// secret: one line of JSON mapping a credential name to the GitHub token
 	// that files a specialist handoff's internal issue (ServiceNow's
@@ -256,7 +401,8 @@ type Config struct {
 	SpecialistHandoffGithubTokens string
 
 	// CSMPortalBaseURL builds the link back to a change request in comments
-	// posted to GitHub. Empty omits the link rather than rendering a broken one.
+	// posted to GitHub, and to the incident in a specialist handoff's GitHub
+	// issue. Empty omits the link rather than rendering a broken one.
 	CSMPortalBaseURL string
 	// GitHub label vocabulary overrides. Empty keeps .github/labels.yml's value.
 	GithubLabelTypeIncident       string
@@ -354,16 +500,32 @@ type Config struct {
 	// recipients is not swept at all, so its decisions are not used up.
 	OutageNotificationRecipients  []string
 	OutageCommunicationRecipients []string
+	// MigrationCaseReportHoldTag and MigrationCaseReportAccountsTag are the
+	// tag names (matched ignoring case) that place a long-running migration
+	// in the weekly scan's "customer asked to hold" and "waiting on the
+	// accounts team" tables. MigrationCaseReportTeamKeys are the teams whose
+	// mail groups (team.group_email) receive the scan; empty means the scan
+	// derives no recipients and the scheduled task must configure its own.
+	// ProductRegressionReportTag is the tag name (matched ignoring case)
+	// that marks a case as a regression for the monthly product regression
+	// reports (GET /reports/product-regressions).
+	ProductRegressionReportTag     string
+	MigrationCaseReportHoldTag     string
+	MigrationCaseReportAccountsTag string
+	MigrationCaseReportTeamKeys    []string
 	// CustomerRoles is a comma-separated list of ServiceNow role names
 	// (organisation-specific vocabulary, the same reasoning
 	// apps/csm-portal/backend's own CSM_TEAM_REGISTRY uses for not shipping
 	// a committed default) whose presence on a case comment's
 	// resolved author marks that comment as a customer reply — see
 	// sn_case_service.go's applyCustomerReplyStateTransition, which moves
-	// the case back to Work In Progress when a customer replies while it's
+	// the case back to Waiting on WSO2 when a customer replies while it's
 	// Awaiting Info/Solution Proposed. Left unset (or empty), that function
 	// can't confirm customer-authorship and skips (logged) — not fatal, not
-	// required by Validate. Coincidentally shares its name with an
+	// required by Validate. DATA_SOURCE=servicenow only: case_service.go's
+	// port of the same rule decides customer-authorship from the caller's
+	// resolved identity and never reads this (see its
+	// isCustomerCommentAuthor). Coincidentally shares its name with an
 	// unrelated CUSTOMER_ROLES env var in
 	// integrations/csm-notification-service (notification-link routing,
 	// nothing to do with case state) — the two are read by separate
@@ -459,6 +621,32 @@ type Config struct {
 	AuthJWKSURL            string
 	AuthUserTokenAudiences []string
 	AuthClockSkew          time.Duration
+	// AuthAdminRoles is AUTH_ADMIN_ROLES, comma-separated: the same variable,
+	// with the same value, as csm-portal-backend's -- the token roles that make
+	// a caller a CSM Portal admin. Read here for the Team Schedule only: a CSM
+	// Portal admin is its admin on the Rota access tab, who grants and takes
+	// back rota admin and rota marker, and may change every Case Alerts
+	// setting. Matched exactly, as the portal does. Empty means nobody is (the
+	// portal's own rule for an unset role).
+	AuthAdminRoles []string
+	// CaseAlertsSecretKey is CASE_ALERTS_SECRET_KEY: 32 bytes, base64, the
+	// AES-256-GCM key that seals the Case Alerts chat-room webhook URLs
+	// (migration 0233). One per environment, so a database copied from
+	// another environment cannot open its URLs. Empty turns saving a URL
+	// off; nothing else depends on it.
+	CaseAlertsSecretKey string
+	// CaseAlertsSecretKeyID is CASE_ALERTS_SECRET_KEY_ID, stored beside each
+	// sealed URL ("1" when unset). A URL sealed under another id is treated as
+	// not set.
+	CaseAlertsSecretKeyID string
+	// CaseAlertsRuntimeClientIDs is CASE_ALERTS_RUNTIME_CLIENT_IDS: the
+	// service client ids (csm-notification-service's) allowed to read the
+	// Case Alerts settings with the webhook URLs opened. Empty means none is.
+	CaseAlertsRuntimeClientIDs []string
+	// CaseAlertsEnvironment is CASE_ALERTS_ENVIRONMENT, a label the Case
+	// Alerts tab shows (e.g. "staging", "production") so an admin knows which
+	// environment's rooms they are changing. Optional.
+	CaseAlertsEnvironment string
 	// M2MClientIDsRaw is the M2M_CLIENT_IDS value, a comma-separated list of
 	// Asgardeo application client ids for pure machine-to-machine callers --
 	// no human in the loop at all (the GitHub webhook delivery/service-
@@ -538,6 +726,18 @@ type Config struct {
 	SalesEntityClientSecret string
 	SalesEntityScopes       string
 
+	// SCIM* is the Choreo connection to the WSO2 internal-org SCIM search API
+	// (POST /organizations/internal/users/search), used by the Salesforce
+	// Account ingest to auto-provision a CSM "user" row for an account person
+	// reference (owner, technical owner, etc.) that has no match by email yet.
+	// The four connection fields are all-or-nothing like SalesEntity*; Scopes
+	// is optional.
+	SCIMBaseURL      string
+	SCIMTokenURL     string
+	SCIMClientID     string
+	SCIMClientSecret string
+	SCIMScopes       string
+
 	// Escalation* are the fixed EL1/EL2 case-escalation notification
 	// recipients EscalationService.CreateEscalation (Postgres data sources)
 	// adds to the per-case ones -- see EscalationRepository.CreateEscalation's
@@ -583,6 +783,12 @@ type Config struct {
 	// this is the backstop for a missed invalidation, not the main freshness
 	// mechanism.
 	UserCacheTTL time.Duration
+	// VulnerabilityMetaCacheTTL bounds how long the cached distinct
+	// product/version options of GET /products/vulnerabilities/meta survive
+	// (PRODUCT_VULNERABILITY_META_CACHE_TTL, default 24h). A successful
+	// POST /products/vulnerabilities/sync deletes the entry; this is the
+	// backstop for changes made to the table by anything else.
+	VulnerabilityMetaCacheTTL time.Duration
 	// ServerReadTimeout and ServerWriteTimeout are the main API server's
 	// http.Server ReadTimeout/WriteTimeout (SERVER_READ_TIMEOUT,
 	// SERVER_WRITE_TIMEOUT). The health server keeps its own fixed timeouts.
@@ -621,46 +827,57 @@ func Load() *Config {
 		return n
 	}
 	cfg := &Config{
-		DBHost:                                   getEnvOrDefault("DB_HOST", "localhost"),
-		DBPort:                                   getEnvOrDefault("DB_PORT", "5432"),
-		AvailabilityTimezone:                     os.Getenv("AVAILABILITY_TIMEZONE"),
-		DBUser:                                   os.Getenv("DB_USER"),
-		DBPassword:                               os.Getenv("DB_PASSWORD"),
-		DBName:                                   os.Getenv("DB_NAME"),
-		DBSSLMode:                                os.Getenv("DB_SSLMODE"),
-		DBSchema:                                 os.Getenv("DB_SCHEMA"),
-		DBPoolMaxConns:                           intVal("DB_POOL_MAX_CONNS", 20, false),
-		DBPoolMinConns:                           intVal("DB_POOL_MIN_CONNS", 2, true),
-		DBPoolMaxConnLifetime:                    duration("DB_POOL_MAX_CONN_LIFETIME", 30*time.Minute),
-		DBPoolMaxConnIdleTime:                    duration("DB_POOL_MAX_CONN_IDLE_TIME", 5*time.Minute),
-		ServerPort:                               getEnvOrDefault("SERVER_PORT", "8080"),
-		HealthPort:                               getEnvOrDefault("HEALTH_PORT", "8081"),
-		DataSource:                               DataSource(getEnvOrDefault("DATA_SOURCE", string(DataSourcePostgres))),
-		ServiceNowIntegrationServiceBaseURL:      os.Getenv("SERVICENOW_INTEGRATION_SERVICE_BASE_URL"),
-		ServiceNowIntegrationServiceTokenURL:     os.Getenv("SERVICENOW_INTEGRATION_SERVICE_TOKEN_URL"),
-		ServiceNowIntegrationServiceClientID:     os.Getenv("SERVICENOW_INTEGRATION_SERVICE_CLIENT_ID"),
-		ServiceNowIntegrationServiceClientSecret: os.Getenv("SERVICENOW_INTEGRATION_SERVICE_CLIENT_SECRET"),
-		ServiceNowIntegrationServiceScopes:       os.Getenv("SERVICENOW_INTEGRATION_SERVICE_SCOPES"),
-		EventHubBroker:                           os.Getenv("EVENT_HUB_BROKER"),
-		EventHubConnectionString:                 os.Getenv("EVENT_HUB_CONNECTION_STRING"),
-		EventHubTopic:                            os.Getenv("EVENT_HUB_TOPIC"),
-		EventPublishingEnabled:                   os.Getenv("EVENT_PUBLISHING_ENABLED") == "true",
-		GithubIntegrationEnabled:                 os.Getenv("GITHUB_INTEGRATION_ENABLED") == "true",
-		GithubBaseURL:                            getEnvOrDefault("GITHUB_API_BASE_URL", "https://api.github.com"),
-		GithubToken:                              os.Getenv("GITHUB_TOKEN"),
-		GithubIntegrationLogin:                   os.Getenv("GITHUB_INTEGRATION_LOGIN"),
-		GithubRepoConfigPath:                     strings.TrimSpace(os.Getenv("GITHUB_REPO_CONFIG_PATH")),
-		GithubOutboundInterval:                   envDuration("GITHUB_OUTBOUND_INTERVAL", 15*time.Second),
-		CSMPortalBaseURL:                         os.Getenv("CSM_PORTAL_BASE_URL"),
-		SpecialistHandoffConfig:                  os.Getenv("SPECIALIST_HANDOFF_CONFIG"),
-		SpecialistHandoffGithubTokens:            os.Getenv("SPECIALIST_HANDOFF_GITHUB_TOKENS"),
-		IncidentDefaultServiceID:                 strings.TrimSpace(os.Getenv("INCIDENT_DEFAULT_SERVICE_ID")),
-		GithubLabelTypeIncident:                  os.Getenv("GITHUB_LABEL_TYPE_INCIDENT"),
-		GithubLabelTypeServiceRequest:            os.Getenv("GITHUB_LABEL_TYPE_SERVICE_REQUEST"),
-		GithubLabelsClass:                        os.Getenv("GITHUB_LABELS_CLASS"),
-		GithubLabelStatusAssigned:                os.Getenv("GITHUB_LABEL_STATUS_ASSIGNED"),
-		CRNoticesEnabled:                         os.Getenv("CR_NOTICES_ENABLED") == "true",
-		CRStrictVisibilityFromRaw:                strings.TrimSpace(os.Getenv("CR_STRICT_VISIBILITY_FROM")),
+		DBHost:               getEnvOrDefault("DB_HOST", "localhost"),
+		DBPort:               getEnvOrDefault("DB_PORT", "5432"),
+		AvailabilityTimezone: os.Getenv("AVAILABILITY_TIMEZONE"),
+		WorklogReportTeamTypes: splitCommaOrDefault(
+			os.Getenv("WORKLOG_REPORT_TEAM_TYPES"), []string{"cre-abt", "cre"}),
+		WorklogReportExcludedTeamKeys:                 splitComma(os.Getenv("WORKLOG_REPORT_EXCLUDED_TEAM_KEYS")),
+		QueryHourInternalEmailDomain:                  strings.TrimSpace(os.Getenv("QUERY_HOUR_INTERNAL_EMAIL_DOMAIN")),
+		DBUser:                                        os.Getenv("DB_USER"),
+		DBPassword:                                    os.Getenv("DB_PASSWORD"),
+		DBName:                                        os.Getenv("DB_NAME"),
+		DBSSLMode:                                     os.Getenv("DB_SSLMODE"),
+		DBSchema:                                      os.Getenv("DB_SCHEMA"),
+		DBPoolMaxConns:                                intVal("DB_POOL_MAX_CONNS", 20, false),
+		DBPoolMinConns:                                intVal("DB_POOL_MIN_CONNS", 2, true),
+		DBPoolMaxConnLifetime:                         duration("DB_POOL_MAX_CONN_LIFETIME", 30*time.Minute),
+		DBPoolMaxConnIdleTime:                         duration("DB_POOL_MAX_CONN_IDLE_TIME", 5*time.Minute),
+		ServerPort:                                    getEnvOrDefault("SERVER_PORT", "8080"),
+		HealthPort:                                    getEnvOrDefault("HEALTH_PORT", "8081"),
+		DataSource:                                    DataSource(getEnvOrDefault("DATA_SOURCE", string(DataSourcePostgres))),
+		SLADataSource:                                 SLADataSource(getEnvOrDefault("SLA_DATA_SOURCE", string(SLADataSourcePostgres))),
+		UsageRollupEnabled:                            os.Getenv("USAGE_ROLLUP_ENABLED") == "true",
+		UsageReadMode:                                 UsageReadMode(getEnvOrDefault("PRODUCT_CONSUMPTION_DATA_READ_MODE", string(UsageReadModePostgres))),
+		AttachmentDataSource:                          AttachmentDataSource(getEnvOrDefault("ATTACHMENT_DATA_SOURCE", string(AttachmentDataSourcePostgres))),
+		ServiceNowIntegrationServiceBaseURL:           os.Getenv("SERVICENOW_INTEGRATION_SERVICE_BASE_URL"),
+		ServiceNowIntegrationServiceTokenURL:          os.Getenv("SERVICENOW_INTEGRATION_SERVICE_TOKEN_URL"),
+		ServiceNowIntegrationServiceClientID:          os.Getenv("SERVICENOW_INTEGRATION_SERVICE_CLIENT_ID"),
+		ServiceNowIntegrationServiceClientSecret:      os.Getenv("SERVICENOW_INTEGRATION_SERVICE_CLIENT_SECRET"),
+		ServiceNowIntegrationServiceScopes:            os.Getenv("SERVICENOW_INTEGRATION_SERVICE_SCOPES"),
+		EventHubBroker:                                os.Getenv("EVENT_HUB_BROKER"),
+		EventHubConnectionString:                      os.Getenv("EVENT_HUB_CONNECTION_STRING"),
+		EventHubTopic:                                 os.Getenv("EVENT_HUB_TOPIC"),
+		EventPublishingEnabled:                        os.Getenv("EVENT_PUBLISHING_ENABLED") == "true",
+		GithubIntegrationEnabled:                      os.Getenv("GITHUB_INTEGRATION_ENABLED") == "true",
+		GithubBaseURL:                                 getEnvOrDefault("GITHUB_API_BASE_URL", "https://api.github.com"),
+		GithubToken:                                   os.Getenv("GITHUB_TOKEN"),
+		GithubRepoTokens:                              os.Getenv("GITHUB_REPO_TOKENS"),
+		GithubIntegrationLogin:                        os.Getenv("GITHUB_INTEGRATION_LOGIN"),
+		GithubRepoConfigPath:                          strings.TrimSpace(os.Getenv("GITHUB_REPO_CONFIG_PATH")),
+		GithubSRServiceNowFirst:                       strings.EqualFold(strings.TrimSpace(os.Getenv("GITHUB_SR_SERVICENOW_FIRST")), "true"),
+		GithubOutboundInterval:                        envDuration("GITHUB_OUTBOUND_INTERVAL", 15*time.Second),
+		CSMPortalBaseURL:                              os.Getenv("CSM_PORTAL_BASE_URL"),
+		SpecialistHandoffConfig:                       os.Getenv("SPECIALIST_HANDOFF_CONFIG"),
+		SpecialistHandoffGithubTokens:                 os.Getenv("SPECIALIST_HANDOFF_GITHUB_TOKENS"),
+		IncidentDefaultServiceID:                      strings.TrimSpace(os.Getenv("INCIDENT_DEFAULT_SERVICE_ID")),
+		IncidentExtraAssignmentGroupIDs:               splitComma(os.Getenv("INCIDENT_EXTRA_ASSIGNMENT_GROUP_IDS")),
+		GithubLabelTypeIncident:                       os.Getenv("GITHUB_LABEL_TYPE_INCIDENT"),
+		GithubLabelTypeServiceRequest:                 os.Getenv("GITHUB_LABEL_TYPE_SERVICE_REQUEST"),
+		GithubLabelsClass:                             os.Getenv("GITHUB_LABELS_CLASS"),
+		GithubLabelStatusAssigned:                     os.Getenv("GITHUB_LABEL_STATUS_ASSIGNED"),
+		CRNoticesEnabled:                              os.Getenv("CR_NOTICES_ENABLED") == "true",
+		CRStrictVisibilityFromRaw:                     strings.TrimSpace(os.Getenv("CR_STRICT_VISIBILITY_FROM")),
 		CSMMigrationSalesforceMembershipIngestEnabled: envFlagOn("CSM_MIGRATION_SALESFORCE_MEMBERSHIP_INGEST_ENABLED"),
 		CSMMigrationSalesforceAccountIngestEnabled:    envFlagOn("CSM_MIGRATION_SALESFORCE_ACCOUNT_INGEST_ENABLED"),
 		CSMMigrationPortalWritesEnabled:               envFlagOn("CSM_MIGRATION_PORTAL_WRITES_ENABLED"),
@@ -674,10 +891,19 @@ func Load() *Config {
 		OutageNoticePollInterval:                      envDuration("OUTAGE_NOTICE_POLL_INTERVAL", 60*time.Second),
 		OutageNotificationRecipients:                  splitComma(os.Getenv("OUTAGE_NOTIFICATION_RECIPIENTS")),
 		OutageCommunicationRecipients:                 splitComma(os.Getenv("OUTAGE_COMMUNICATION_RECIPIENTS")),
+		ProductRegressionReportTag:                    getEnvOrDefault("PRODUCT_REGRESSION_REPORT_TAG", "s_rg"),
+		MigrationCaseReportHoldTag:                    getEnvOrDefault("MIGRATION_CASE_REPORT_HOLD_TAG", "s_mig_hold"),
+		MigrationCaseReportAccountsTag:                getEnvOrDefault("MIGRATION_CASE_REPORT_ACCOUNTS_TAG", "s_acc"),
+		MigrationCaseReportTeamKeys:                   splitComma(os.Getenv("MIGRATION_CASE_REPORT_TEAM_KEYS")),
 		AuthIssuer:                                    os.Getenv("AUTH_ISSUER"),
 		AuthJWKSURL:                                   os.Getenv("AUTH_JWKS_URL"),
 		AuthUserTokenAudiences:                        splitComma(os.Getenv("AUTH_USER_TOKEN_AUDIENCES")),
 		AuthClockSkew:                                 envDuration("AUTH_CLOCK_SKEW", 30*time.Second),
+		AuthAdminRoles:                                splitComma(os.Getenv("AUTH_ADMIN_ROLES")),
+		CaseAlertsSecretKey:                           strings.TrimSpace(os.Getenv("CASE_ALERTS_SECRET_KEY")),
+		CaseAlertsSecretKeyID:                         getEnvOrDefault("CASE_ALERTS_SECRET_KEY_ID", "1"),
+		CaseAlertsRuntimeClientIDs:                    splitComma(os.Getenv("CASE_ALERTS_RUNTIME_CLIENT_IDS")),
+		CaseAlertsEnvironment:                         strings.TrimSpace(os.Getenv("CASE_ALERTS_ENVIRONMENT")),
 		M2MClientIDsRaw:                               os.Getenv("M2M_CLIENT_IDS"),
 		CSMPortalBackendClientID:                      os.Getenv("CSM_PORTAL_BACKEND_CLIENT_ID"),
 		CSMPortalUserDomain:                           strings.TrimPrefix(os.Getenv("CSM_PORTAL_USER_DOMAIN"), "@"),
@@ -694,6 +920,11 @@ func Load() *Config {
 		SalesEntityClientID:                           os.Getenv("SALES_ENTITY_CLIENT_ID"),
 		SalesEntityClientSecret:                       os.Getenv("SALES_ENTITY_CLIENT_SECRET"),
 		SalesEntityScopes:                             os.Getenv("SALES_ENTITY_SCOPES"),
+		SCIMBaseURL:                                   os.Getenv("SCIM_BASE_URL"),
+		SCIMTokenURL:                                  os.Getenv("SCIM_TOKEN_URL"),
+		SCIMClientID:                                  os.Getenv("SCIM_CLIENT_ID"),
+		SCIMClientSecret:                              os.Getenv("SCIM_CLIENT_SECRET"),
+		SCIMScopes:                                    os.Getenv("SCIM_SCOPES"),
 		CSMMigrationMembershipRegistrationEnabled:     envFlagOn("CSM_MIGRATION_MEMBERSHIP_REGISTRATION_ENABLED"),
 		EscalationEL1AmericasTLEmails:                 splitComma(os.Getenv("ESCALATION_EL1_AMERICAS_TL_EMAILS")),
 		EscalationEL2AmericasTUEmails:                 splitComma(os.Getenv("ESCALATION_EL2_AMERICAS_TU_EMAILS")),
@@ -727,6 +958,7 @@ func Load() *Config {
 	cfg.RedisAddr = strings.TrimSpace(os.Getenv("REDIS_ADDR"))
 	cfg.RedisPassword = os.Getenv("REDIS_PASSWORD")
 	cfg.UserCacheTTL = envDuration("USER_CACHE_TTL", 10*time.Minute)
+	cfg.VulnerabilityMetaCacheTTL = envDuration("PRODUCT_VULNERABILITY_META_CACHE_TTL", 24*time.Hour)
 	cfg.applySREEventHubTopic()
 	return cfg
 }
@@ -837,6 +1069,17 @@ func splitComma(s string) []string {
 	return result
 }
 
+// splitCommaOrDefault is splitComma with a fallback, for a list whose
+// empty value would mean something materially different from its
+// intended default -- an unset team-type scope would widen a report to
+// every team rather than narrow it to none.
+func splitCommaOrDefault(s string, def []string) []string {
+	if v := splitComma(s); len(v) > 0 {
+		return v
+	}
+	return def
+}
+
 // HasDatabase reports whether a Postgres connection is configured. It is the
 // gate cmd/api/main.go uses to decide whether to open a pool at all, and
 // routes.go uses to decide whether to register the Postgres-only endpoints
@@ -877,6 +1120,14 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("%s must be greater than 0, got %s", t.name, t.val)
 		}
 	}
+	// QUERY_HOUR_INTERNAL_EMAIL_DOMAIN is matched with HasSuffix, so a
+	// value missing the "@" matches more than it looks like it does:
+	// "wso2.com" would also accept someone@notwso2.com. Reject it here
+	// rather than quietly mailing an internal report outside.
+	if c.QueryHourInternalEmailDomain != "" && !strings.HasPrefix(c.QueryHourInternalEmailDomain, "@") {
+		return fmt.Errorf("QUERY_HOUR_INTERNAL_EMAIL_DOMAIN must start with \"@\", got %q",
+			c.QueryHourInternalEmailDomain)
+	}
 	// A team id that is not a UUID can never match account.sre_team_id, so
 	// the team it was meant to automate would silently never be.
 	for _, id := range c.SRAlertSRETeamIDs {
@@ -916,6 +1167,24 @@ func (c *Config) Validate() error {
 	default:
 		return fmt.Errorf("invalid DATA_SOURCE %q: must be %q, %q, or %q", c.DataSource, DataSourcePostgres, DataSourceServiceNow, DataSourcePostgresServiceNowDualWrite)
 	}
+	switch c.SLADataSource {
+	case SLADataSourcePostgres, SLADataSourceServiceNow:
+		// valid
+	default:
+		return fmt.Errorf("invalid SLA_DATA_SOURCE %q: must be %q or %q", c.SLADataSource, SLADataSourcePostgres, SLADataSourceServiceNow)
+	}
+	switch c.UsageReadMode {
+	case UsageReadModePostgres, UsageReadModeLegacy:
+		// valid
+	default:
+		return fmt.Errorf("invalid PRODUCT_CONSUMPTION_DATA_READ_MODE %q: must be %q or %q", c.UsageReadMode, UsageReadModePostgres, UsageReadModeLegacy)
+	}
+	switch c.AttachmentDataSource {
+	case AttachmentDataSourcePostgres, AttachmentDataSourceServiceNow:
+		// valid
+	default:
+		return fmt.Errorf("invalid ATTACHMENT_DATA_SOURCE %q: must be %q or %q", c.AttachmentDataSource, AttachmentDataSourcePostgres, AttachmentDataSourceServiceNow)
+	}
 	// Postgres credentials are required for DATA_SOURCE=postgres and
 	// DATA_SOURCE=postgres-servicenow-dual-write — both serve every entity read
 	// and write from the pool (the fallback mode's ServiceNow leg is a
@@ -954,22 +1223,27 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("DB_USER, DB_PASSWORD, and DB_NAME must be set together or not at all")
 	}
 	// ServiceNow integration service credentials are required for
-	// DATA_SOURCE=servicenow (reads go there) and also for
+	// DATA_SOURCE=servicenow (reads go there), for
 	// DATA_SOURCE=postgres-servicenow-dual-write (the best-effort mirror write
-	// goes there, via the same client — see SNWritebackDispatcher).
-	snRequired := c.DataSource == DataSourceServiceNow || c.DataSource == DataSourcePostgresServiceNowDualWrite
+	// goes there, via the same client — see SNWritebackDispatcher), for
+	// SLA_DATA_SOURCE=servicenow (SLA reads go there instead), and for
+	// ATTACHMENT_DATA_SOURCE=servicenow (attachment/activity-feed reads go
+	// there instead) -- all independent of DATA_SOURCE: a plain
+	// DATA_SOURCE=postgres deployment that points SLA or attachment reads at
+	// ServiceNow still needs real credentials for that client.
+	snRequired := c.DataSource == DataSourceServiceNow || c.DataSource == DataSourcePostgresServiceNowDualWrite || c.SLADataSource == SLADataSourceServiceNow || c.AttachmentDataSource == AttachmentDataSourceServiceNow
 	if snRequired {
 		if c.ServiceNowIntegrationServiceBaseURL == "" {
-			return fmt.Errorf("SERVICENOW_INTEGRATION_SERVICE_BASE_URL is required when DATA_SOURCE=%s", c.DataSource)
+			return fmt.Errorf("SERVICENOW_INTEGRATION_SERVICE_BASE_URL is required when DATA_SOURCE=%s, SLA_DATA_SOURCE=%s, or ATTACHMENT_DATA_SOURCE=%s", c.DataSource, c.SLADataSource, c.AttachmentDataSource)
 		}
 		if c.ServiceNowIntegrationServiceTokenURL == "" {
-			return fmt.Errorf("SERVICENOW_INTEGRATION_SERVICE_TOKEN_URL is required when DATA_SOURCE=%s", c.DataSource)
+			return fmt.Errorf("SERVICENOW_INTEGRATION_SERVICE_TOKEN_URL is required when DATA_SOURCE=%s, SLA_DATA_SOURCE=%s, or ATTACHMENT_DATA_SOURCE=%s", c.DataSource, c.SLADataSource, c.AttachmentDataSource)
 		}
 		if c.ServiceNowIntegrationServiceClientID == "" {
-			return fmt.Errorf("SERVICENOW_INTEGRATION_SERVICE_CLIENT_ID is required when DATA_SOURCE=%s", c.DataSource)
+			return fmt.Errorf("SERVICENOW_INTEGRATION_SERVICE_CLIENT_ID is required when DATA_SOURCE=%s, SLA_DATA_SOURCE=%s, or ATTACHMENT_DATA_SOURCE=%s", c.DataSource, c.SLADataSource, c.AttachmentDataSource)
 		}
 		if c.ServiceNowIntegrationServiceClientSecret == "" {
-			return fmt.Errorf("SERVICENOW_INTEGRATION_SERVICE_CLIENT_SECRET is required when DATA_SOURCE=%s", c.DataSource)
+			return fmt.Errorf("SERVICENOW_INTEGRATION_SERVICE_CLIENT_SECRET is required when DATA_SOURCE=%s, SLA_DATA_SOURCE=%s, or ATTACHMENT_DATA_SOURCE=%s", c.DataSource, c.SLADataSource, c.AttachmentDataSource)
 		}
 	}
 	// EVENT_HUB_BROKER/EVENT_HUB_CONNECTION_STRING/EVENT_HUB_TOPIC are
@@ -998,6 +1272,10 @@ func (c *Config) Validate() error {
 	salesEntitySet := c.SalesEntityBaseURL != "" || c.SalesEntityTokenURL != "" || c.SalesEntityClientID != "" || c.SalesEntityClientSecret != "" || c.SalesEntityScopes != ""
 	if salesEntitySet && !c.SalesEntityConfigured() {
 		return fmt.Errorf("SALES_ENTITY_BASE_URL, SALES_ENTITY_TOKEN_URL, SALES_ENTITY_CLIENT_ID, and SALES_ENTITY_CLIENT_SECRET must be set together or not at all")
+	}
+	scimSet := c.SCIMBaseURL != "" || c.SCIMTokenURL != "" || c.SCIMClientID != "" || c.SCIMClientSecret != "" || c.SCIMScopes != ""
+	if scimSet && !c.SCIMConfigured() {
+		return fmt.Errorf("SCIM_BASE_URL, SCIM_TOKEN_URL, SCIM_CLIENT_ID, and SCIM_CLIENT_SECRET must be set together or not at all")
 	}
 	if (c.CSMPortalBackendClientID == "") != (c.CSMPortalUserDomain == "") {
 		return fmt.Errorf("CSM_PORTAL_BACKEND_CLIENT_ID and CSM_PORTAL_USER_DOMAIN must be set together or not at all")
@@ -1028,11 +1306,19 @@ func (c *Config) Validate() error {
 			}
 		}
 	}
+	if _, err := github.ParseRepoTokens(c.GithubRepoTokens); err != nil {
+		return err
+	}
 	if v := c.CaseEscalationNotices; v != "" && v != "true" && v != "false" {
 		return fmt.Errorf("CASE_ESCALATION_NOTICES_ENABLED %q must be true, false or unset", v)
 	}
 	if v := c.IncidentDefaultServiceID; v != "" && !validate.IsUUID(v) {
 		return fmt.Errorf("INCIDENT_DEFAULT_SERVICE_ID %q is not a valid UUID", v)
+	}
+	for _, v := range c.IncidentExtraAssignmentGroupIDs {
+		if !validate.IsUUID(v) {
+			return fmt.Errorf("INCIDENT_EXTRA_ASSIGNMENT_GROUP_IDS entry %q is not a valid UUID", v)
+		}
 	}
 	if v := c.CustomerEngagementFirefightingTypeID; v != "" && !isSysID(v) {
 		return fmt.Errorf("CUSTOMER_ENGAGEMENT_FIREFIGHTING_TYPE_ID must be a 32-character hex sys_id")
@@ -1106,6 +1392,25 @@ func (c *Config) CaseEscalationNoticesOn() bool {
 	return c.PostgresAuthoritative() && c.CaseEscalationNotices != "false"
 }
 
+// UsageReadRoute decides where the instance and usage/metrics reads are
+// served from, from DataSource and UsageReadMode. It is the only place that
+// decision is made; routes.go wires services from its result.
+//
+//	DATA_SOURCE=servicenow                                -> ServiceNowOnly (either mode)
+//	DATA_SOURCE=postgres                                  -> Postgres (either mode)
+//	DATA_SOURCE=postgres-servicenow-dual-write, postgres  -> Postgres
+//	DATA_SOURCE=postgres-servicenow-dual-write, legacy    -> PreviousPathFallback
+func (c *Config) UsageReadRoute() UsageReadRoute {
+	switch {
+	case c.DataSource == DataSourceServiceNow:
+		return UsageReadRouteServiceNowOnly
+	case c.DataSource == DataSourcePostgresServiceNowDualWrite && c.UsageReadMode == UsageReadModeLegacy:
+		return UsageReadRoutePreviousPathFallback
+	default:
+		return UsageReadRoutePostgres
+	}
+}
+
 func (c *Config) PostgresAuthoritative() bool {
 	return c.DataSource == DataSourcePostgres || c.DataSource == DataSourcePostgresServiceNowDualWrite
 }
@@ -1135,6 +1440,14 @@ func (c *Config) SalesEntityConfigured() bool {
 		c.SalesEntityTokenURL != "" &&
 		c.SalesEntityClientID != "" &&
 		c.SalesEntityClientSecret != ""
+}
+
+// SCIMConfigured reports whether every WSO2 internal-org SCIM search env var is set.
+func (c *Config) SCIMConfigured() bool {
+	return c.SCIMBaseURL != "" &&
+		c.SCIMTokenURL != "" &&
+		c.SCIMClientID != "" &&
+		c.SCIMClientSecret != ""
 }
 
 // DSN constructs a PostgreSQL connection string from the config fields.
@@ -1197,11 +1510,28 @@ func (c *Config) DSN() string {
 // operations/csm-webhooks/github along with the public endpoint, so this
 // service never sees a signature and holding the secret would only imply it
 // did. What still gates the integration is the outbound half: a token to
-// call GitHub with, and the login whose own events must be ignored as ours.
+// call GitHub with -- GITHUB_TOKEN, or per-repository ones in
+// GITHUB_REPO_TOKENS -- and the login whose own events must be ignored as ours.
 func (c *Config) HasGithubIntegration() bool {
 	return c.GithubIntegrationEnabled &&
-		c.GithubToken != "" &&
+		(c.GithubToken != "" || c.hasRepoTokens()) &&
 		c.GithubIntegrationLogin != ""
+}
+
+// GithubServiceNowFirst reports whether a service request raised from an
+// issue is created in ServiceNow first: under dual-write, with
+// GITHUB_SR_SERVICENOW_FIRST=true.
+func (c *Config) GithubServiceNowFirst() bool {
+	return c.DataSource == DataSourcePostgresServiceNowDualWrite && c.GithubSRServiceNowFirst
+}
+
+// hasRepoTokens reports whether GITHUB_REPO_TOKENS names at least one token.
+// A set but empty value ("{}") is not a token: enabling on it would start a
+// sync whose every call fails with github.ErrNoToken. A malformed value counts
+// as none here; Validate refuses it at startup.
+func (c *Config) hasRepoTokens() bool {
+	tokens, err := github.ParseRepoTokens(c.GithubRepoTokens)
+	return err == nil && len(tokens) > 0
 }
 
 // envFlagOn is true unless the value is "false" (case-insensitive).

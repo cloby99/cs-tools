@@ -31,8 +31,26 @@ import (
 // 400 "Invalid request payload." — the real, live maximum is 50, not 100.
 const pageSize = 50
 
+// maxProjectPages and maxSearchPages cap how many pages a paging loop will
+// request, independent of anything the upstream reports. Every loop also stops
+// on an empty page, hasMore: false, or reaching "total", but those all trust
+// the upstream: one that keeps returning non-empty pages with hasMore: true
+// and total: 0 would otherwise keep a run going until the job timeout
+// (CodeRabbit, PR #2545). Reaching a cap is an error, not a quiet stop, so
+// skipped data is visible. 1,000 pages is 50,000 open projects (staging has
+// about 1,900); 200 pages is 10,000 links or invoices for one project or
+// opportunity.
+const (
+	maxProjectPages = 1000
+	maxSearchPages  = 200
+)
+
 // Run performs one full ACP evaluation pass over every open project,
-// paginating through /projects/search. A single project's processProject
+// paginating through /projects/search. The list comes from CSM (reader),
+// which alone has each project's closure states and the notices already
+// sent; details supplies the rest of each project before it is decided
+// (NewSalesforceDetails reads it live from Salesforce). A details failure is
+// a failure of that project, like any other. A single project's processProject
 // failure is logged and recorded in Result.Failures, and the sweep
 // continues — one project's problem must never block the rest. A failure
 // fetching a page itself is fatal for the whole run (there is no way to
@@ -58,7 +76,7 @@ const pageSize = 50
 // bugs — a project excluded here produces zero log signal about whatever
 // might be wrong with it, which is the opposite of what you want for an
 // actual bug. nil is equivalent to an empty set (nothing excluded).
-func Run(ctx context.Context, reader sweepReader, updater projectUpdater, ntf notifier, now time.Time, projectID string, excludedProjectIDs map[string]bool) (Result, error) {
+func Run(ctx context.Context, reader sweepReader, details DetailSource, updater projectUpdater, ntf notifier, now time.Time, projectID string, excludedProjectIDs map[string]bool) (Result, error) {
 	var result Result
 
 	if projectID != "" {
@@ -77,15 +95,12 @@ func Run(ctx context.Context, reader sweepReader, updater projectUpdater, ntf no
 		}
 
 		result.ProjectsEvaluated++
-		if err := processProject(ctx, reader, updater, ntf, now, proj); err != nil {
-			slog.ErrorContext(ctx, "processProject failed", "projectID", proj.ID, "err", err)
-			result.Failures = append(result.Failures, ProjectFailure{ProjectID: proj.ID, Err: err})
-		}
+		evaluate(ctx, details, updater, ntf, now, proj, &result)
 
 		return result, nil
 	}
 
-	offset := 0
+	offset, pages := 0, 0
 	for {
 		reqBody, err := json.Marshal(searchProjectsRequest{
 			Pagination:    pagination{Limit: pageSize, Offset: offset},
@@ -113,10 +128,7 @@ func Run(ctx context.Context, reader sweepReader, updater projectUpdater, ntf no
 			}
 
 			result.ProjectsEvaluated++
-			if err := processProject(ctx, reader, updater, ntf, now, proj); err != nil {
-				slog.ErrorContext(ctx, "processProject failed", "projectID", proj.ID, "err", err)
-				result.Failures = append(result.Failures, ProjectFailure{ProjectID: proj.ID, Err: err})
-			}
+			evaluate(ctx, details, updater, ntf, now, proj, &result)
 		}
 
 		if len(page.Projects) == 0 {
@@ -133,6 +145,10 @@ func Run(ctx context.Context, reader sweepReader, updater projectUpdater, ntf no
 			break
 		}
 
+		pages++
+		if pages >= maxProjectPages {
+			return result, fmt.Errorf("sweep: project search still reports more pages after %d pages; stopping", maxProjectPages)
+		}
 		offset += pageSize
 	}
 
@@ -143,6 +159,21 @@ func Run(ctx context.Context, reader sweepReader, updater projectUpdater, ntf no
 // counting the skip in result if so. Shared by both of Run's paths (the
 // TEST_PROJECT_ID-scoped early check and the broad-sweep loop) so the
 // log line and counter update have exactly one definition.
+// evaluate fills in proj's details and decides it, recording a failure of
+// either step against the project.
+func evaluate(ctx context.Context, details DetailSource, updater projectUpdater, ntf notifier, now time.Time, proj project, result *Result) {
+	full, reader, err := details.forProject(ctx, proj)
+	if err == nil {
+		err = processProject(ctx, reader, updater, ntf, now, full)
+	} else {
+		err = fmt.Errorf("read project details: %w", err)
+	}
+	if err != nil {
+		slog.ErrorContext(ctx, "processProject failed", "projectID", proj.ID, "err", err)
+		result.Failures = append(result.Failures, ProjectFailure{ProjectID: proj.ID, Err: err})
+	}
+}
+
 func skipExcluded(ctx context.Context, id string, excludedProjectIDs map[string]bool, result *Result) bool {
 	if !excludedProjectIDs[id] {
 		return false

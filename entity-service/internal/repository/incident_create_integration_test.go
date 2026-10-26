@@ -171,6 +171,145 @@ func TestIncidentCreate_PersistsEveryField(t *testing.T) {
 	}
 }
 
+// TestIncidentCreate_FromServiceNowStoresJournal: the dual-write create stores its work note and comment as the plain create does.
+func TestIncidentCreate_FromServiceNowStoresJournal(t *testing.T) {
+	pool := incidentCreatePool(t)
+	seedIncidentCreateFixture(t, pool)
+	scoped := repository.NewScoped(pool)
+	repo := repository.NewIncidentRepository(scoped)
+	ctx := repository.WithSystemIdentity(context.Background())
+
+	const snID = "d4000000-0000-0000-0000-000000000001"
+	req := icRequest()
+	req.Subcategory, req.ConfigurationItemID, req.AssignedEngineerID, req.WatchList = nil, nil, nil, nil
+	resp, err := repo.CreateIncidentFromServiceNow(ctx, req, nil, snID, "INC-IC-SN-1", "HIGH", "sn.user@test.local")
+	if err != nil {
+		t.Fatalf("CreateIncidentFromServiceNow: %v", err)
+	}
+	if resp.Incident.ID != snID || resp.Incident.Priority != "HIGH" {
+		t.Fatalf("id/priority = %s/%s, want %s/HIGH", resp.Incident.ID, resp.Incident.Priority, snID)
+	}
+	var stored string
+	if err := scoped.QueryRow(ctx, `SELECT priority::text FROM incident WHERE id = $1`, snID).Scan(&stored); err != nil || stored != "HIGH" {
+		t.Errorf("stored priority = %q (%v), want HIGH", stored, err)
+	}
+
+	rows, err := scoped.Query(ctx, `SELECT type::text, content, created_by FROM comment WHERE work_item_id = $1`, snID)
+	if err != nil {
+		t.Fatalf("read comments: %v", err)
+	}
+	defer rows.Close()
+	got := map[string]string{}
+	for rows.Next() {
+		var typ, content, by string
+		if err := rows.Scan(&typ, &content, &by); err != nil {
+			t.Fatalf("scan comment: %v", err)
+		}
+		if by != "sn.user@test.local" {
+			t.Errorf("comment %s created_by = %s", typ, by)
+		}
+		got[typ] = content
+	}
+	if got["COMMENT"] != "customer-visible description" || got["WORK_NOTE"] != "internal work note" || len(got) != 2 {
+		t.Errorf("journal rows = %v", got)
+	}
+}
+
+// TestIncidentCreate_FromServiceNowPersistsEveryField: the create that runs while
+// ServiceNow writes are on writes everything the plain create writes -- the CSM
+// database is the record of truth, nothing is left for a later sync.
+func TestIncidentCreate_FromServiceNowPersistsEveryField(t *testing.T) {
+	pool := incidentCreatePool(t)
+	seedIncidentCreateFixture(t, pool)
+	scoped := repository.NewScoped(pool)
+	repo := repository.NewIncidentRepository(scoped)
+	ctx := repository.WithSystemIdentity(context.Background())
+
+	const snID = "d4000000-0000-0000-0000-000000000002"
+	sub := "Partial Outage"
+	if _, err := repo.CreateIncidentFromServiceNow(ctx, icRequest(), &sub, snID, "INC-IC-SN-2", "HIGH", "sn.user@test.local"); err != nil {
+		t.Fatalf("CreateIncidentFromServiceNow: %v", err)
+	}
+
+	var subLabel, ci, assignedTo string
+	if err := scoped.QueryRow(ctx, `
+		SELECT sc.label, inc.cmdb_ci_id::text, wi.assigned_to_id::text
+		FROM incident inc
+		JOIN work_item wi ON wi.id = inc.id
+		JOIN incident_subcategory sc ON sc.id = inc.subcategory_id
+		WHERE inc.id = $1`, snID).Scan(&subLabel, &ci, &assignedTo); err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+	if subLabel != "Partial Outage" || ci != icCIID || assignedTo != icEngineerID {
+		t.Errorf("got subcategory=%s ci=%s assignedTo=%s", subLabel, ci, assignedTo)
+	}
+
+	view, err := repo.GetIncidentByID(ctx, snID)
+	if err != nil {
+		t.Fatalf("GetIncidentByID: %v", err)
+	}
+	if view.AssignedTo == nil || view.AssignedTo.ID != icEngineerID {
+		t.Errorf("view.AssignedTo = %+v, want %s", view.AssignedTo, icEngineerID)
+	}
+	// An id and an email for the same user collapse to one watcher.
+	if len(view.WatchList) != 1 || view.WatchList[0].ID != icWatcherID {
+		t.Errorf("view.WatchList = %+v, want the one watcher", view.WatchList)
+	}
+}
+
+// TestIncidentCreate_CheckFromServiceNow: the check before ServiceNow reports
+// exactly what the insert would refuse, and never leaves a row behind.
+func TestIncidentCreate_CheckFromServiceNow(t *testing.T) {
+	pool := incidentCreatePool(t)
+	seedIncidentCreateFixture(t, pool)
+	scoped := repository.NewScoped(pool)
+	repo := repository.NewIncidentRepository(scoped)
+	ctx := repository.WithSystemIdentity(context.Background())
+
+	sub := "Partial Outage"
+	if err := repo.CheckIncidentFromServiceNow(ctx, icRequest(), &sub, "HIGH", "sn.user@test.local"); err != nil {
+		t.Fatalf("check of a valid request: %v", err)
+	}
+
+	unknownWatcher := icRequest()
+	unknownWatcher.WatchList = []string{icWatcherID, "nobody@test.local"}
+	malformedWatcher := icRequest()
+	malformedWatcher.WatchList = []string{"jdoe"}
+	unknownEngineer := icRequest()
+	missing := "d1000000-0000-0000-0000-0000000000ff"
+	unknownEngineer.AssignedEngineerID = &missing
+	otherCategory := "dns" // a NETWORK subcategory, under SERVICE_INTERRUPTION
+	for name, tc := range map[string]struct {
+		req  domain.CreateIncidentRequest
+		sub  *string
+		want string // the message, when it matters
+	}{
+		// Named by position, never by the address: the message is logged.
+		"unknown watcher":                 {unknownWatcher, &sub, "watchList entry 2 is not a known user"},
+		"malformed watcher":               {malformedWatcher, &sub, "watchList contains an entry that is neither a valid email address nor a valid user identifier"},
+		"unknown assigned engineer":       {unknownEngineer, &sub, ""},
+		"subcategory of another category": {icRequest(), &otherCategory, ""},
+	} {
+		err := repo.CheckIncidentFromServiceNow(ctx, tc.req, tc.sub, "HIGH", "sn.user@test.local")
+		var ve *apierror.ValidationError
+		if !errors.As(err, &ve) {
+			t.Errorf("%s: got %v, want a ValidationError", name, err)
+			continue
+		}
+		if tc.want != "" && ve.Msg != tc.want {
+			t.Errorf("%s: message %q, want %q", name, ve.Msg, tc.want)
+		}
+	}
+
+	var rows int
+	if err := scoped.QueryRow(ctx, `SELECT count(*) FROM work_item WHERE subject = $1`, icSubject).Scan(&rows); err != nil {
+		t.Fatalf("count rows: %v", err)
+	}
+	if rows != 0 {
+		t.Errorf("work_item rows after the checks = %d, want 0 (the check never commits)", rows)
+	}
+}
+
 // TestIncidentCreate_WithoutSubcategory: subcategory is optional on create
 // (the webapp form no longer requires it), so a request with none must
 // insert with incident.subcategory_id NULL and the category still set --

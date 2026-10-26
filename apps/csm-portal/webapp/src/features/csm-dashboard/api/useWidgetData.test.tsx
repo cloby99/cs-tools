@@ -82,6 +82,50 @@ describe("useWidgetData", () => {
     );
   });
 
+  it("posts a flat body with no `filters` key to /projects/search (count and sorted list)", async () => {
+    postMock.mockResolvedValue({ total: 2, projects: [] });
+
+    renderHook(
+      () =>
+        useWidgetData({
+          widgetId: "p1",
+          resourceType: "project",
+          filters: { onboardingStatus: ["In-Progress"] },
+          shape: "count",
+        }),
+      { wrapper },
+    );
+    await waitFor(() => expect(postMock).toHaveBeenCalledTimes(1));
+    expect(postMock).toHaveBeenCalledWith(
+      "/projects/search",
+      { onboardingStatus: ["In-Progress"], pagination: { offset: 0, limit: 1 } },
+      { signal: expect.any(AbortSignal) },
+    );
+
+    postMock.mockClear();
+    renderHook(
+      () =>
+        useWidgetData({
+          widgetId: "p2",
+          resourceType: "project",
+          filters: { onboardingStatus: ["In-Progress"] },
+          shape: "list",
+          listLimit: 5,
+          sortBy: { field: "endDate", order: "asc" },
+        }),
+      { wrapper },
+    );
+    await waitFor(() => expect(postMock).toHaveBeenCalledTimes(1));
+    const [, body] = postMock.mock.calls[0];
+    expect(body).toEqual({
+      onboardingStatus: ["In-Progress"],
+      sortBy: "endDate",
+      sortOrder: "asc",
+      pagination: { offset: 0, limit: 5 },
+    });
+    expect(body).not.toHaveProperty("filters");
+  });
+
   it("caps concurrent in-flight /cases/search calls at WIDGET_FETCH_CONCURRENCY_LIMIT when a dashboard's worth of widgets all mount at once", async () => {
     // A dashboard with more widgets than abt-engineer's ~20 — deliberately
     // not a clean multiple of the cap.
@@ -362,6 +406,115 @@ describe("useWidgetData", () => {
 
     await waitFor(() => expect(postMock).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(result.current.data?.items).toHaveLength(3));
+  });
+});
+
+describe("useWidgetData distinctBy", () => {
+  const escalationFilters = {
+    filters: [
+      { field: "escalation", op: "isNotEmpty" },
+      { field: "type", op: "in", values: ["case"] },
+    ],
+  };
+
+  beforeEach(() => {
+    postMock.mockReset();
+    __resetWidgetFetchConcurrencyForTests();
+  });
+
+  it("shows the number of returned groups, not the record total, and sends exactly {filters, groupBy, maxGroups}", async () => {
+    postMock.mockResolvedValue({
+      groups: [
+        { key: "a1", label: "Account One", count: 4 },
+        { key: "a2", label: "Account Two", count: 1 },
+        { key: "a3", label: "Account Three", count: 2 },
+      ],
+      othersCount: 0,
+      totalRecords: 7,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useWidgetData({
+          widgetId: "cre_escalations",
+          resourceType: "case",
+          filters: escalationFilters,
+          shape: "count",
+          distinctBy: { field: "account", maxGroups: 1000 },
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.data?.total).toBe(3));
+    expect(result.current.data?.items).toEqual([]);
+    expect(postMock).toHaveBeenCalledTimes(1);
+    expect(postMock).toHaveBeenCalledWith(
+      "/cases/aggregate",
+      { filters: escalationFilters, groupBy: "account", maxGroups: 1000 },
+      { signal: expect.any(AbortSignal) },
+    );
+  });
+
+  it("shows the error state, never a number, when othersCount > 0 (the group count would under-count)", async () => {
+    postMock.mockResolvedValue({
+      groups: [{ key: "a1", label: "Account One", count: 4 }],
+      othersCount: 2,
+      totalRecords: 9,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useWidgetData({
+          widgetId: "cre_escalations",
+          resourceType: "case",
+          filters: escalationFilters,
+          shape: "count",
+          distinctBy: { field: "account", maxGroups: 1 },
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.data).toBeUndefined();
+    expect(postMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces an aggregate call failure through the normal error path", async () => {
+    postMock.mockRejectedValue(new Error("boom"));
+
+    const { result } = renderHook(
+      () =>
+        useWidgetData({
+          widgetId: "cre_escalations",
+          resourceType: "case",
+          filters: escalationFilters,
+          shape: "count",
+          distinctBy: { field: "account", maxGroups: 1000 },
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.data).toBeUndefined();
+  });
+
+  it("leaves a widget without distinctBy on the plain search path", async () => {
+    postMock.mockResolvedValue({ total: 7, items: [] });
+
+    const { result } = renderHook(
+      () =>
+        useWidgetData({
+          widgetId: "plain",
+          resourceType: "case",
+          filters: escalationFilters,
+          shape: "count",
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.data?.total).toBe(7));
+    expect(postMock).toHaveBeenCalledTimes(1);
+    expect(postMock.mock.calls[0][0]).toBe("/cases/search");
   });
 });
 

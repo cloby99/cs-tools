@@ -166,9 +166,6 @@ func parseActualDurationMin(raw *string) *int {
 // Known gaps, all left at their zero value rather than guessed:
 //   - number has no default/sequence and no confirmed format, so a created
 //     call request has a NULL number (returned as "").
-//   - CancellationReason has no column ("reason" is the request's own
-//     reason), so it is never stored or returned -- the service rejects a
-//     request that supplies one rather than silently dropping it.
 //   - closed_on/closed_by_id are never set by UpdateCallRequest: which states
 //     count as "closed" isn't specified anywhere.
 //   - State transitions are not validated against the current state, except that
@@ -238,7 +235,7 @@ func NewCallRequestRepository(db *Scoped) CallRequestRepository {
 // filters of SearchAllCallRequests, but are included in the shared FROM so
 // the count and page queries can never drift apart.
 const callRequestSelect = `
-	SELECT cc.id, cc.number, cc.state::TEXT, cc.reason, cc.final_times,
+	SELECT cc.id, cc.number, cc.state::TEXT, cc.reason, cc.reject_reason, cc.final_times,
 	       (EXTRACT(EPOCH FROM cc.duration) / 60)::INT, cc.scheduled_on, cc.call_link,
 	       cc.created_on, cc.updated_on,
 	       cc.all_notes, cc.plan, cc.attendees, cc.action_items, cc.actual_call_duration,
@@ -253,19 +250,19 @@ const callRequestFrom = `
 
 func scanCallRequest(row pgx.Row) (domain.CallRequestView, error) {
 	var (
-		v                                           domain.CallRequestView
-		id                                          string
-		number, state, reason, callLink             *string
-		finalTimes                                  []byte
-		durationMin                                 *int
-		scheduledOn                                 *time.Time
-		createdOn, updatedOn                        time.Time
-		notes, plan, attendees, actionItems, actual *string
-		caseID, caseSubject, caseNumber             *string
-		assignee                                    *string
+		v                                             domain.CallRequestView
+		id                                            string
+		number, state, reason, rejectReason, callLink *string
+		finalTimes                                    []byte
+		durationMin                                   *int
+		scheduledOn                                   *time.Time
+		createdOn, updatedOn                          time.Time
+		notes, plan, attendees, actionItems, actual   *string
+		caseID, caseSubject, caseNumber               *string
+		assignee                                      *string
 	)
 	if err := row.Scan(
-		&id, &number, &state, &reason, &finalTimes,
+		&id, &number, &state, &reason, &rejectReason, &finalTimes,
 		&durationMin, &scheduledOn, &callLink,
 		&createdOn, &updatedOn,
 		&notes, &plan, &attendees, &actionItems, &actual,
@@ -279,6 +276,7 @@ func scanCallRequest(row pgx.Row) (domain.CallRequestView, error) {
 	v.Number = stringOrEmpty(number)
 	v.Case = domain.CallRequestCaseRef{ID: stringOrEmpty(caseID), Name: stringOrEmpty(caseSubject), Number: caseNumber}
 	v.Reason = reason
+	v.CancellationReason = rejectReason
 	v.PreferredTimes = decodeFinalTimes(finalTimes)
 	if durationMin != nil {
 		v.DurationMin = *durationMin
@@ -442,11 +440,22 @@ func (r *callRequestRepo) SearchAllCallRequests(ctx context.Context, f domain.Se
 	return r.runCallRequestSearch(ctx, where, orderBy, args, pagination)
 }
 
+// createCallRequestStateEnum is the customer_call_state_enum label for a
+// create. The service resolves and validates state before this is called. A
+// nil or empty value (a direct repository caller, including older tests)
+// stays the customer-raised default.
+func createCallRequestStateEnum(state *domain.CallRequestStateType) string {
+	if state == nil || *state == "" {
+		return callRequestStateToEnum(domain.CallRequestStatePendingOnWSO2)
+	}
+	return callRequestStateToEnum(*state)
+}
+
 // CreateCallRequest implements CallRequestRepository.
 func (r *callRequestRepo) CreateCallRequest(ctx context.Context, req domain.CreateCallRequestRequest, callerID, callerEmail string) (domain.CreateCallRequestResponse, error) {
-	// A new request is raised by the customer, so it starts pending on WSO2
-	// (who must schedule or counter-propose). preferred times land in
-	// final_times as a JSON array, the shape decodeFinalTimes reads back.
+	// preferred times land in final_times as a JSON array, the shape
+	// decodeFinalTimes reads back. state is pending_on_wso2 unless the caller
+	// (the CSM portal) asked for pending_on_customer.
 	times, err := json.Marshal(req.UTCTimes)
 	if err != nil {
 		return domain.CreateCallRequestResponse{}, fmt.Errorf("encode utcTimes: %w", err)
@@ -466,17 +475,18 @@ func (r *callRequestRepo) CreateCallRequest(ctx context.Context, req domain.Crea
 			duration, reason, final_times
 		)
 		SELECT gen_random_uuid(), NOW(), NOW(), $1, $1,
-		       wi.id, $2::text::uuid, NOW(), TRUE, 'PENDING_ON_WSO2'::customer_call_state_enum,
+		       wi.id, $2::text::uuid, NOW(), TRUE, $7::text::customer_call_state_enum,
 		       make_interval(mins => $3::int), $4::text, $5::text::jsonb
 		FROM work_item wi
 		WHERE wi.id = $6::text::uuid AND wi.type = ANY(` + caseLikeWorkItemTypes + `)
 		  AND ` + announcementVisibilityLeakGuard + `
 		RETURNING id, created_on`
 
+	stateEnum := createCallRequestStateEnum(req.State)
 	var id string
 	var createdOn time.Time
 	err = r.db.QueryRow(ctx, query,
-		callerEmail, callerID, req.DurationMinutes, req.Reason, string(times), req.CaseID,
+		callerEmail, callerID, req.DurationMinutes, req.Reason, string(times), req.CaseID, stateEnum,
 	).Scan(&id, &createdOn)
 	if errors.Is(err, pgx.ErrNoRows) || IsRLSPolicyViolation(err) {
 		return domain.CreateCallRequestResponse{}, &apierror.NotFoundError{Msg: "case not found"}
@@ -490,7 +500,7 @@ func (r *callRequestRepo) CreateCallRequest(ctx context.Context, req domain.Crea
 	resp.CallRequest.ID = id
 	resp.CallRequest.CreatedOn = createdOn.UTC().Format(time.RFC3339)
 	resp.CallRequest.CreatedBy = callerEmail
-	resp.CallRequest.State = CallRequestStateFromEnum(callRequestStateToEnum(domain.CallRequestStatePendingOnWSO2))
+	resp.CallRequest.State = CallRequestStateFromEnum(stateEnum)
 	return resp, nil
 }
 
@@ -515,17 +525,18 @@ func (r *callRequestRepo) CreateCallRequestFromServiceNow(ctx context.Context, r
 			duration, reason, final_times
 		)
 		SELECT $1::text::uuid, $2, $2, $3, $3,
-		       wi.id, $4::text::uuid, $2, TRUE, 'PENDING_ON_WSO2'::customer_call_state_enum,
+		       wi.id, $4::text::uuid, $2, TRUE, $9::text::customer_call_state_enum,
 		       make_interval(mins => $5::int), $6::text, $7::text::jsonb
 		FROM work_item wi
 		WHERE wi.id = $8::text::uuid AND wi.type = ANY(` + caseLikeWorkItemTypes + `)
 		  AND ` + announcementVisibilityLeakGuard + `
 		RETURNING id, created_on`
 
+	stateEnum := createCallRequestStateEnum(req.State)
 	var gotID string
 	var gotCreatedOn time.Time
 	err = r.db.QueryRow(ctx, query,
-		id, createdOn, createdBy, callerID, req.DurationMinutes, req.Reason, string(times), req.CaseID,
+		id, createdOn, createdBy, callerID, req.DurationMinutes, req.Reason, string(times), req.CaseID, stateEnum,
 	).Scan(&gotID, &gotCreatedOn)
 	if errors.Is(err, pgx.ErrNoRows) || IsRLSPolicyViolation(err) {
 		return domain.CreateCallRequestResponse{}, &apierror.NotFoundError{Msg: "case not found"}
@@ -539,7 +550,7 @@ func (r *callRequestRepo) CreateCallRequestFromServiceNow(ctx context.Context, r
 	resp.CallRequest.ID = gotID
 	resp.CallRequest.CreatedOn = gotCreatedOn.UTC().Format(time.RFC3339)
 	resp.CallRequest.CreatedBy = createdBy
-	resp.CallRequest.State = CallRequestStateFromEnum(callRequestStateToEnum(domain.CallRequestStatePendingOnWSO2))
+	resp.CallRequest.State = CallRequestStateFromEnum(stateEnum)
 	return resp, nil
 }
 
@@ -625,7 +636,8 @@ func (r *callRequestRepo) UpdateCallRequest(ctx context.Context, req domain.Upda
 			plan = COALESCE($9::text, plan),
 			attendees = COALESCE($10::text, attendees),
 			action_items = COALESCE($11::text, action_items),
-			actual_call_duration = COALESCE($12::text, actual_call_duration)
+			actual_call_duration = COALESCE($12::text, actual_call_duration),
+			reject_reason = COALESCE($15::text, reject_reason)
 		WHERE id = $1::text::uuid
 		  AND ($13::text::uuid IS NULL OR work_item_id = $13::text::uuid)
 		  AND ($14::text[] IS NULL OR state::text = ANY($14::text[]))
@@ -637,6 +649,7 @@ func (r *callRequestRepo) UpdateCallRequest(ctx context.Context, req domain.Upda
 		req.ID, callRequestStateToEnum(req.State), callerEmail,
 		finalTimes, req.DurationMinutes, scheduledOn, assigneeID,
 		notes, req.Plan, req.Attendees, req.ActionItems, actual, caseID, onlyFromStates,
+		req.CancellationReason,
 	).Scan(&id, &updatedOn)
 	if errors.Is(err, pgx.ErrNoRows) && onlyFromStates != nil {
 		// No row matched. Either the call does not exist (not found), or it is in a state

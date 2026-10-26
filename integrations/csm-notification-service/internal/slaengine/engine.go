@@ -65,6 +65,8 @@ type store interface {
 	SetClock(ctx context.Context, caseID, clockType string, meta ClockMeta) error
 	GetClock(ctx context.Context, caseID, clockType string) (ClockMeta, bool, error)
 	SetPaused(ctx context.Context, caseID, clockType string, paused bool) error
+	ShiftWake(ctx context.Context, caseID, clockType string, deltaSeconds, newBaselineSeconds int64) error
+	SetShiftedPauseSeconds(ctx context.Context, caseID, clockType string, seconds int64) error
 	SetState(ctx context.Context, caseID, clockType, state string) error
 	AdvanceAlertedTier(ctx context.Context, caseID, clockType string, tier int, incarnation time.Time) (applied bool, err error)
 	ClaimTier(ctx context.Context, caseID, clockType string, tier int, startedAt time.Time) (claimed bool, err error)
@@ -90,6 +92,64 @@ type linkResolver interface {
 	CSMLink(caseID string) string
 }
 
+// entityClockStatusClient abstracts EntityClient.GetClockState for
+// testability — the final, authoritative check against entity-service's own
+// durable record, done right before a breach alert is actually sent (see
+// that method's own doc comment for why). A nil value (e.g. every existing
+// test's own Engine literal, which doesn't set this field) skips the check
+// entirely and behaves exactly as this engine always has — this is a
+// deliberate, additive safety net, not something every caller must now wire
+// up.
+type entityClockStatusClient interface {
+	GetClockState(ctx context.Context, caseID, clockType string) (clockState, error)
+}
+
+// clockIncarnationTolerance is how far apart entity-service's own
+// sla.start_on and this engine's own Redis-held ClockMeta.StartedAt may be
+// while still being treated as the SAME clock incarnation — the two are set
+// independently, by two different services, reacting to (normally) the same
+// case.created moment a few milliseconds apart, so exact equality is too
+// strict. A genuinely NEW incarnation (a severity revision cancels the old
+// clock and registers a fresh one) starts at a point at least as far apart
+// as however long it took a human to act — realistically minutes to days,
+// never mere seconds — so this stays comfortably below that while easily
+// covering ordinary processing lag. See isSameClockIncarnation's own call
+// site (sendBreachAlert) for why this distinction matters at all.
+const clockIncarnationTolerance = 5 * time.Minute
+
+// isSameClockIncarnation reports whether entityStartedOn (entity-service's
+// own record) and redisStartedAt (this engine's own ClockMeta.StartedAt)
+// are close enough to be the same registration rather than two different
+// ones for the same (case, clockType) pair. A zero redisStartedAt (should
+// never happen for a real wake entry, but defensively handled) can't be
+// compared against anything, so this reports true rather than refusing to
+// ever trust entity-service's answer for such a clock.
+func isSameClockIncarnation(entityStartedOn *time.Time, redisStartedAt time.Time) bool {
+	if entityStartedOn == nil || redisStartedAt.IsZero() {
+		return true
+	}
+	diff := entityStartedOn.Sub(redisStartedAt)
+	if diff < 0 {
+		diff = -diff
+	}
+	return diff <= clockIncarnationTolerance
+}
+
+// isTerminalSLAStage reports whether stage is one of this engine's
+// terminal, genuinely-finished sla.stage values — mirrors entity-service's
+// own slaEngineOpenStageFilter (sla_engine_repo.go): ACHIEVED/CANCELLED/
+// COMPLETED are real completions, BREACHED deliberately is not (a clock
+// whose wall-clock duration ran out without yet being satisfied is still
+// live, still completable by its own later real event).
+func isTerminalSLAStage(stage string) bool {
+	switch strings.ToUpper(stage) {
+	case "ACHIEVED", "CANCELLED", "COMPLETED":
+		return true
+	default:
+		return false
+	}
+}
+
 // Engine is the SLA breach-alerting engine — see this package's own doc
 // comment (client.go) for the full design and what it replaced.
 type Engine struct {
@@ -104,11 +164,41 @@ type Engine struct {
 	// change needs a restart to pick up, same as any other static
 	// at-startup config in this service.
 	durations map[string]map[string]time.Duration
+	// entity is used by sendBreachAlert only, as a last pre-send check
+	// against entity-service's own durable record — see
+	// entityClockStatusClient's own doc comment.
+	entity entityClockStatusClient
+	// slaEmailSendingEnabled is the SLA notification killswitch
+	// (SLA_EMAIL_SENDING_ENABLED, default true; disabled only by the literal
+	// "false", same disable-entirely convention as
+	// EMAIL_SENDING_ENABLED/CALL_SENDING_ENABLED in cmd/server/main.go). The
+	// name is kept for config compatibility, but when false it suppresses
+	// every SLA-triggered outbound message: the Google Chat breach card sent
+	// by sendBreachAlert (the only SLA Chat send in this service) and any SLA
+	// breach email should that reaction be rebuilt. Non-SLA alerts are
+	// unaffected.
+	slaEmailSendingEnabled bool
+	// now is the clock chataudience.Resolve is given, so a test can pin
+	// the time of day the Americas/weekend audiences depend on. nil means
+	// time.Now; see clock.
+	now func() time.Time
 }
 
-// NewEngine constructs an Engine.
-func NewEngine(store *Store, pub *eventbus.Producer, chat chatSender, links *recipientlinks.Resolver, durations map[string]map[string]time.Duration) *Engine {
-	return &Engine{store: store, pub: pub, chat: chat, links: links, durations: durations}
+// clock returns e.now(), or time.Now() when no clock is set.
+func (e *Engine) clock() time.Time {
+	if e.now != nil {
+		return e.now()
+	}
+	return time.Now()
+}
+
+// NewEngine constructs an Engine. entity is the same *EntityClient the
+// caller already constructs for GetDurationPolicy/Reconcile — see
+// entityClockStatusClient's own doc comment for what it's used for here.
+// slaEmailSendingEnabled gates all SLA-triggered messages (Chat card and
+// email) — see that field's own doc comment.
+func NewEngine(store *Store, pub *eventbus.Producer, chat chatSender, links *recipientlinks.Resolver, durations map[string]map[string]time.Duration, entity entityClockStatusClient, slaEmailSendingEnabled bool) *Engine {
+	return &Engine{store: store, pub: pub, chat: chat, links: links, durations: durations, entity: entity, slaEmailSendingEnabled: slaEmailSendingEnabled}
 }
 
 // avoidWeekend rolls due forward to the next Monday, same time-of-day, if
@@ -294,12 +384,81 @@ func (e *Engine) ApplyStateEffects(ctx context.Context, caseID, newStatus string
 	default:
 		e.setPaused(ctx, caseID, ClockWorkaround, false)
 		e.setPaused(ctx, caseID, ClockResolution, false)
+		e.resumeShift(ctx, caseID, ClockWorkaround)
+		e.resumeShift(ctx, caseID, ClockResolution)
 	}
 }
 
+// setPaused is the plain Redis flag write only — see resumeShift for the
+// wake-index rescheduling a genuine resume additionally needs. Kept this
+// narrow deliberately: Engine.reconcileClock also calls this (to apply a
+// durable row's own IsPaused flag), but it computes and bakes a correct,
+// pause-aware wake schedule itself from scratch — routing its own call
+// through resumeShift too would apply the pause offset a second time.
 func (e *Engine) setPaused(ctx context.Context, caseID, clockType string, paused bool) {
 	if err := e.store.SetPaused(ctx, caseID, clockType, paused); err != nil {
 		slog.ErrorContext(ctx, "slaengine: failed to update clock paused state", "caseId", caseID, "clockType", clockType, "paused", paused, "err", err)
+	}
+}
+
+// resumeShift is the other half of setPaused(..., false): once a clock
+// actually resumes, the wake-index entries scheduled back at RegisterClocks/
+// the last reconciliation have due times that take no account of the pause
+// that just ended, so every tier not yet alerted needs pushing forward by
+// however long this pause segment actually lasted — see this package's own
+// CLAUDE.md, "SLA breach-alerting engine", for the incident this closes (a
+// clock paused across one of its own tiers previously lost that tier's
+// alert forever).
+//
+// The pause segment's own length is read from entity-service, not tracked a
+// second time in Redis: entity-service's own CSM-native engine
+// (SLAEngineRepository.SetPaused) already accumulates the exact same
+// wall-clock pause interval into its "sla" table's pause_duration column,
+// synchronously, as part of the very same case-status-changing request that
+// published the case.status_changed event this function is reacting to — by
+// the time this Kafka consumer sees that event, entity-service's own row
+// already reflects the just-completed segment. Diffing that fresh total
+// against ClockMeta.ShiftedPauseSeconds (the cumulative amount this
+// clock's own wake schedule has already been shifted by, as of the last
+// resume or reconciliation) gives exactly the new segment's length, so a
+// clock paused and resumed several times only ever gets shifted by each
+// new increment, never the whole running total again.
+//
+// e.entity nil (every existing test's own Engine literal) or a lookup
+// failure/empty result both skip the shift entirely and log — fails safe
+// (no shift) rather than guessing: an unshifted tier at worst alerts
+// slightly early relative to actual working time, which Tick's own
+// best-effort posture already tolerates elsewhere, where an incorrect
+// shift could push a tier's due time arbitrarily far into the future.
+func (e *Engine) resumeShift(ctx context.Context, caseID, clockType string) {
+	if e.entity == nil {
+		return
+	}
+	meta, found, err := e.store.GetClock(ctx, caseID, clockType)
+	if err != nil {
+		slog.ErrorContext(ctx, "slaengine: failed to read clock before computing resume shift", "caseId", caseID, "clockType", clockType, "err", err)
+		return
+	}
+	if !found {
+		return
+	}
+	state, err := e.entity.GetClockState(ctx, caseID, clockType)
+	if err != nil {
+		slog.WarnContext(ctx, "slaengine: failed to fetch pause duration from entity-service, wake schedule not shifted for this resume", "caseId", caseID, "clockType", clockType, "err", err)
+		return
+	}
+	if !state.Found {
+		return
+	}
+	delta := state.PauseDurationSeconds - meta.ShiftedPauseSeconds
+	if delta <= 0 {
+		return
+	}
+	// One atomic call: shifting the wake entries and recording the new
+	// baseline must not be allowed to happen only one at a time — see
+	// Store.ShiftWake's own doc comment for the double-shift this prevents.
+	if err := e.store.ShiftWake(ctx, caseID, clockType, delta, state.PauseDurationSeconds); err != nil {
+		slog.ErrorContext(ctx, "slaengine: failed to shift wake entries after resume", "caseId", caseID, "clockType", clockType, "deltaSeconds", delta, "err", err)
 	}
 }
 
@@ -366,17 +525,33 @@ func (e *Engine) Tick(ctx context.Context, now time.Time) error {
 }
 
 // processDueMember handles one due wake-index member. A member is removed
-// from the index exactly once, regardless of outcome — alerted, already
-// handled (paused, or completed early by CompleteResponseClock/
-// ApplyStateEffects), or malformed — since a member whose due time has
-// passed stays "due" forever once reached; leaving it in place would have
+// from the index once it's been actually handled — alerted, or already
+// covered by AlertedTier — or once it's malformed, since a member whose due
+// time has passed stays "due" forever once reached and would otherwise have
 // Tick re-examine it on every future poll indefinitely.
 //
-// KNOWN GAP, carried forward from every earlier design this replaces: a
-// paused clock's own due member is dropped outright, not rescheduled for
-// after resume — a clock that comes due while paused permanently loses
-// that tier's alert, even once resumed. Worth revisiting separately if it
-// turns out to matter in practice.
+// A PAUSED clock's own due member is the one case left IN the index rather
+// than removed — this replaces an earlier, carried-forward design flaw
+// where a tier due while paused was dropped outright, permanently losing
+// that tier's alert even once the clock resumed. Leaving it in place is
+// cheap (it just keeps showing up as "due" on every tick, a single
+// GetClock round trip, until resumed) and is exactly what lets
+// Engine.setPaused's own resume-time wake shift correctly push the
+// member's score forward past "now" once the pause segment's true length
+// is known — removing it here would leave nothing for that shift to act
+// on.
+//
+// AlertedTier is checked BEFORE Paused (a CodeRabbit-caught ordering bug):
+// CompleteResponseClock/CompleteWorkaroundClock/ApplyStateEffects' CLOSED
+// branch all advance AlertedTier to 100 without removing the clock's own
+// still-pending wake members — Reconcile's "don't resurrect an
+// already-handled tier" posture relies on this same check cleaning them up
+// the next time they come due. A clock force-completed and THEN paused
+// (e.g. closed, then reopened and immediately put on hold) would otherwise
+// return on the Paused check first, every tick, forever — a harmless but
+// needless GetClock round trip on every poll until the hash's 90-day TTL
+// expires or the clock resumes, since checking AlertedTier reaches the same
+// RemoveWake outcome immediately and doesn't depend on pause state at all.
 func (e *Engine) processDueMember(ctx context.Context, member string) error {
 	caseID, clockType, tier, ok := parseWakeMember(member)
 	if !ok {
@@ -391,8 +566,11 @@ func (e *Engine) processDueMember(ctx context.Context, member string) error {
 	if !found {
 		return e.store.RemoveWake(ctx, member)
 	}
-	if meta.Paused || meta.AlertedTier >= tier {
+	if meta.AlertedTier >= tier {
 		return e.store.RemoveWake(ctx, member)
+	}
+	if meta.Paused {
+		return nil
 	}
 
 	claimed, err := e.store.ClaimTier(ctx, caseID, clockType, tier, meta.StartedAt)
@@ -489,7 +667,81 @@ func (e *Engine) alertTier(ctx context.Context, meta ClockMeta, caseID, clockTyp
 // stopping a retry), and a single persistently broken Chat space would
 // otherwise turn into an unbounded stream of duplicate alerts to every
 // OTHER space that worked fine, repeating every tick, forever.
+//
+// Before building or sending anything, re-verifies this exact clock against
+// entity-service's own durable record (e.entity.GetClockState) — a real,
+// reproduced incident showed this engine's own Redis copy of a clock's
+// completion can silently go stale (see entityClockStatusClient's own doc
+// comment), leaving a wake entry that fires here long after the clock had,
+// in truth, already finished cleanly. The alert is suppressed — logged and
+// dropped with no Chat send and no Kafka publish — only when ALL of the
+// following hold, each closing a gap a CodeRabbit review caught in an
+// earlier, simpler ("is any row of this clock type still active") version
+// of this check:
+//   - the lookup itself succeeded (a network error/timeout is unconfirmed,
+//     not evidence of anything — see the fail-open reasoning below);
+//   - entity-service actually has a row for this clock at all (Found) —
+//     entity-service's own CSM clock registration is itself best-effort and
+//     runs on a different trigger than this engine's own Redis
+//     registration, so "no row" can just as easily mean "never registered
+//     there" as "resolved", and must not be read as the latter;
+//   - that row is the SAME incarnation of the clock this wake entry is
+//     about (isSameClockIncarnation, comparing StartedOn) — a severity
+//     revision cancels the old clock and registers a fresh one for the same
+//     (case, clockType) pair, and a stale wake entry for the OLD
+//     incarnation must not be waved through just because entity-service now
+//     has an unrelated, currently-active NEW one;
+//   - that row's stage is genuinely terminal (isTerminalSLAStage) — a clock
+//     entity-service still considers IN_PROGRESS/BREACHED/PAUSED is still
+//     live, exactly the ordinary case this check must never interfere with;
+//   - and it resolved WITHOUT a real breach ever being recorded
+//     (!HasBreached) — a clock that did genuinely breach before it was
+//     later completed is a real violation worth reporting, not a false
+//     alarm, so this check only suppresses the specific "completed cleanly,
+//     the alert is simply stale" case this whole feature exists for.
+//
+// This is deliberately checked here, inside sendBreachAlert, rather than
+// earlier in processDueMember: every other bookkeeping step there (the tier
+// claim, AdvanceAlertedTier, RemoveWake) still runs exactly as if the alert
+// had been sent, so a clock entity-service confirms is done also gets
+// marked done here, same as a real alert would, and never re-checked on a
+// later tier. Any failure to positively confirm suppression — a lookup
+// error, no row found, a mismatched incarnation — fails open (sends
+// anyway, logged): silently losing a genuine breach alert over an
+// inconclusive double-check is worse than the occasional false positive
+// this whole feature exists to reduce. e.entity is nil for every caller
+// that hasn't wired one up (every existing test), which also fails open
+// the same way, preserving this function's exact prior behavior for them.
+//
+// When e.slaEmailSendingEnabled is false (SLA_EMAIL_SENDING_ENABLED=false)
+// this returns immediately, before the entity-service lookup and before any
+// Chat send. Only the send is skipped: processDueMember has already claimed
+// the tier and published sla.tier_reached before calling here, and still
+// advances the alerted-tier cursor and removes the wake entry afterwards. So
+// a gated-off tier is deliberately treated as alerted, which means
+// re-enabling the flag does not flood Chat with a backlog of stale breach
+// cards for tiers that were crossed while it was off.
 func (e *Engine) sendBreachAlert(ctx context.Context, meta ClockMeta, caseID, clockType string, tier int) {
+	if !e.slaEmailSendingEnabled {
+		slog.InfoContext(ctx, "slaengine: SLA_EMAIL_SENDING_ENABLED=false, skipping sla breach chat alert", "caseId", caseID, "clockType", clockType, "tier", tier)
+		return
+	}
+
+	if e.entity != nil {
+		state, err := e.entity.GetClockState(ctx, caseID, clockType)
+		switch {
+		case err != nil:
+			slog.WarnContext(ctx, "slaengine: failed to verify clock state before sending breach alert, sending anyway", "caseId", caseID, "clockType", clockType, "tier", tier, "err", err)
+		case !state.Found:
+			slog.WarnContext(ctx, "slaengine: entity-service has no record of this clock, sending anyway", "caseId", caseID, "clockType", clockType, "tier", tier)
+		case !isSameClockIncarnation(state.StartedOn, meta.StartedAt):
+			slog.WarnContext(ctx, "slaengine: entity-service is tracking a different clock incarnation than this wake entry, sending anyway", "caseId", caseID, "clockType", clockType, "tier", tier)
+		case isTerminalSLAStage(state.Stage) && !state.HasBreached:
+			slog.InfoContext(ctx, "slaengine: clock already resolved in entity-service's own record with no breach, suppressing stale breach alert", "caseId", caseID, "clockType", clockType, "tier", tier, "stage", state.Stage)
+			return
+		}
+	}
+
 	caseNumber := meta.CaseNumber
 	if caseNumber == "" {
 		caseNumber = caseID
@@ -499,7 +751,7 @@ func (e *Engine) sendBreachAlert(ctx context.Context, meta ClockMeta, caseID, cl
 		openedAt = meta.StartedAt.UTC().Format("2006-01-02 15:04:05") + " (UTC)"
 	}
 
-	audiences := chataudience.Resolve(meta.Team, false, "", time.Now(), e.chat.HasAudienceSpace)
+	audiences := chataudience.Resolve(meta.Team, false, "", e.clock(), e.chat.HasAudienceSpace)
 	caseLink := e.links.CSMLink(caseID)
 	for _, audience := range audiences {
 		if err := e.chat.SendSLABreachAlert(ctx, audience, clockType, tierLabel(tier), caseNumber, meta.WSO2CaseID, meta.CaseTitle, meta.CaseType, meta.Product, meta.Team, "", meta.Priority, meta.State, openedAt, caseLink); err != nil {
@@ -597,6 +849,23 @@ func (e *Engine) reconcileClock(ctx context.Context, c activeSLAClock, now time.
 	}
 	actualDuration := dueAt.Sub(startedAt)
 
+	// pauseOffset is every bit of time this clock has spent paused, start to
+	// now -- both already-completed segments (c.PauseDurationSeconds,
+	// entity-service's own accumulated total) and, if the clock is still
+	// paused at this exact reconciliation pass, the open segment running
+	// since c.PausedOn. Folded into each tier's own due time below so a
+	// freshly-rebuilt Redis doesn't schedule a wake entry as if the clock
+	// had never paused at all -- the same correction resumeShift applies
+	// during ordinary operation, just computed from scratch here instead of
+	// as a diff against a prior baseline (there IS no prior baseline right
+	// after a Redis wipe).
+	pauseOffset := time.Duration(c.PauseDurationSeconds) * time.Second
+	if c.IsPaused && c.PausedOn != nil {
+		if open := now.Sub(*c.PausedOn); open > 0 {
+			pauseOffset += open
+		}
+	}
+
 	meta := ClockMeta{
 		CaseNumber: c.CaseNumber,
 		WSO2CaseID: c.WSO2CaseID,
@@ -615,7 +884,7 @@ func (e *Engine) reconcileClock(ctx context.Context, c activeSLAClock, now time.
 
 	highestPastTier := 0
 	for _, tier := range tierSequence {
-		at := tierTime(startedAt, actualDuration, tier)
+		at := tierTime(startedAt, actualDuration, tier).Add(pauseOffset)
 		if at.After(now) {
 			if err := e.store.AddWake(ctx, wakeMember(c.CaseID, c.ClockType, tier), at); err != nil {
 				slog.ErrorContext(ctx, "slaengine: reconcile: failed to schedule sla wake entry", "caseId", c.CaseID, "clockType", c.ClockType, "tier", tier, "err", err)
@@ -633,6 +902,33 @@ func (e *Engine) reconcileClock(ctx context.Context, c activeSLAClock, now time.
 		if _, err := e.store.AdvanceAlertedTier(ctx, c.CaseID, c.ClockType, highestPastTier, startedAt); err != nil {
 			slog.ErrorContext(ctx, "slaengine: reconcile: failed to pre-claim already-past tiers", "caseId", c.CaseID, "clockType", c.ClockType, "tier", highestPastTier, "err", err)
 		}
+	}
+	// The shifted-pause baseline must equal exactly what this pass already
+	// baked into the tier times above -- the whole of pauseOffset, open
+	// segment included, not just c.PauseDurationSeconds (a CodeRabbit-caught
+	// double-count: an earlier version recorded the completed total alone,
+	// reasoning that the open segment "hasn't completed yet" so it shouldn't
+	// be counted as already shifted -- but the open segment IS already baked
+	// into the due times via pauseOffset above, so excluding it from the
+	// baseline just means resumeShift's own diff double-applies it on the
+	// real resume. Concretely: if this pass observes an open segment of
+	// length o, every tier's due time is already pushed out by o. On the
+	// real resume, entity-service reports completed+L (L = this segment's
+	// true, now-finished length, L >= o); diffing against a baseline of only
+	// "completed" gives a resume delta of L, which shifts the (already
+	// o-shifted) entries by L more -- a total of o+L instead of the correct
+	// L, making every tier L-o too late. Diffing against completed+o instead
+	// gives a resume delta of L-o -- exactly the portion of the segment this
+	// reconciliation pass hadn't yet observed -- for a correct total shift of
+	// o + (L-o) = L.
+	baselineSeconds := c.PauseDurationSeconds
+	if c.IsPaused && c.PausedOn != nil {
+		if open := now.Sub(*c.PausedOn); open > 0 {
+			baselineSeconds += int64(open / time.Second)
+		}
+	}
+	if err := e.store.SetShiftedPauseSeconds(ctx, c.CaseID, c.ClockType, baselineSeconds); err != nil {
+		slog.ErrorContext(ctx, "slaengine: reconcile: failed to record the shifted-pause baseline", "caseId", c.CaseID, "clockType", c.ClockType, "err", err)
 	}
 	// Always applied, not just when true: the durable row is the source of
 	// truth for this flag during reconciliation, and Redis may currently

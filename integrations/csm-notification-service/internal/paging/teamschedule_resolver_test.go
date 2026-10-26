@@ -33,6 +33,8 @@ type stubScheduleReader struct {
 	onDuty     []onDutyAssignment
 	membersErr error
 	onDutyErr  error
+	// catalogue replaces the default SRE catalogue (sre_test.go) when set.
+	catalogue *scheduleCatalogue
 
 	gotTeamKeys []string
 	gotRoles    []string
@@ -41,6 +43,12 @@ type stubScheduleReader struct {
 	gotAt       time.Time
 	memberCalls int
 	onDutyCalls int
+
+	// away is who AwayOn reports on leave, by lower-cased email.
+	away              map[string]bool
+	awayErr           error
+	gotAwayDay        string
+	gotIncludeOnLeave bool
 }
 
 func (s *stubScheduleReader) TeamMembers(_ context.Context, teamKeys, roles, tiers, types []string) ([]teamMember, error) {
@@ -71,10 +79,28 @@ func (s *stubScheduleReader) TeamMembers(_ context.Context, teamKeys, roles, tie
 	return out, nil
 }
 
-func (s *stubScheduleReader) OnDutyAt(_ context.Context, at time.Time) ([]onDutyAssignment, error) {
+// OnDutyAt mirrors entity-service: someone marked OnLeave comes back only
+// with includeOnLeave.
+func (s *stubScheduleReader) OnDutyAt(_ context.Context, at time.Time, includeOnLeave bool) ([]onDutyAssignment, error) {
 	s.gotAt = at
 	s.onDutyCalls++
-	return s.onDuty, s.onDutyErr
+	s.gotIncludeOnLeave = includeOnLeave
+	if s.onDutyErr != nil || includeOnLeave {
+		return s.onDuty, s.onDutyErr
+	}
+	var out []onDutyAssignment
+	for _, a := range s.onDuty {
+		if !a.OnLeave {
+			out = append(out, a)
+		}
+	}
+	return out, nil
+}
+
+// AwayOn is who is on leave, from s.away, whatever the day.
+func (s *stubScheduleReader) AwayOn(_ context.Context, day string) (map[string]bool, error) {
+	s.gotAwayDay = day
+	return s.away, s.awayErr
 }
 
 func inList(list []string, v string) bool {
@@ -1167,5 +1193,20 @@ func TestResolve_CRETeamNameMapsThroughAlias(t *testing.T) {
 	}
 	if got := emails(tier2); len(got) != 1 || got[0] != "lead@example.com" {
 		t.Errorf("LEVEL_1 = %v, want Rigel's own lead", got)
+	}
+}
+
+// An empty lead pool is named in the log, with the keys it was asked for:
+// otherwise the "Team leads" rung reads as unstaffed and the lead check holds
+// every call, with nothing saying why.
+func TestTeamLeadPool_EmptyIsLogged(t *testing.T) {
+	logs := captureLogs(t)
+	pool, err := testResolver(&stubScheduleReader{}).LeadPool(context.Background())
+	if err != nil || len(pool) != 0 {
+		t.Fatalf("pool = %v, %v; want empty", pool, err)
+	}
+	out := logs.String()
+	if !strings.Contains(out, "the ABT lead pool is empty") || !strings.Contains(out, "teamKeys=apollo,artemis,atlas") {
+		t.Errorf("log = %q; want the empty pool named with its team keys", out)
 	}
 }

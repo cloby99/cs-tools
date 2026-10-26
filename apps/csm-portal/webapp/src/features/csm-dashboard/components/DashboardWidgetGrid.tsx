@@ -300,8 +300,10 @@ export default function DashboardWidgetGrid({
           listLimit={widget.listLimit}
           slices={widget.slices}
           groupBy={widget.groupBy}
+          distinctBy={widget.distinctBy}
           columns={widget.columns}
           sortBy={widget.sortBy}
+          days={widget.days}
           inlineDrilldown={widget.inlineDrilldown}
           inlineLabels={widget.inlineLabels}
           selectedTeamCreGroupId={selectedTeamCreGroupId}

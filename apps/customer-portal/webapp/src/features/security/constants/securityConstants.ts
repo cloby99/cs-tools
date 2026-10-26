@@ -102,7 +102,16 @@ export const PRODUCT_VULNERABILITIES_ALL_PRODUCTS_LABEL = "All Products";
 
 export const PRODUCT_VULNERABILITIES_ALL_VERSIONS_LABEL = "All Versions";
 
-export const PRODUCT_VULNERABILITIES_ALL_FETCH_LIMIT = 5000;
+/** Largest page the search endpoint accepts; the Component Analysis table pages server-side within it. */
+export const PRODUCT_VULNERABILITIES_MAX_PAGE_SIZE = 50;
+
+export const PRODUCT_VULNERABILITIES_NO_VERSIONS_LABEL = "No versions available";
+
+/** Most pages the details page loads for one CVE (a CVE normally has far fewer rows than one page). */
+export const PRODUCT_VULNERABILITIES_AFFECTED_MAX_PAGES = 10;
+
+/** How long a CVE's cached affected-products result counts as fresh. */
+export const PRODUCT_VULNERABILITIES_AFFECTED_FRESH_MS = 5 * 60 * 1000;
 
 export const SECURITY_REPORT_ANALYSIS_PAGE_SIZE = 10;
 
@@ -181,6 +190,26 @@ export const VULNERABILITY_DETAILS_JUSTIFICATION_LABEL = "Justification";
 export const VULNERABILITY_DETAILS_RESOLUTION_LABEL = "Resolution";
 
 export const VULNERABILITY_DETAILS_NOT_APPLICABLE_LABEL = "Not Applicable";
+
+export const VULNERABILITY_AFFECTED_PRODUCTS_TITLE = "Affected Products";
+
+export const VULNERABILITY_AFFECTED_PRODUCTS_SUBTITLE =
+  "Products and versions in which this vulnerability was found";
+
+export const VULNERABILITY_AFFECTED_PRODUCTS_EMPTY_MESSAGE =
+  "No affected products found.";
+
+export const VULNERABILITY_AFFECTED_PRODUCTS_LOAD_ERROR_MESSAGE =
+  "Could not load the affected products.";
+
+export const getVulnerabilityAffectedProductsTruncatedMessage = (
+  loaded: number,
+  total: number,
+): string => `Showing the first ${loaded} of ${total} affected records.`;
+
+export const VULNERABILITY_AFFECTED_PRODUCTS_CURRENT_LABEL = "Viewing";
+
+export const VULNERABILITY_AFFECTED_PRODUCTS_COMPONENTS_LABEL = "Components";
 
 export const VULNERABILITY_DETAILS_NO_RESOLUTION_MESSAGE =
   "No justification or resolution information available.";

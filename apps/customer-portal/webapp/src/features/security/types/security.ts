@@ -137,11 +137,60 @@ export type VulnerabilityDetailsContentProps = {
   isLoading: boolean;
   isError: boolean;
   onBack: () => void;
+  /** Every record that shares this vulnerability's CVE (one per product / version / component). */
+  affectedProducts?: ProductVulnerability[];
+  isAffectedProductsLoading?: boolean;
+  isAffectedProductsError?: boolean;
+  /** Set when only part of the CVE's records could be loaded (safety cap). */
+  affectedProductsTruncation?: AffectedProductsTruncation;
+  onAffectedProductClick?: (vulnerability: ProductVulnerability) => void;
+};
+
+/** Every record of one vulnerability for the same product and product version. */
+export type AffectedProductGroup = {
+  /** Stable identity of the product + product version (normalised). */
+  key: string;
+  productName: string;
+  productVersion: string;
+  /** Distinct update levels of the group's records (normally just one). */
+  updateLevels: string[];
+  /** One record per affected component, in the order they were supplied. */
+  records: ProductVulnerability[];
+};
+
+/** How many of a CVE's records were loaded versus how many exist. */
+export type AffectedProductsTruncation = {
+  loaded: number;
+  total: number;
+};
+
+export type VulnerabilityAffectedProductsProps = {
+  affectedProducts: ProductVulnerability[];
+  currentId?: string;
+  isLoading?: boolean;
+  isError?: boolean;
+  truncation?: AffectedProductsTruncation;
+  onRowClick?: (vulnerability: ProductVulnerability) => void;
+  /**
+   * The user's expand/collapse choices by group key. Pass it together with
+   * `onToggleGroup` to keep the choices in a parent that outlives this component
+   * (the details page unmounts the section while the next record loads); leave
+   * both out and the component keeps them itself.
+   */
+  toggledGroups?: Record<string, boolean>;
+  onToggleGroup?: (groupKey: string, expanded: boolean) => void;
 };
 
 // Response type for product vulnerabilities metadata.
+// One product with the versions it has vulnerability records for (exact stored strings).
+export type VulnerabilitiesMetaProduct = {
+  name: string;
+  versions: string[];
+};
+
 export type VulnerabilitiesMetaResponse = {
   severities: IdLabelRef[];
+  products: VulnerabilitiesMetaProduct[];
 };
 
 // Response type for product vulnerabilities search results.
@@ -156,6 +205,8 @@ export type ProductVulnerabilitiesSearchFilters = {
   statusId?: number;
   productName?: string;
   productVersion?: string;
+  /** Exact CVE id (case-insensitive); only that CVE's records are returned. */
+  cveId?: string;
 };
 
 // Request type for searching product vulnerabilities.

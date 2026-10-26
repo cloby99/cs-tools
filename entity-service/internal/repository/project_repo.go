@@ -22,10 +22,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -77,12 +80,19 @@ type ProjectRepository interface {
 	// Case; changing one recomputes wso2_closure_state in the same transaction.
 	// updatedBy is the caller's email or internal client id, always written to
 	// project.updated_by (and, when HasAgent/HasKbReferences is set,
-	// account.updated_by too). Returns a
+	// account.updated_by too). Also sets verification_enabled when
+	// req.VerificationEnabled is set. Returns a
 	// NotFoundError if no such project exists, a ConflictError if
 	// HasAgent/HasKbReferences is requested on a project with no linked
 	// account (project.account_id IS NULL), or a ValidationError if a closure
 	// sub-state value isn't a valid Postgres enum label for that column.
 	UpdateProject(ctx context.Context, id string, req domain.ProjectUpdateRequest, updatedBy string) (domain.ProjectUpdateResult, error)
+	// GetProjectConsumptionStatus returns the product consumption state, application ID,
+	// OAuth credentials, and HMAC license keys for the project.
+	GetProjectConsumptionStatus(ctx context.Context, id string) (domain.ProjectConsumptionStatus, error)
+	// UpdateProjectConsumption updates product consumption fields (application ID, status enum,
+	// credentials, and license signing keys) on the project.
+	UpdateProjectConsumption(ctx context.Context, id string, req domain.ProjectConsumptionUpdateRequest, updatedBy string) error
 }
 
 type projectRepo struct {
@@ -158,6 +168,14 @@ func buildProjectSearchWhere(req domain.SearchProjectsRequest, scope SearchScope
 	if len(req.ExcludeProjectKeys) > 0 {
 		where += fmt.Sprintf(" AND p.key <> ALL($%d::text[])", argIdx)
 		filterArgs = append(filterArgs, req.ExcludeProjectKeys)
+		argIdx++
+	}
+
+	// sf_id is nullable (migration 0095 dropped NOT NULL) and a NULL never
+	// matches ANY(), so projects with no Salesforce id are simply not returned.
+	if len(req.SfIDs) > 0 {
+		where += fmt.Sprintf(" AND p.sf_id = ANY($%d::text[])", argIdx)
+		filterArgs = append(filterArgs, req.SfIDs)
 		argIdx++
 	}
 
@@ -275,7 +293,11 @@ func (r *projectRepo) SearchProjects(ctx context.Context, req domain.SearchProje
 		        p.start_date, p.end_date, p.created_on, p.updated_on,
 		        `+projectClosureColumns+`,
 		        INITCAP(REPLACE(p.onboarding_status::TEXT, '_', '-')),
+		        p.onboarding_go_live_date, p.verification_enabled,
 		        a.id, a.name, a.region, a.sub_region, `+accountIsPartnerColumn+`,
+		        onb.id,
+		        COALESCE(onb.name, NULLIF(TRIM(CONCAT_WS(' ', onb.first_name, onb.last_name)), '')),
+		        onb.email,
 		        (SELECT COUNT(*) FROM work_item wi
 		           LEFT JOIN "case" c ON c.id = wi.id`+caseLikeJoins+`
 		          WHERE wi.project_id = p.id
@@ -284,6 +306,7 @@ func (r *projectRepo) SearchProjects(ctx context.Context, req domain.SearchProje
 		 FROM project p
 		 LEFT JOIN project_type pt ON pt.id = p.project_type_id
 		 LEFT JOIN account a ON a.id = p.account_id
+		 LEFT JOIN "user" onb ON onb.id = p.onboarding_owner_id
 		 %s
 		 ORDER BY %s
 		 LIMIT $%d OFFSET $%d`,
@@ -313,18 +336,25 @@ func (r *projectRepo) SearchProjects(ctx context.Context, req domain.SearchProje
 		result := make([]domain.Project, 0, req.Pagination.Limit)
 		for rows.Next() {
 			var p domain.Project
-			// account_id/start_date/end_date are nullable (migration
-			// 000009); pt.name is nullable via the LEFT JOIN (no
-			// project_type_id set, or set to a row that no longer exists).
-			// domain.Project.SubscriptionType is a non-pointer field though
-			// (its zero value, "", already means "unknown/unset" -- no
-			// separate pointer needed the way AccountID/StartDate/EndDate
-			// need one), so it's scanned into a *string temp var and
-			// converted below rather than scanned directly. A non-pointer
-			// scan here used to error "cannot scan NULL into *time.Time" the
-			// moment any of the 13-14 (of 1956) rows with a NULL date
-			// reached this query -- same class of bug this guards against
-			// for pt.name too.
+			// account_id/start_date/end_date are nullable (migration 000009);
+			// domain.Project's fields are pointers to match -- see that
+			// struct's own doc comment. A non-pointer scan here used to
+			// error "cannot scan NULL into *time.Time" the moment any of the
+			// 13-14 (of 1956) rows with a NULL date reached this query.
+			//
+			// project.name is also nullable, but domain.Project.Name is a
+			// plain string (not a pointer) -- scan into a local *string and
+			// default to "" on NULL instead, same pattern as every other
+			// nullable-VARCHAR-column fix in this repository package.
+			//
+			// pt.name is nullable via the LEFT JOIN (no project_type_id set,
+			// or set to a row that no longer exists). domain.Project.
+			// SubscriptionType is a non-pointer field though (its zero
+			// value, "", already means "unknown/unset" -- no separate
+			// pointer needed the way AccountID/StartDate/EndDate need one),
+			// so it's scanned into a *string temp var and converted below
+			// rather than scanned directly.
+			var name *string
 			var projectTypeName *string
 			// sf_id is NOT NULL per migration 0014, but real data has since
 			// proven that constraint isn't actually enforced (the same gap
@@ -337,14 +367,20 @@ func (r *projectRepo) SearchProjects(ctx context.Context, req domain.SearchProje
 			// own declared constraint, not a wider contract change every
 			// other reader of Project.SfID would also have to handle.
 			var sfID, aID, aName *string
+			var ownerID, ownerName, ownerEmail *string
+			// project.verification_enabled (migration 0177) is a nullable
+			// BOOLEAN with no default, same as GetProjectByID's own
+			// verificationEnabled local -- coalesced to false when NULL.
+			var verificationEnabled *bool
 			var acct domain.ProjectSearchAccountRef
 			if err := rows.Scan(
-				&p.ID, &p.AccountID, &sfID, &p.Name, &p.Key, &projectTypeName,
+				&p.ID, &p.AccountID, &sfID, &name, &p.Key, &projectTypeName,
 				&p.StartDate, &p.EndDate, &p.CreatedOn, &p.UpdatedOn,
 				&p.ClosureState, &p.EndDateClosureState, &p.InvoiceDueDateClosureState,
 				&p.ComplianceViolationClosureState, &p.ComplianceViolationDate, &p.SuspensionProcessState,
-				&p.OnboardingStatus,
+				&p.OnboardingStatus, &p.GoLiveDate, &verificationEnabled,
 				&aID, &aName, &acct.Region, &acct.SubRegion, &acct.IsPartner,
+				&ownerID, &ownerName, &ownerEmail,
 				&p.ActiveCasesCount,
 			); err != nil {
 				return fmt.Errorf("scan project: %w", err)
@@ -352,6 +388,8 @@ func (r *projectRepo) SearchProjects(ctx context.Context, req domain.SearchProje
 			if sfID != nil {
 				p.SfID = *sfID
 			}
+			p.VerificationEnabled = verificationEnabled != nil && *verificationEnabled
+			p.Name = stringOrEmpty(name)
 			if aID != nil {
 				acct.ID, acct.Name = *aID, stringOrEmpty(aName)
 				p.Account = &acct
@@ -359,6 +397,7 @@ func (r *projectRepo) SearchProjects(ctx context.Context, req domain.SearchProje
 			if projectTypeName != nil {
 				p.SubscriptionType = projectTypeNameToSubscriptionType(*projectTypeName)
 			}
+			p.OnboardingOwner = onboardingOwnerRef(ownerID, ownerName, ownerEmail)
 			// ClosureStatus still has no real column -- see this
 			// repository's own doc comment.
 			result = append(result, p)
@@ -386,7 +425,10 @@ func (r *projectRepo) GetProjectByID(ctx context.Context, id string, scope Searc
 	// are nullable BOOLEAN columns, but ProjectAccountRef.AgentEnabled/
 	// KbReferencesEnabled are plain (non-pointer) bool -- scan into *bool
 	// and treat a NULL column as false, not an error.
-	var agentEnabled, kbReferencesEnabled *bool
+	var agentEnabled, kbReferencesEnabled, verificationEnabled *bool
+	// project.name is a nullable column; scan into a *string local and
+	// default to "" on NULL, same pattern SearchProjects uses.
+	var name *string
 	// account is a LEFT JOIN, not an INNER JOIN: project.account_id
 	// (migration 0014) is nullable and genuinely NULL on live data (14 of
 	// 1956 rows) -- an INNER JOIN here used to make every such project
@@ -429,6 +471,11 @@ func (r *projectRepo) GetProjectByID(ctx context.Context, id string, scope Searc
 	// leaving HasSr at its Go zero value (false) for every project
 	// regardless of type, which is what this data source used to do.
 	var hasSr *bool
+	// Cloud Support overrides hasSr with the project's own is_pdp_subscription
+	// (see srAccessForProject), the same rule the project-metadata features use.
+	var isPdpSubscription *bool
+	// onboarding owner id/name/email: all NULL when the project has no owner.
+	var ownerID, ownerName, ownerEmail *string
 	// tou/amu: this view's Account.OwnerEmail/TechnicalOwnerEmail were
 	// previously left at their zero value unconditionally -- both are real
 	// columns' worth of data, just not this project's own; they're the
@@ -447,7 +494,7 @@ func (r *projectRepo) GetProjectByID(ctx context.Context, id string, scope Searc
 		        a.id, a.name, a.number, a.activation_date, a.region,
 		        a.ai_gen_response_enabled, a.smart_knowledge_base_suggestions_enabled,
 		        a.support_tier::TEXT,
-		        pt.name, pt.has_service_request_write_access,
+		        pt.name, pt.has_service_request_write_access, p.verification_enabled,
 		        -- wso2_closure_state/onboarding_status (migration 0014) are stored
 		        -- SCREAMING_SNAKE_CASE ('SUSPENDED', 'NOT_STARTED'), but the documented
 		        -- response vocabulary isn't -- and the two don't even share a separator:
@@ -460,6 +507,7 @@ func (r *projectRepo) GetProjectByID(ctx context.Context, id string, scope Searc
 		        INITCAP(REPLACE(p.onboarding_status::TEXT, '_', '-')),
 		        `+accountIsPartnerColumn+`,
 		        p.onboarding_go_live_plan_date, p.onboarding_go_live_date, p.onboarding_expiry_date,
+		        p.onboarding_start_date,
 		        EXTRACT(EPOCH FROM p.total_query_duration) / 3600,
 		        EXTRACT(EPOCH FROM p.remaining_query_duration) / 3600,
 		        -- ASSUMPTION, not confirmed against a live payload: project.consumed_duration
@@ -474,7 +522,11 @@ func (r *projectRepo) GetProjectByID(ctx context.Context, id string, scope Searc
 		        EXTRACT(EPOCH FROM p.total_onboarding_duration) / 3600,
 		        EXTRACT(EPOCH FROM p.consumed_onboarding_duration) / 3600,
 		        EXTRACT(EPOCH FROM p.remaining_onboarding_duration) / 3600,
-		        tou.email, amu.email
+		        tou.email, amu.email,
+		        onb.id,
+		        COALESCE(onb.name, NULLIF(TRIM(CONCAT_WS(' ', onb.first_name, onb.last_name)), '')),
+		        onb.email,
+		        p.is_pdp_subscription
 		 FROM project p
 		 LEFT JOIN account a ON p.account_id = a.id
 		 LEFT JOIN project_type pt ON pt.id = p.project_type_id
@@ -491,23 +543,28 @@ func (r *projectRepo) GetProjectByID(ctx context.Context, id string, scope Searc
 		 -- against. Verify against a real payload before trusting it further.
 		 LEFT JOIN "user" tou ON tou.id = a.technical_owner_id
 		 LEFT JOIN "user" amu ON amu.id = a.account_manager_id
+		 LEFT JOIN "user" onb ON onb.id = p.onboarding_owner_id
 		 WHERE p.id = $1`+scopeClause, scopeArgs...,
 	).Scan(
-		&v.ID, &sfID, &v.Name, &v.Key,
+		&v.ID, &sfID, &name, &v.Key,
 		&v.StartDate, &v.EndDate, &v.CreatedOn, &v.UpdatedOn,
 		&aID, &aName, &aNumber, &v.Account.ActivationDate, &v.Account.Region,
 		&agentEnabled, &kbReferencesEnabled,
 		&supportTier,
-		&projectTypeName, &hasSr,
+		&projectTypeName, &hasSr, &verificationEnabled,
 		&v.ClosureState, &v.EndDateClosureState, &v.InvoiceDueDateClosureState,
 		&v.ComplianceViolationClosureState, &v.ComplianceViolationDate, &v.SuspensionProcessState,
 		&v.OnboardingStatus, &v.Account.IsPartner,
 		&v.GoLivePlanDate, &v.GoLiveDate, &v.OnboardingExpiryDate,
+		&v.OnboardingStartDate,
 		&v.TotalQueryHours, &v.RemainingQueryHours,
 		&v.ConsumedQueryHours,
 		&v.TotalOnboardingHours, &v.ConsumedOnboardingHours, &v.RemainingOnboardingHours,
 		&v.Account.TechnicalOwnerEmail, &v.Account.OwnerEmail,
+		&ownerID, &ownerName, &ownerEmail,
+		&isPdpSubscription,
 	)
+	v.Name = stringOrEmpty(name)
 	// v.Account.Tier is sourced from account.support_tier (migration 0101).
 	// ServiceNow's own u_support_tier/u_support_timezone fields are swapped on
 	// the production tenant (a historical relabeling bug); the sync's own
@@ -534,17 +591,50 @@ func (r *projectRepo) GetProjectByID(ctx context.Context, id string, scope Searc
 	v.SfID = stringOrEmpty(sfID)
 	v.Account.AgentEnabled = agentEnabled != nil && *agentEnabled
 	v.Account.KbReferencesEnabled = kbReferencesEnabled != nil && *kbReferencesEnabled
+	v.VerificationEnabled = verificationEnabled != nil && *verificationEnabled
 	v.Account.Tier = stringOrEmpty(supportTier)
 	if projectTypeName != nil {
 		v.SubscriptionType = projectTypeNameToSubscriptionType(*projectTypeName)
+		v.HasSr = srAccessForProject(*projectTypeName, hasSr != nil && *hasSr, isPdpSubscription)
 	}
-	v.HasSr = hasSr != nil && *hasSr
+	v.OnboardingOwner = onboardingOwnerRef(ownerID, ownerName, ownerEmail)
+	// The backing data source stores a sign-inverted consumed balance for some
+	// projects; normalise at read, leaving the stored value untouched.
+	v.ConsumedQueryHours = absHours(v.ConsumedQueryHours)
+	v.ConsumedOnboardingHours = absHours(v.ConsumedOnboardingHours)
 	return v, nil
+}
+
+// onboardingOwnerRef builds a PersonRef from the joined owner columns, nil when
+// no owner is assigned. A blank name or NULL email yields an empty name / nil
+// email rather than dropping the owner.
+func onboardingOwnerRef(id, name, email *string) *domain.PersonRef {
+	if id == nil || *id == "" {
+		return nil
+	}
+	return &domain.PersonRef{ID: *id, Name: stringOrEmpty(name), Email: email}
+}
+
+// absHours returns the absolute value of h, preserving nil.
+func absHours(h *float64) *float64 {
+	if h == nil {
+		return nil
+	}
+	a := math.Abs(*h)
+	return &a
 }
 
 // UpdateProject implements ProjectRepository.
 func (r *projectRepo) UpdateProject(ctx context.Context, id string, req domain.ProjectUpdateRequest, updatedBy string) (domain.ProjectUpdateResult, error) {
 	if err := validateClosureFields(req); err != nil {
+		return domain.ProjectUpdateResult{}, err
+	}
+	if req.OnboardingStatus != nil {
+		if _, err := onboardingStatusEnumLabels("onboardingStatus", []string{*req.OnboardingStatus}); err != nil {
+			return domain.ProjectUpdateResult{}, err
+		}
+	}
+	if _, err := ParseOnboardingDates(req); err != nil {
 		return domain.ProjectUpdateResult{}, err
 	}
 	// WithSystemIdentity: this writes only project and account, neither
@@ -558,6 +648,14 @@ func (r *projectRepo) UpdateProject(ctx context.Context, id string, req domain.P
 	})
 }
 
+// firstDate returns a if set, else b.
+func firstDate(a, b *time.Time) *time.Time {
+	if a != nil {
+		return a
+	}
+	return b
+}
+
 // updateProjectTx is UpdateProject's body, run inside tx.
 func updateProjectTx(ctx context.Context, tx pgx.Tx, id string, req domain.ProjectUpdateRequest, updatedBy string) (domain.ProjectUpdateResult, error) {
 	// Lock the row first (mirrors CaseRepository.UpdateCase's own
@@ -566,7 +664,9 @@ func updateProjectTx(ctx context.Context, tx pgx.Tx, id string, req domain.Proje
 	// nonexistent id is caught as NotFoundError before either UPDATE below
 	// runs.
 	var accountID *string
-	err := tx.QueryRow(ctx, `SELECT account_id FROM project WHERE id = $1 FOR UPDATE`, id).Scan(&accountID)
+	var stored OnboardingDates
+	err := tx.QueryRow(ctx, `SELECT account_id, onboarding_start_date, onboarding_go_live_plan_date, onboarding_go_live_date, onboarding_expiry_date
+		FROM project WHERE id = $1 FOR UPDATE`, id).Scan(&accountID, &stored.Start, &stored.GoLivePlan, &stored.GoLive, &stored.Expiry)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ProjectUpdateResult{}, &apierror.NotFoundError{Msg: "project not found"}
 	}
@@ -587,6 +687,49 @@ func updateProjectTx(ctx context.Context, tx pgx.Tx, id string, req domain.Proje
 		return domain.ProjectUpdateResult{}, &apierror.ConflictError{Msg: "project has no linked account; hasAgent/hasKbReferences cannot be set"}
 	}
 
+	// The onboarding owner must be an active internal user. A bad id is the
+	// caller's input error (400), not a missing project, so it is not a 404.
+	var onboardingStatus, onboardingOwner *string
+	if req.OnboardingStatus != nil {
+		labels, err := onboardingStatusEnumLabels("onboardingStatus", []string{*req.OnboardingStatus})
+		if err != nil {
+			return domain.ProjectUpdateResult{}, err
+		}
+		onboardingStatus = &labels[0]
+	}
+	if req.OnboardingOwner != nil {
+		var userType *string
+		var active *bool
+		err := tx.QueryRow(ctx, `SELECT user_type::TEXT, is_active FROM "user" WHERE id = $1`, *req.OnboardingOwner).Scan(&userType, &active)
+		if pgErr := (*pgconn.PgError)(nil); errors.As(err, &pgErr) && pgErr.Code == "22P02" {
+			return domain.ProjectUpdateResult{}, &apierror.ValidationError{Msg: "onboardingOwner: " + strconv.Quote(*req.OnboardingOwner) + " is not a valid user id"}
+		}
+		if errors.Is(err, pgx.ErrNoRows) || (err == nil && (userType == nil || *userType != "INTERNAL" || (active != nil && !*active))) {
+			return domain.ProjectUpdateResult{}, &apierror.ValidationError{Msg: "onboardingOwner: " + strconv.Quote(*req.OnboardingOwner) + " is not an active internal user"}
+		}
+		if err != nil {
+			return domain.ProjectUpdateResult{}, fmt.Errorf("update project: check onboarding owner: %w", err)
+		}
+		onboardingOwner = req.OnboardingOwner
+	}
+
+	// Order rules: when the request moves the start date, every merged date
+	// (supplied value, else stored) must stay on or after it. Otherwise only
+	// the dates the request supplies are checked, against the stored start, so
+	// stored data that already violates the order never blocks an unrelated edit.
+	dates, _ := ParseOnboardingDates(req) // validated by UpdateProject
+	if dates.Start != nil {
+		merged := OnboardingDates{
+			Start: dates.Start, GoLivePlan: firstDate(dates.GoLivePlan, stored.GoLivePlan),
+			GoLive: firstDate(dates.GoLive, stored.GoLive), Expiry: firstDate(dates.Expiry, stored.Expiry),
+		}
+		if err := merged.checkOrder(merged.Start); err != nil {
+			return domain.ProjectUpdateResult{}, err
+		}
+	} else if err := dates.checkOrder(stored.Start); err != nil {
+		return domain.ProjectUpdateResult{}, err
+	}
+
 	// project.updated_on/updated_by is bumped on every successful call, even one
 	// that only touches the linked account below.
 	var res domain.ProjectUpdateResult
@@ -595,14 +738,23 @@ func updateProjectTx(ctx context.Context, tx pgx.Tx, id string, req domain.Proje
 		SET end_date_closure_state = COALESCE($2::end_date_closure_state_enum, end_date_closure_state),
 		    invoice_due_date_closure_state = COALESCE($3::invoice_due_date_closure_state_enum, invoice_due_date_closure_state),
 		    compliance_violation_closure_state = COALESCE($4::compliance_violation_closure_state_enum, compliance_violation_closure_state),
-		    suspension_process_state = COALESCE($6::jsonb, suspension_process_state),
+		    verification_enabled = COALESCE($6::boolean, verification_enabled),
+		    suspension_process_state = COALESCE($7::jsonb, suspension_process_state),
+		    onboarding_status = COALESCE($8::text::onboarding_status_enum, onboarding_status),
+		    onboarding_owner_id = COALESCE($9::uuid, onboarding_owner_id),
+		    onboarding_start_date = COALESCE($10::date, onboarding_start_date),
+		    onboarding_go_live_plan_date = COALESCE($11::date, onboarding_go_live_plan_date),
+		    onboarding_go_live_date = COALESCE($12::date, onboarding_go_live_date),
+		    onboarding_expiry_date = COALESCE($13::date, onboarding_expiry_date),
 		    updated_on = NOW(),
 		    updated_by = $5
 		WHERE id = $1
-		RETURNING id, updated_on, updated_by`,
+		RETURNING id, updated_on, updated_by, verification_enabled`,
 		id, closureEnumLabel(req.EndDateClosureState), closureEnumLabel(req.InvoiceDueDateClosureState),
-		closureEnumLabel(req.ComplianceViolationClosureState), updatedBy, suspensionStateArg(req.SuspensionProcessState),
-	).Scan(&res.ID, &res.UpdatedOn, &res.UpdatedBy)
+		closureEnumLabel(req.ComplianceViolationClosureState), updatedBy, req.VerificationEnabled, suspensionStateArg(req.SuspensionProcessState),
+		onboardingStatus, onboardingOwner,
+		dates.Start, dates.GoLivePlan, dates.GoLive, dates.Expiry,
+	).Scan(&res.ID, &res.UpdatedOn, &res.UpdatedBy, &res.VerificationEnabled)
 	if err != nil {
 		if pgErr := (*pgconn.PgError)(nil); errors.As(err, &pgErr) && pgErr.Code == "22P02" {
 			// The enum type name in pgErr.Message is logged, never returned.
@@ -619,6 +771,19 @@ func updateProjectTx(ctx context.Context, tx pgx.Tx, id string, req domain.Proje
 			return domain.ProjectUpdateResult{}, fmt.Errorf("update project: recompute closure state: %w", err)
 		}
 	}
+
+	// A direct admin override, applied AFTER the sub-field recompute above so
+	// that a request naming both (unusual, not rejected) leaves the caller's
+	// own explicit value in place rather than whatever the sub-states would
+	// otherwise derive. See ProjectUpdateRequest.ClosureState's own doc
+	// comment for the standing caveat this creates: a LATER request that
+	// touches any of the three sub-fields recomputes over this value again,
+	// with nothing recording that it was ever manually set.
+	if req.ClosureState != nil {
+		if _, err := tx.Exec(ctx, `UPDATE project SET wso2_closure_state = $2::wso2_closure_state_enum WHERE id = $1`, id, *closureEnumLabel(req.ClosureState)); err != nil {
+			return domain.ProjectUpdateResult{}, fmt.Errorf("update project: override closure state: %w", err)
+		}
+	}
 	var complianceDate *string
 	err = tx.QueryRow(ctx, `SELECT `+projectClosureColumns+` FROM project p WHERE p.id = $1`, id).Scan(
 		&res.ClosureState, &res.EndDateClosureState, &res.InvoiceDueDateClosureState,
@@ -627,6 +792,19 @@ func updateProjectTx(ctx context.Context, tx pgx.Tx, id string, req domain.Proje
 	if err != nil {
 		return domain.ProjectUpdateResult{}, fmt.Errorf("update project: read closure states: %w", err)
 	}
+
+	var ownerID, ownerName, ownerEmail *string
+	err = tx.QueryRow(ctx, `
+		SELECT INITCAP(REPLACE(p.onboarding_status::TEXT, '_', '-')),
+		       onb.id::TEXT, COALESCE(onb.name, NULLIF(TRIM(CONCAT_WS(' ', onb.first_name, onb.last_name)), '')), onb.email,
+		       p.onboarding_start_date, p.onboarding_go_live_plan_date, p.onboarding_go_live_date, p.onboarding_expiry_date
+		FROM project p LEFT JOIN "user" onb ON onb.id = p.onboarding_owner_id
+		WHERE p.id = $1`, id).Scan(&res.OnboardingStatus, &ownerID, &ownerName, &ownerEmail,
+		&res.OnboardingStartDate, &res.GoLivePlanDate, &res.GoLiveDate, &res.OnboardingExpiryDate)
+	if err != nil {
+		return domain.ProjectUpdateResult{}, fmt.Errorf("update project: read onboarding: %w", err)
+	}
+	res.OnboardingOwner = onboardingOwnerRef(ownerID, ownerName, ownerEmail)
 
 	if req.HasAgent != nil || req.HasKbReferences != nil {
 		// RowsAffected is checked, not just the error, because the account
@@ -699,6 +877,10 @@ var (
 		"SUSPENDED_AND_PREVIOUSLY_PAID", "PENDING_NOTIFIED_AND_PREVIOUSLY_PAID", "PENDING_NOTICED_AND_PREVIOUSLY_PAID",
 		"PENDING_RESTRICTED_AND_PREVIOUSLY_PAID", "PENDING_SUSPENDED_AND_PREVIOUSLY_PAID"}
 	complianceViolationClosureLabels = []string{"OPEN", "SUSPENDED"}
+	// wso2ClosureStateLabels are wso2_closure_state_enum's own five values —
+	// the set a direct ClosureState override (ProjectUpdateRequest.ClosureState)
+	// must be one of, distinct from the three sub-state label sets above.
+	wso2ClosureStateLabels = []string{"OPEN", "READ_ONLY", "CLOSED", "RESTRICTED", "SUSPENDED"}
 )
 
 // validateClosureFields rejects a PATCH closure value with no enum label,
@@ -712,6 +894,7 @@ func validateClosureFields(req domain.ProjectUpdateRequest) error {
 		{"endDateClosureState", req.EndDateClosureState, endDateClosureLabels},
 		{"invoiceDueDateClosureState", req.InvoiceDueDateClosureState, invoiceDueDateClosureLabels},
 		{"complianceViolationClosureState", req.ComplianceViolationClosureState, complianceViolationClosureLabels},
+		{"closureState", req.ClosureState, wso2ClosureStateLabels},
 	}
 	for _, f := range fields {
 		if f.value == nil || slices.Contains(f.labels, *closureEnumLabel(f.value)) {
@@ -753,3 +936,176 @@ func closureDisplayName(label string) string {
 func projectTypeNameToSubscriptionType(name string) domain.SubscriptionType {
 	return domain.SubscriptionType(strings.ToLower(strings.ReplaceAll(name, " ", "_")))
 }
+
+// GetProjectConsumptionStatus implements ProjectRepository.
+func (r *projectRepo) GetProjectConsumptionStatus(ctx context.Context, id string) (domain.ProjectConsumptionStatus, error) {
+	ctx = WithSystemIdentity(ctx)
+	var (
+		name               *string
+		desc               *string
+		appID              *string
+		statusEnum         *string
+		consumerKey        *string
+		consumerSecret     *string
+		primarySecretKey   *string
+		secondarySecretKey *string
+		licenseSecrets     *string
+	)
+
+	err := r.db.QueryRow(ctx, `
+		SELECT 
+			p.name,
+			p.description,
+			p.choreo_application_id,
+			p.choreo_application_status::TEXT,
+			p.product_consumption_client_id,
+			p.product_consumption_client_secret,
+			p.product_consumption_primary_secret_key,
+			p.product_consumption_secondary_secret_key,
+			p.product_consumption_license_secrets
+		FROM project p
+		WHERE p.id = $1`, id,
+	).Scan(
+		&name,
+		&desc,
+		&appID,
+		&statusEnum,
+		&consumerKey,
+		&consumerSecret,
+		&primarySecretKey,
+		&secondarySecretKey,
+		&licenseSecrets,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ProjectConsumptionStatus{}, &apierror.NotFoundError{Msg: "project not found"}
+	}
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "22P02" {
+			return domain.ProjectConsumptionStatus{}, &apierror.ValidationError{Msg: "id is not a valid UUID: " + id}
+		}
+		return domain.ProjectConsumptionStatus{}, fmt.Errorf("get project consumption status: %w", err)
+	}
+
+	status := consumptionEnumToStatus(statusEnum, primarySecretKey != nil && *primarySecretKey != "")
+
+	return domain.ProjectConsumptionStatus{
+		Status:             status,
+		ApplicationID:      appID,
+		Name:               name,
+		Description:        desc,
+		ConsumerKey:        consumerKey,
+		ConsumerSecret:     consumerSecret,
+		PrimarySecretKey:   primarySecretKey,
+		SecondarySecretKey: secondarySecretKey,
+		LicenseSecrets:     licenseSecrets,
+	}, nil
+}
+
+// UpdateProjectConsumption implements ProjectRepository.
+//
+// consumption_tracking_file_generated_on records when the licence secrets were
+// generated, which ServiceNow stamped on its status-5 update. It is set when the
+// update leaves the project reading as status 5 and either it did not read as 5
+// before (the completion itself, also a status-4 update that carries the key) or the
+// update changes a stored secret (a regeneration). A replayed request, a repeated
+// status 5 without secrets and a legacy completed row with no date leave it alone.
+func (r *projectRepo) UpdateProjectConsumption(ctx context.Context, id string, req domain.ProjectConsumptionUpdateRequest, updatedBy string) error {
+	ctx = WithSystemIdentity(ctx)
+	statusEnum := consumptionStatusToEnum(req.Status)
+
+	tag, err := r.db.Exec(ctx, `
+		UPDATE project
+		SET choreo_application_id = COALESCE($2, choreo_application_id),
+		    choreo_application_status = COALESCE($3::choreo_application_status_enum, choreo_application_status),
+		    product_consumption_client_id = COALESCE($4, product_consumption_client_id),
+		    product_consumption_client_secret = COALESCE($5, product_consumption_client_secret),
+		    product_consumption_primary_secret_key = COALESCE($6, product_consumption_primary_secret_key),
+		    product_consumption_secondary_secret_key = COALESCE($7, product_consumption_secondary_secret_key),
+		    product_consumption_license_secrets = COALESCE($8, product_consumption_license_secrets),
+		    consumption_tracking_file_generated_on = CASE
+		        -- After the update the project reads as status 5 (see consumptionEnumToStatus) ...
+		        WHEN (COALESCE($3::choreo_application_status_enum, choreo_application_status) = 'COMPLETED'
+		              OR (COALESCE($3::choreo_application_status_enum, choreo_application_status) = 'GENERATED_CREDENTIALS'
+		                  AND COALESCE($6, product_consumption_primary_secret_key, '') <> ''))
+		         -- ... and either it did not before, or this update changes a secret.
+		         AND (NOT (choreo_application_status IS NOT DISTINCT FROM 'COMPLETED'
+		                   OR (choreo_application_status IS NOT DISTINCT FROM 'GENERATED_CREDENTIALS'
+		                       AND COALESCE(product_consumption_primary_secret_key, '') <> ''))
+		              OR (NULLIF($6, '') IS NOT NULL AND $6 IS DISTINCT FROM product_consumption_primary_secret_key)
+		              OR (NULLIF($7, '') IS NOT NULL AND $7 IS DISTINCT FROM product_consumption_secondary_secret_key)
+		              OR (NULLIF($8, '') IS NOT NULL AND $8 IS DISTINCT FROM product_consumption_license_secrets))
+		        THEN NOW()
+		        ELSE consumption_tracking_file_generated_on END,
+		    updated_on = NOW(),
+		    updated_by = $9
+		WHERE id = $1`,
+		id,
+		req.ApplicationID,
+		statusEnum,
+		req.ConsumerKey,
+		req.ConsumerSecret,
+		req.PrimarySecretKey,
+		req.SecondarySecretKey,
+		req.LicenseSecrets,
+		updatedBy,
+	)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "22P02" {
+			return &apierror.ValidationError{Msg: "id is not a valid UUID: " + id}
+		}
+		return fmt.Errorf("update project consumption: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return &apierror.NotFoundError{Msg: "project not found"}
+	}
+	return nil
+}
+
+// consumptionStatusToEnum maps the 1-based consumption lifecycle status int onto
+// choreo_application_status_enum labels. Status 0/negative returns nil so COALESCE
+// preserves the existing column value.
+func consumptionStatusToEnum(status int) *string {
+	var s string
+	switch {
+	case status == 1:
+		s = "PENDING"
+	case status == 2:
+		s = "CREATED_APPLICATION"
+	case status == 3:
+		s = "SUBSCRIBED_APPLICATION"
+	case status == 4:
+		s = "GENERATED_CREDENTIALS"
+	case status >= 5:
+		s = "COMPLETED"
+	default:
+		return nil
+	}
+	return &s
+}
+
+// consumptionEnumToStatus translates choreo_application_status_enum to the 1-based status int.
+func consumptionEnumToStatus(enumVal *string, hasSecretKey bool) int {
+	if enumVal == nil {
+		return 1
+	}
+	switch *enumVal {
+	case "PENDING":
+		return 1
+	case "CREATED_APPLICATION":
+		return 2
+	case "SUBSCRIBED_APPLICATION":
+		return 3
+	case "GENERATED_CREDENTIALS":
+		if hasSecretKey {
+			return 5
+		}
+		return 4
+	case "COMPLETED":
+		return 5
+	default:
+		return 1
+	}
+}
+

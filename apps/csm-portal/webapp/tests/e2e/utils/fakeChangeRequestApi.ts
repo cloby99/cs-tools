@@ -23,6 +23,10 @@
 // suite runs against, and the browser session is still the captured one.
 //
 // The contract encoded here is the one the UI is built against:
+//   - Once the change has been approved (APPROVED_STATES: CAB approval received, or a
+//     Standard change scheduled) every field is read-only: a PATCH that changes one is a
+//     400 in the backend's words (`approvedReadOnlyMessage`), work notes and the lifecycle
+//     still go through.
 //   - `legalNextStates` offers no manual way to `scheduled` at all, nor to `closed`
 //     out of `customer_review`: staff never record a customer's approval or review.
 //     They are given by the customer, in the Customer Portal (a manual PATCH of
@@ -220,6 +224,19 @@ export const FAKE_BETA_CONTACT: FakeUser = { id: "00000000-0000-0000-0000-000000
 
 export const FAKE_CR_ID = "00000000-0000-0000-0000-00000000c001";
 
+/** A tag of the shared vocabulary (`tag` rows: id and label, no colour on this data source). */
+export interface FakeTag {
+  id: string;
+  label: string;
+}
+
+/** The tag vocabulary `POST /tags/search` offers; `POST /cases/{id}/tags` grows it for an unknown label. */
+export const FAKE_TAG_VOCABULARY: FakeTag[] = [
+  { id: "00000000-0000-0000-0000-0000000000a1", label: "apim-upgrade" },
+  { id: "00000000-0000-0000-0000-0000000000a2", label: "maintenance-window" },
+  { id: "00000000-0000-0000-0000-0000000000a3", label: "Migrated-Window" },
+];
+
 // ---------------------------------------------------------------------------
 // Customer scope fixtures: three projects (Gamma has no deployments and no
 // registered contacts); each deployment has a type (its environment role) and
@@ -322,7 +339,21 @@ export const FAKE_ECAB_GROUP: FakeApprovalGroup = {
 const FAKE_APPROVAL_GROUPS: FakeApprovalGroup[] = [FAKE_PEER_GROUP, FAKE_CAB_GROUP, FAKE_ECAB_GROUP];
 
 /** States from which project / deployments can no longer change. */
-const SCOPE_LOCKED = ["implement", "review", "customer_review", "closed", "rollback", "canceled"];
+/**
+ * The states a change request is in only once it has been approved: CAB approval received, or a Standard change scheduled by
+ * Request Approval (entity-service `changeRequestApprovedStates`, change_request_approved_lock.go). Canceled is not one.
+ */
+export const APPROVED_STATES = ["customer_approval", "scheduled", "implement", "review", "customer_review", "closed", "rollback"];
+/** The deployments' edit window closes at the approval (entity-service `changeRequestLinksLockedStates`). */
+const SCOPE_LOCKED = [...APPROVED_STATES, "canceled"];
+/** The fields the approved-content lock judges, in the order the backend's refusal names them. */
+const APPROVED_LOCK_FIELDS = [
+  "title", "description", "justification", "impactDescription", "implementationPlan", "rollbackPlan", "testPlan",
+  "serviceOutage", "communicationPlan", "affectedServicesText", "affectedComponentsText", "rollbackDurationText",
+  "impact", "priority", "category", "plannedStartOn", "plannedEndOn", "assignedTeamId", "assignedEngineerId",
+  "requestedById", "caseId", "serviceId", "serviceOfferingId", "isPlanningVisibleToCustomers",
+  "customerApprovalRequired", "customerReviewRequired",
+] as const;
 
 const CATEGORIES = [
   "hardware", "software", "service", "system_software", "applications_software", "network",
@@ -394,6 +425,9 @@ export const stateJumpMessage = (target: string, from: string, reviewRequired: b
     WAITING_ON[from] ?? "that is not a step of the change request's lifecycle from here"
   }; the moves open to staff from ${from} are: ${opens}`;
 };
+/** The refusal of a PATCH that changes a field of an approved change request (entity-service `approvedContentLockedMsg`). */
+export const approvedReadOnlyMessage = (fields: string[], state: string): string =>
+  `${fields.join(", ")} can no longer be changed: the change request has been approved (current state: ${state}), so its fields are read-only; only work notes can be added`;
 export const projectFrozenMessage = (state: string): string =>
   `projectId can no longer be changed: the Customer Project is fixed once approval has been requested (current state: ${state}). Cancel this change request and clone it to use another project.`;
 export const requirementCannotBeRemovedMessage = (field: string, state: string): string =>
@@ -560,6 +594,14 @@ export interface FakeChangeRequestApi {
   planned(): { start: string; end: string };
   /** The approval stages as the fake holds them (stage name -> status). */
   stages(): Array<{ stage: string; status: string; approvers: Array<{ name: string; status: string }> }>;
+  /** The change request's tags as the fake holds them (labels, by label). */
+  tags(): string[];
+  /**
+   * Tags the change request already carries (what the sync migrated, or an
+   * earlier edit): each label is attached from the vocabulary, added to it
+   * first when unknown. The open page is not refreshed.
+   */
+  seedTags(labels: string[]): void;
   /**
    * Makes `GET /groups/{id}` fail with this HTTP status (for the dialog's
    * error state), or serve normally again with `null`.
@@ -768,6 +810,13 @@ export async function installFakeChangeRequestApi(
     projectId ? (contacts.get(projectId) ?? []).filter((u) => u.id !== FAKE_CREATOR.id) : [];
   /** When set, GET /groups/{id} fails with this status. */
   let groupFailure: number | null = null;
+  // Tags: the change request's work_item_tag rows, managed through the CASE tag
+  // routes (they take a work item id) -- `POST /cases/{id}/tags` attaches a label
+  // from the shared vocabulary (found or created, like the backend), `DELETE
+  // /cases/{id}/tags/{tagId}` detaches it, `POST /tags/search` searches the
+  // vocabulary. The detail carries them as `tags` (by label, like the backend).
+  let tags: FakeTag[] = [];
+  const vocabulary: FakeTag[] = [...FAKE_TAG_VOCABULARY];
   let plannedStartOn = "2030-03-01 09:00:00";
   let plannedEndOn = "2030-03-01 11:00:00";
   // The previous system's own proposal pair (`customer_updated_on`, as an RFC 3339 instant, and WSO2's answer), and whether the change's last
@@ -982,6 +1031,7 @@ export async function installFakeChangeRequestApi(
     deploymentProducts: FAKE_DEPLOYMENT_PRODUCTS.filter((p) => scope.deploymentProductIds.includes(p.id)).map(({ id, name }) => ({ id, name })),
     customerContacts: currentContacts().map(({ id, name, email }) => ({ id, name, email })),
     category: scope.category,
+    tags: [...tags].sort((a, b) => a.label.localeCompare(b.label)).map(({ id, label }) => ({ id, label, color: null })),
   });
 
   /**
@@ -1094,6 +1144,34 @@ export async function installFakeChangeRequestApi(
       if ((approval || review) && askableContacts(project).length === 0) return nobodyToAskMessage(approval, review);
     }
     return null;
+  };
+
+  /**
+   * The backend's approved-content lock: once the change has been approved every field is read-only (only work notes and the
+   * lifecycle move on). A value the fake holds is compared with it, so a resend is accepted; any other field the fake does not
+   * hold counts as a change when it is sent (the Edit form sends only what changed). The window of a Re-schedule
+   * (`{state: "authorize"}`) is not judged: that is how an approved change's time moves.
+   */
+  const approvedLockProblem = (body: Record<string, unknown>): string | null => {
+    if (!APPROVED_STATES.includes(state)) return null;
+    const timeResponse = body.state === "authorize";
+    const changed = APPROVED_LOCK_FIELDS.filter((field) => {
+      if (body[field] === undefined) return false;
+      switch (field) {
+        case "plannedStartOn":
+          return !timeResponse && instantOf(body.plannedStartOn as string) !== instantOf(plannedStartOn);
+        case "plannedEndOn":
+          return !timeResponse && instantOf(body.plannedEndOn as string) !== instantOf(plannedEndOn);
+        case "category":
+          return body.category !== scope.category;
+        case "customerApprovalRequired":
+        case "customerReviewRequired":
+          return body[field] !== flags[field];
+        default:
+          return true;
+      }
+    });
+    return changed.length > 0 ? approvedReadOnlyMessage([...changed], state) : null;
   };
 
   /**
@@ -1354,6 +1432,49 @@ export async function installFakeChangeRequestApi(
     return body;
   };
 
+  // The tag vocabulary's type-ahead (the Add tag dialog's `POST /tags/search`).
+  await page.route(
+    (url) => url.pathname.endsWith("/tags/search"),
+    async (route) => {
+      if (route.request().method() !== "POST") return route.fallback();
+      if (!(await isApiCall(route))) return;
+      const body = record(route, "POST /tags/search");
+      const q = String(((body?.filters as { searchQuery?: string } | undefined)?.searchQuery) ?? "").toLowerCase();
+      const found = vocabulary.filter((t) => t.label.toLowerCase().includes(q)).map(({ id, label }) => ({ id, label, color: null }));
+      return json(route, { tags: found, total: found.length });
+    },
+  );
+
+  // The change request's tags, through the case tag routes (a work item id).
+  await page.route(
+    (url) => new RegExp(`/cases/${FAKE_CR_ID}/tags(/[0-9a-f-]{36})?$`).test(url.pathname),
+    async (route) => {
+      const req = route.request();
+      if (!(await isApiCall(route))) return;
+      const path = new URL(req.url()).pathname.replace(/^.*\/cases\//, "/cases/");
+      const body = record(route, `${req.method()} ${path}`);
+      if (req.method() === "POST" && path === `/cases/${FAKE_CR_ID}/tags`) {
+        const label = String(body?.label ?? "").trim();
+        if (!label) return json(route, { message: "label is required" }, 400);
+        // Found or created by label (case-insensitively), attached once.
+        let tag = vocabulary.find((t) => t.label.toLowerCase() === label.toLowerCase());
+        if (!tag) {
+          tag = { id: `00000000-0000-0000-0000-0000000000${(vocabulary.length + 10).toString(16).padStart(2, "0")}`, label };
+          vocabulary.push(tag);
+        }
+        if (!tags.some((t) => t.id === tag!.id)) tags = [...tags, tag];
+        return json(route, { id: tag.id, label: tag.label, color: null }, 201);
+      }
+      if (req.method() === "DELETE") {
+        const tagId = path.split("/").pop()!;
+        if (!tags.some((t) => t.id === tagId)) return json(route, { message: "tag not found on this case" }, 404);
+        tags = tags.filter((t) => t.id !== tagId);
+        return route.fulfill({ status: 204, headers: cors(route) });
+      }
+      return route.fallback();
+    },
+  );
+
   // Customer Project picker.
   await page.route(
     (url) => url.pathname.endsWith("/projects/search"),
@@ -1595,6 +1716,9 @@ export async function installFakeChangeRequestApi(
         // The creation-phase gate: nothing below is written when it refuses.
         const gateProblem = creationPhaseProblem(body);
         if (gateProblem) return json(route, { message: gateProblem }, 400);
+        // Once approved, every field is read-only: the rest of the request is not written either.
+        const approvedProblem = approvedLockProblem(body);
+        if (approvedProblem) return json(route, { message: approvedProblem, errorCode: "change_request_approved_read_only" }, 400);
         // A refused state change writes nothing either, not even the rest of its own request (a comment, a scope field,
         // a tick box): the backend refuses inside the one transaction.
         const refusal = typeof body.state === "string" ? manualStateRefusal(body.state, body) : null;
@@ -1774,5 +1898,15 @@ export async function installFakeChangeRequestApi(
         status: st.status,
         approvers: st.approvers.map((a) => ({ name: a.name, status: a.status })),
       })),
+    tags: () => [...tags].sort((a, b) => a.label.localeCompare(b.label)).map((t) => t.label),
+    seedTags: (labels) => {
+      tags = labels.map((label) => {
+        const known = vocabulary.find((t) => t.label.toLowerCase() === label.toLowerCase());
+        if (known) return known;
+        const created = { id: `00000000-0000-0000-0000-0000000000${(vocabulary.length + 10).toString(16).padStart(2, "0")}`, label };
+        vocabulary.push(created);
+        return created;
+      });
+    },
   };
 }

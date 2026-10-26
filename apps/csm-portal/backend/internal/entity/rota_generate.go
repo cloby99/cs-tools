@@ -1,0 +1,48 @@
+// Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
+//
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+package entity
+
+import (
+	"context"
+	"net/http"
+	"net/url"
+	"strconv"
+)
+
+// GenerateRotaMonth calls POST /team-schedule/rotas/{code}/generate on the
+// entity service -- a rota lead working out (or, with dryRun, previewing) a
+// month of the rota from the availability marked on it.
+func (c *CustomerEntityClient) GenerateRotaMonth(ctx context.Context, code string, body []byte) ([]byte, error) {
+	return c.do(ctx, http.MethodPost, "/team-schedule/rotas/"+url.PathEscape(code)+"/generate", body)
+}
+
+// GetRotaNightCrew calls GET /team-schedule/rotas/{code}/night-crew on the
+// entity service: the TZ3 people each month from..to (YYYY-MM) was generated
+// with, which the Month roster lists under the night cover.
+func (c *CustomerEntityClient) GetRotaNightCrew(ctx context.Context, code, from, to string) ([]byte, error) {
+	q := url.Values{}
+	q.Set("from", from)
+	q.Set("to", to)
+	return c.do(ctx, http.MethodGet, "/team-schedule/rotas/"+url.PathEscape(code)+"/night-crew?"+q.Encode(), nil)
+}
+
+// ImportRota calls entity-service's POST /team-schedule/rotas/{code}/import: a whole rota from one file, or with dryRun what it would do.
+func (c *CustomerEntityClient) ImportRota(ctx context.Context, code string, dryRun bool, body []byte) ([]byte, error) {
+	q := url.Values{}
+	q.Set("dryRun", strconv.FormatBool(dryRun))
+	return c.do(ctx, http.MethodPost, "/team-schedule/rotas/"+url.PathEscape(code)+"/import?"+q.Encode(), body)
+}

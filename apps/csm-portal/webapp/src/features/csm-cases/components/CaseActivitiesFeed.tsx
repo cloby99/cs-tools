@@ -44,7 +44,7 @@ import {
   User,
   Users,
 } from "@wso2/oxygen-ui-icons-react";
-import { useMemo, useState, type JSX } from "react";
+import { useEffect, useMemo, useRef, useState, type JSX } from "react";
 import type { BeCallRequestView } from "@api/backend/types";
 import AlertDetailModal from "@features/csm-cases/components/AlertDetailModal";
 import AttachmentPreviewDialog from "@features/csm-cases/components/AttachmentPreviewDialog";
@@ -64,16 +64,22 @@ import {
   type AttachmentPreviewSource,
 } from "@features/csm-cases/utils/attachmentPreview";
 import {
+  activityLimitToReveal,
   compareFeedEntries,
+  describeChangeDetails,
+  feedEntryId,
+  nextActivityLimit,
   type FeedEntry,
 } from "@features/csm-cases/utils/caseActivityFeed";
 import type { SnLinkType } from "@features/csm-cases/utils/snLinkRegistry";
 import type {
   CaseAttachment,
   CaseAuditEntry,
+  CaseAuditFieldChange,
   CaseFeedbackEntry,
   CsmCaseComment,
 } from "@features/csm-cases/types/csmCases";
+import { incidentPriorityBadge } from "@features/csm-operations/utils/incidentPriorityMatrix";
 
 interface CaseActivitiesFeedProps {
   comments: CsmCaseComment[];
@@ -124,6 +130,23 @@ interface CaseActivitiesFeedProps {
   /** Soft-delete a comment (`DELETE /comments/{id}`). Same
    * omit-to-disable/per-comment-gating rule as `onEditComment`. */
   onDeleteComment?: (commentId: string) => Promise<unknown>;
+  /**
+   * Opt-in client-side windowing for cases with very many entries: only the
+   * first `limit` entries of the sorted (and filtered) list are rendered, and
+   * a sentinel after the last one asks for the next batch as it scrolls into
+   * view. The parent owns `limit` so a control outside the feed (a "Load all"
+   * button) can drive it. Omit to render every entry, as before.
+   */
+  entryWindow?: {
+    /** Entries to render; `Infinity` renders them all. */
+    limit: number;
+    onLimitChange: (limit: number) => void;
+    /** Reports the filtered entry total and how many are currently rendered. */
+    onStatusChange?: (status: { total: number; shown: number }) => void;
+    /** Entry id (e.g. a permalink fragment) that must be rendered: the window
+     * grows to include it. Applied once per id, when it first exists. */
+    revealEntryId?: string;
+  };
 }
 
 const AUDIT_ICON: Record<CaseAuditEntry["kind"], JSX.Element> = {
@@ -187,32 +210,48 @@ function formatChangeValue(
   return value;
 }
 
-/** One "<label>: <old> → <new>" line for a field-change entry's audit strip. */
-function FieldChangeLine({
-  field,
-}: {
-  field: {
-    field: string;
-    fieldLabel: string;
-    previousValue?: string;
-    newValue?: string;
-  };
-}): JSX.Element {
+/** An incident priority value ("High") as the same coloured badge the incident pages use; the
+ * plain value when it is not a known priority. */
+function PriorityValue({ value }: { value: string }): JSX.Element {
+  const badge = incidentPriorityBadge(value.trim().toUpperCase());
+  if (!badge) return <>{value}</>;
+  return (
+    <Chip
+      size="small"
+      label={badge.label}
+      sx={{ bgcolor: badge.bg, color: badge.fg, fontWeight: 600, height: 20 }}
+    />
+  );
+}
+
+/** One "<label>: <old> → <new>" line for a field-change entry's audit strip, with the changes
+ * that drove it (`details`, e.g. an incident's impact/urgency) in a smaller line beneath. */
+function FieldChangeLine({ field }: { field: CaseAuditFieldChange }): JSX.Element {
   const hadPrevious = !!field.previousValue?.trim();
   const hasNew = !!field.newValue?.trim();
+  const asPriority = field.field === "priority";
+  const value = (v: string | undefined) =>
+    asPriority && v ? <PriorityValue value={v} /> : formatChangeValue(v, field.field);
   return (
-    <Typography variant="body2" component="div">
-      <strong>{field.fieldLabel}:</strong>{" "}
-      {hadPrevious && (
-        <>
-          <Box component="span" sx={{ color: "text.secondary" }}>
-            {formatChangeValue(field.previousValue, field.field)}
-          </Box>
-          {" → "}
-        </>
+    <Box>
+      <Typography variant="body2" component="div">
+        <strong>{field.fieldLabel}:</strong>{" "}
+        {hadPrevious && (
+          <>
+            <Box component="span" sx={{ color: "text.secondary" }}>
+              {value(field.previousValue)}
+            </Box>
+            {" → "}
+          </>
+        )}
+        {hasNew ? value(field.newValue) : <em>cleared</em>}
+      </Typography>
+      {field.details && field.details.length > 0 && (
+        <Typography variant="caption" color="text.secondary" component="div">
+          {describeChangeDetails(field.details)}
+        </Typography>
       )}
-      {hasNew ? formatChangeValue(field.newValue, field.field) : <em>cleared</em>}
-    </Typography>
+    </Box>
   );
 }
 
@@ -226,6 +265,7 @@ export default function CaseActivitiesFeed({
   preview,
   onEditComment,
   onDeleteComment,
+  entryWindow,
 }: CaseActivitiesFeedProps): JSX.Element {
   const [showWorkNotes, setShowWorkNotes] = useState(true);
   const [showLifecycle, setShowLifecycle] = useState(true);
@@ -277,6 +317,62 @@ export default function CaseActivitiesFeed({
     showFeedback,
     newestFirst,
   ]);
+
+  const windowLimit = entryWindow?.limit;
+  const onLimitChange = entryWindow?.onLimitChange;
+  const onStatusChange = entryWindow?.onStatusChange;
+  const revealEntryId = entryWindow?.revealEntryId;
+  const visibleEntries =
+    windowLimit === undefined ? entries : entries.slice(0, windowLimit);
+  const hasMoreEntries = visibleEntries.length < entries.length;
+  const totalEntries = entries.length;
+  const shownEntries = visibleEntries.length;
+
+  useEffect(() => {
+    onStatusChange?.({ total: totalEntries, shown: shownEntries });
+  }, [onStatusChange, totalEntries, shownEntries]);
+
+  // A permalinked entry beyond the window has no DOM node to scroll to, so
+  // grow the window to include it. Once per id (and only once the entry
+  // exists), so a later live-stream insert shifting it doesn't keep pushing
+  // the window out.
+  const revealedIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!revealEntryId || windowLimit === undefined || !onLimitChange) return;
+    if (revealedIdRef.current === revealEntryId) return;
+    const index = entries.findIndex((e) => feedEntryId(e) === revealEntryId);
+    if (index < 0) return;
+    revealedIdRef.current = revealEntryId;
+    const needed = activityLimitToReveal(index, windowLimit);
+    if (needed !== windowLimit) onLimitChange(needed);
+  }, [revealEntryId, entries, windowLimit, onLimitChange]);
+
+  // Re-created whenever the window grows: observing a sentinel that is still
+  // on screen fires immediately, so a short first batch keeps loading until
+  // the sentinel is pushed out of view.
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (
+      !node ||
+      !hasMoreEntries ||
+      windowLimit === undefined ||
+      !onLimitChange ||
+      typeof IntersectionObserver === "undefined"
+    ) {
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (observed) => {
+        if (observed.some((o) => o.isIntersecting)) {
+          onLimitChange(nextActivityLimit(windowLimit));
+        }
+      },
+      { rootMargin: "400px 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMoreEntries, windowLimit, onLimitChange]);
 
   const counts = {
     comments: comments.filter((c) => !c.internal).length,
@@ -385,7 +481,7 @@ export default function CaseActivitiesFeed({
         </Typography>
       ) : (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1.75 }}>
-          {entries.map((e) => {
+          {visibleEntries.map((e) => {
             if (e.kind === "comment") {
               return (
                 <CsmCaseCommentBubble
@@ -716,6 +812,24 @@ export default function CaseActivitiesFeed({
               </Box>
             );
           })}
+          {hasMoreEntries && (
+            <>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                role="status"
+                sx={{ textAlign: "center" }}
+              >
+                Showing {shownEntries} of {totalEntries} entries
+              </Typography>
+              <Box
+                ref={sentinelRef}
+                aria-hidden="true"
+                data-testid="activity-feed-sentinel"
+                sx={{ height: 1 }}
+              />
+            </>
+          )}
         </Box>
       )}
       <ImageFullscreenModal

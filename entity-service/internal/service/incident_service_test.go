@@ -84,13 +84,26 @@ func TestIncidentPriorityToEnum(t *testing.T) {
 type stubIncidentRepo struct {
 	createIncident               func(ctx context.Context, req domain.CreateIncidentRequest, priority string, subcategoryValue *string, createdBy string) (domain.CreateIncidentResponse, error)
 	createIncidentFromServiceNow func(ctx context.Context, req domain.CreateIncidentRequest, id, number, createdBy string) (domain.CreateIncidentResponse, error)
-	createIncidentComment        func(ctx context.Context, incidentID string, commentType domain.CommentType, content, createdBy string) (domain.CaseComment, error)
-	getIncidentByID              func(ctx context.Context, id string) (domain.IncidentView, error)
-	updateIncidentLifecycle      func(ctx context.Context, id string, u repository.IncidentLifecycleUpdate, actorEmail string) error
-	applySpecialistHandoff       func(ctx context.Context, id, actorEmail string, plan func(repository.SpecialistHandoffSnapshot) (repository.SpecialistHandoffPlan, error)) (repository.SpecialistHandoffWritten, error)
-	supportGroups                map[string]string // service id -> support group id ("" = none); a key is a service that exists
-	serviceNames                 map[string]string // service id -> name; a key is a service that exists
-	groupNames                   map[string]string // group id -> name
+	// fromServiceNowPriority / fromServiceNowSubcategory record what the dual-write create was asked to store.
+	fromServiceNowPriority    string
+	fromServiceNowSubcategory *string
+	// checkIncidentFromServiceNow answers CheckIncidentFromServiceNow; unset, the check passes (it writes nothing either way).
+	checkIncidentFromServiceNow func(ctx context.Context, req domain.CreateIncidentRequest, subcategoryValue *string, priority, createdBy string) error
+	// calls records the order of the dual-write create's repository calls ("check", "create").
+	calls                   []string
+	createIncidentComment   func(ctx context.Context, incidentID string, commentType domain.CommentType, content, createdBy string) (domain.CaseComment, error)
+	getIncidentByID         func(ctx context.Context, id string) (domain.IncidentView, error)
+	updateIncidentLifecycle func(ctx context.Context, id string, u repository.IncidentLifecycleUpdate, actorEmail string) error
+	applySpecialistHandoff  func(ctx context.Context, id, actorEmail string, plan func(repository.SpecialistHandoffSnapshot) (repository.SpecialistHandoffPlan, error)) (repository.SpecialistHandoffWritten, error)
+	searchActivities        func(ctx context.Context, req domain.SearchIncidentActivitiesRequest) ([]domain.CaseActivity, int, error)
+	// recordedChanges collects every RecordIncidentFieldChanges call; recordChangesErr fails them.
+	// Unlike the other hooks it is not a panic when unset: the activity write rides on every update.
+	recordedChanges  []recordedIncidentChanges
+	recordChangesErr error
+
+	supportGroups map[string]string // service id -> support group id ("" = none); a key is a service that exists
+	serviceNames  map[string]string // service id -> name; a key is a service that exists
+	groupNames    map[string]string // group id -> name
 	// allowedGroups is the support-group set IsSupportGroup answers from;
 	// nil means every group in supportGroups (all active).
 	allowedGroups map[string]bool
@@ -139,7 +152,10 @@ func (s *stubIncidentRepo) GetIncidentByID(ctx context.Context, id string) (doma
 	}
 	panic("not implemented")
 }
-func (s *stubIncidentRepo) SearchIncidentActivities(context.Context, domain.SearchIncidentActivitiesRequest) ([]domain.CaseActivity, int, error) {
+func (s *stubIncidentRepo) SearchIncidentActivities(ctx context.Context, req domain.SearchIncidentActivitiesRequest) ([]domain.CaseActivity, int, error) {
+	if s.searchActivities != nil {
+		return s.searchActivities(ctx, req)
+	}
 	panic("not implemented")
 }
 
@@ -166,11 +182,21 @@ func (s *stubIncidentRepo) CreateIncidentComment(ctx context.Context, incidentID
 	}
 	panic("not implemented")
 }
-func (s *stubIncidentRepo) CreateIncidentFromServiceNow(ctx context.Context, req domain.CreateIncidentRequest, id, number, createdBy string) (domain.CreateIncidentResponse, error) {
+func (s *stubIncidentRepo) CreateIncidentFromServiceNow(ctx context.Context, req domain.CreateIncidentRequest, subcategoryValue *string, id, number, priority, createdBy string) (domain.CreateIncidentResponse, error) {
 	if s.createIncidentFromServiceNow != nil {
+		s.calls = append(s.calls, "create")
+		s.fromServiceNowPriority = priority
+		s.fromServiceNowSubcategory = subcategoryValue
 		return s.createIncidentFromServiceNow(ctx, req, id, number, createdBy)
 	}
 	panic("CreateIncidentFromServiceNow called unexpectedly: Postgres must stay untouched when ServiceNow never accepts the incident")
+}
+func (s *stubIncidentRepo) CheckIncidentFromServiceNow(ctx context.Context, req domain.CreateIncidentRequest, subcategoryValue *string, priority, createdBy string) error {
+	s.calls = append(s.calls, "check")
+	if s.checkIncidentFromServiceNow != nil {
+		return s.checkIncidentFromServiceNow(ctx, req, subcategoryValue, priority, createdBy)
+	}
+	return nil
 }
 func (s *stubIncidentRepo) CreateIncident(ctx context.Context, req domain.CreateIncidentRequest, priority string, subcategoryValue *string, createdBy string) (domain.CreateIncidentResponse, error) {
 	if s.createIncident != nil {
@@ -183,6 +209,18 @@ func (s *stubIncidentRepo) UpdateIncidentLifecycle(ctx context.Context, id strin
 		return s.updateIncidentLifecycle(ctx, id, u, actorEmail)
 	}
 	panic("UpdateIncidentLifecycle called unexpectedly")
+}
+
+// recordedIncidentChanges is one RecordIncidentFieldChanges call the stub saw.
+type recordedIncidentChanges struct {
+	incidentID string
+	changes    []repository.IncidentFieldChange
+	actorEmail string
+}
+
+func (s *stubIncidentRepo) RecordIncidentFieldChanges(_ context.Context, incidentID string, changes []repository.IncidentFieldChange, actorEmail string) error {
+	s.recordedChanges = append(s.recordedChanges, recordedIncidentChanges{incidentID: incidentID, changes: changes, actorEmail: actorEmail})
+	return s.recordChangesErr
 }
 
 func (s *stubIncidentRepo) ApplySpecialistHandoff(ctx context.Context, id, actorEmail string, plan func(repository.SpecialistHandoffSnapshot) (repository.SpecialistHandoffPlan, error)) (repository.SpecialistHandoffWritten, error) {
@@ -305,6 +343,11 @@ func TestIncidentService_CreateIncident_SNSuccessCreatesPostgresRowWithMatchingI
 	if resp.Incident.ID != snID || resp.Incident.Number != snNumber || resp.Incident.CreatedBy != snCreatedBy {
 		t.Errorf("CreateIncident response = %+v, want identity matching ServiceNow's (%q, %q, %q)", resp.Incident, snID, snNumber, snCreatedBy)
 	}
+	// ServiceNow returns no priority, so the dual-write insert must store the impact x urgency one itself.
+	req := validCreateIncidentRequest()
+	if want := incidentPriorityFor(req.Impact, req.Urgency); repo.fromServiceNowPriority != want {
+		t.Errorf("stored priority = %q, want %q", repo.fromServiceNowPriority, want)
+	}
 }
 
 // TestIncidentService_CreateIncident_DoesNotRetryValidationError guards
@@ -339,32 +382,99 @@ func TestIncidentService_CreateIncident_DoesNotRetryValidationError(t *testing.T
 	}
 }
 
-// TestIncidentService_CreateIncident_RejectsConfigurationItemID guards the
-// one field with no backing column at all on this data source
-// (ConfigurationItemID): rejecting it explicitly is strictly better than
-// silently accepting and dropping it, since ServiceNow would already have
-// stored it by the time Postgres is ever touched.
-func TestIncidentService_CreateIncident_RejectsConfigurationItemID(t *testing.T) {
+// TestIncidentService_CreateIncident_ChecksPostgresBeforeServiceNow: the CSM
+// database is the record of truth, so what its insert would refuse is refused
+// before ServiceNow creates anything -- never an incident in ServiceNow with no
+// CSM row. The check sees the same subcategory and priority the insert gets.
+func TestIncidentService_CreateIncident_ChecksPostgresBeforeServiceNow(t *testing.T) {
+	refusal := &apierror.ValidationError{Msg: "watchList entry 1 is not a known user"}
 	mirror := &stubMirrorIncidentService{
 		createIncident: func(context.Context, domain.CreateIncidentRequest) (domain.CreateIncidentResponse, error) {
-			t.Fatal("ServiceNow must never be called when an unsupported field is rejected up front")
+			t.Fatal("ServiceNow must never be called when Postgres would refuse the incident")
 			return domain.CreateIncidentResponse{}, nil
 		},
 	}
-	repo := &stubIncidentRepo{}
+	var gotSubcategory *string
+	var gotPriority string
+	repo := &stubIncidentRepo{
+		checkIncidentFromServiceNow: func(_ context.Context, _ domain.CreateIncidentRequest, subcategoryValue *string, priority, _ string) error {
+			gotSubcategory, gotPriority = subcategoryValue, priority
+			return refusal
+		},
+	}
 	svc := NewIncidentServiceWithSNMirror(repo, nil, mirror, nil, nil)
 
-	configItemID := "77777777-7777-7777-7777-777777777777"
 	req := validCreateIncidentRequest()
-	req.ConfigurationItemID = &configItemID
-	if _, err := svc.CreateIncident(context.Background(), req); !asValidationError(err, new(*apierror.ValidationError)) {
-		t.Errorf("expected *apierror.ValidationError for configurationItemId, got %T: %v", err, err)
+	sub := domain.IncidentSubcategoryPartialOutage
+	req.Category, req.Subcategory = domain.IncidentCategoryServiceInterruption, &sub
+	_, err := svc.CreateIncident(context.Background(), req)
+	if !errors.Is(err, refusal) {
+		t.Fatalf("CreateIncident error = %v, want the check's refusal", err)
+	}
+	if gotSubcategory == nil || *gotSubcategory != "Partial Outage" {
+		t.Errorf("check got subcategory %v, want incident_subcategory.value %q", gotSubcategory, "Partial Outage")
+	}
+	if want := incidentPriorityFor(req.Impact, req.Urgency); gotPriority != want {
+		t.Errorf("check got priority %q, want %q", gotPriority, want)
+	}
+}
+
+// TestIncidentService_CreateIncident_StoresEveryFieldInPostgres: the
+// configuration item is no longer refused on this path, and the insert gets
+// the subcategory and the whole request (assigned engineer, watch list) after
+// the check and ServiceNow, in that order.
+func TestIncidentService_CreateIncident_StoresEveryFieldInPostgres(t *testing.T) {
+	var snGotCI *string
+	mirror := &stubMirrorIncidentService{
+		createIncident: func(_ context.Context, req domain.CreateIncidentRequest) (domain.CreateIncidentResponse, error) {
+			snGotCI = req.ConfigurationItemID
+			resp := domain.CreateIncidentResponse{Message: "Incident created successfully."}
+			resp.Incident.ID = "66666666-6666-6666-6666-666666666666"
+			resp.Incident.Number = "INC0023004"
+			resp.Incident.CreatedBy = "jane.doe@example.com"
+			return resp, nil
+		},
+	}
+	var stored domain.CreateIncidentRequest
+	repo := &stubIncidentRepo{
+		createIncidentFromServiceNow: func(_ context.Context, req domain.CreateIncidentRequest, id, number, createdBy string) (domain.CreateIncidentResponse, error) {
+			stored = req
+			resp := domain.CreateIncidentResponse{Message: "Incident created successfully."}
+			resp.Incident.ID, resp.Incident.Number, resp.Incident.CreatedBy = id, number, createdBy
+			return resp, nil
+		},
+	}
+	svc := NewIncidentServiceWithSNMirror(repo, nil, mirror, nil, nil)
+
+	ci := "77777777-7777-7777-7777-777777777777"
+	engineer := "88888888-8888-8888-8888-888888888888"
+	sub := domain.IncidentSubcategoryPartialOutage
+	req := validCreateIncidentRequest()
+	req.Category, req.Subcategory = domain.IncidentCategoryServiceInterruption, &sub
+	req.ConfigurationItemID, req.AssignedEngineerID = &ci, &engineer
+	req.WatchList = []string{"watcher@example.com"}
+	if _, err := svc.CreateIncident(context.Background(), req); err != nil {
+		t.Fatalf("CreateIncident: %v", err)
+	}
+	if snGotCI == nil || *snGotCI != ci {
+		t.Errorf("ServiceNow got configurationItemId %v, want %q", snGotCI, ci)
+	}
+	if stored.ConfigurationItemID == nil || *stored.ConfigurationItemID != ci ||
+		stored.AssignedEngineerID == nil || *stored.AssignedEngineerID != engineer ||
+		len(stored.WatchList) != 1 || stored.WatchList[0] != "watcher@example.com" {
+		t.Errorf("Postgres insert got %+v, want the configuration item, assigned engineer and watch list", stored)
+	}
+	if repo.fromServiceNowSubcategory == nil || *repo.fromServiceNowSubcategory != "Partial Outage" {
+		t.Errorf("Postgres insert got subcategory %v, want %q", repo.fromServiceNowSubcategory, "Partial Outage")
+	}
+	if strings.Join(repo.calls, ",") != "check,create" {
+		t.Errorf("repository calls = %v, want the check, then the insert", repo.calls)
 	}
 }
 
 // TestIncidentService_CreateIncident_PersistsAssignmentGroupID guards the
-// fix for work_item.assignment_group_id (migration 0075): unlike
-// ConfigurationItemID, this field DOES have a backing column, so the group
+// fix for work_item.assignment_group_id (migration 0075): this field has a
+// backing column, so the group
 // (the service's support group) must be forwarded through to
 // CreateIncidentFromServiceNow rather than dropped.
 func TestIncidentService_CreateIncident_PersistsAssignmentGroupID(t *testing.T) {
@@ -753,50 +863,162 @@ func TestIncidentService_UpdateIncident_BothFieldsWriteTwoComments(t *testing.T)
 	}
 }
 
-// TestIncidentService_UpdateIncident_RejectsUnsupportedFields is a
-// table-driven guard over a representative subset of the fields this data
-// source does not support on UPDATE -- each must be rejected with a
-// ValidationError before any repository or mirror call happens.
-func TestIncidentService_UpdateIncident_RejectsUnsupportedFields(t *testing.T) {
+// TestIncidentService_UpdateIncident_RecordFieldsWrittenAndMirrored is the
+// edit dialog's save under dual-write: the record's own fields used to be
+// rejected (or, for impact/urgency/environment, answered with "at least one
+// of state, ... must be provided"). They must reach the repository in their
+// Postgres form, with ServiceNow's priority lookup attached, and be mirrored
+// to ServiceNow as sent.
+func TestIncidentService_UpdateIncident_RecordFieldsWrittenAndMirrored(t *testing.T) {
+	var got repository.IncidentLifecycleUpdate
+	called := false
 	repo := &stubIncidentRepo{
-		createIncidentComment: func(context.Context, string, domain.CommentType, string, string) (domain.CaseComment, error) {
-			panic("CreateIncidentComment must not be called when an unsupported field is rejected up front")
+		updateIncidentLifecycle: func(_ context.Context, _ string, u repository.IncidentLifecycleUpdate, _ string) error {
+			got, called = u, true
+			return nil
+		},
+		getIncidentByID: func(_ context.Context, id string) (domain.IncidentView, error) {
+			return newTestIncidentView(id), nil
+		},
+	}
+	mirrorCalled := make(chan domain.UpdateIncidentRequest, 1)
+	mirror := &stubMirrorIncidentService{
+		updateIncident: func(_ context.Context, req domain.UpdateIncidentRequest) (domain.UpdateIncidentResponse, error) {
+			mirrorCalled <- req
+			return domain.UpdateIncidentResponse{}, nil
+		},
+	}
+	dispatcher := NewSNWritebackDispatcher(&recordingSNWritebackFailures{})
+	svc := NewIncidentServiceWithSNMirror(repo, stubUpdateIncidentUserRepo{email: "jane.doe@example.com"}, mirror, nil, dispatcher)
+	ctx := contextWithUserIDToken(fakeJWTWithEmail(t, "jane.doe@example.com"))
+
+	subject := "Gateway 502s in us-east"
+	impact := domain.IncidentImpactHigh
+	urgency := domain.IncidentUrgencyLow
+	category := domain.IncidentCategorySecurity
+	subcategory := domain.IncidentSubcategoryPhishing
+	contactType := domain.IncidentContactTypeSite247
+	group := "77777777-7777-7777-7777-777777777777"
+	service := "66666666-6666-6666-6666-666666666666"
+	env := "production"
+	envPtr := &env
+	watchList := []string{"55555555-5555-5555-5555-555555555555"}
+	req := domain.UpdateIncidentRequest{
+		ID: testDeploymentUUID, Subject: &subject, Impact: &impact, Urgency: &urgency,
+		Category: &category, Subcategory: &subcategory, ContactType: &contactType,
+		AssignmentGroupID: &group, ServiceID: &service, Environment: &envPtr, WatchList: &watchList,
+	}
+	if _, err := svc.UpdateIncident(ctx, req); err != nil {
+		t.Fatalf("UpdateIncident(record fields): %v", err)
+	}
+	if !called {
+		t.Fatal("UpdateIncidentLifecycle was not called")
+	}
+	str := func(p *string) string {
+		if p == nil {
+			return "<nil>"
+		}
+		return *p
+	}
+	for name, pair := range map[string][2]string{
+		"subject":     {str(got.Subject), subject},
+		"impact":      {str(got.Impact), "HIGH"},
+		"urgency":     {str(got.Urgency), "LOW"},
+		"category":    {str(got.Category), "SECURITY"},
+		"subcategory": {str(got.SubcategoryValue), "Phishing"},
+		"contactType": {str(got.ContactType), "SITE_247"},
+		"group":       {str(got.AssignmentGroupID), group},
+		"service":     {str(got.ServiceID), service},
+	} {
+		if pair[0] != pair[1] {
+			t.Errorf("%s = %q, want %q", name, pair[0], pair[1])
+		}
+	}
+	if got.Environment == nil || *got.Environment == nil || **got.Environment != "production" {
+		t.Errorf("environment not carried: %v", got.Environment)
+	}
+	if got.WatchList == nil || len(*got.WatchList) != 1 {
+		t.Errorf("watch list not carried: %v", got.WatchList)
+	}
+	if got.PriorityFor == nil || got.PriorityFor("HIGH", "LOW") != "MODERATE" {
+		t.Error("PriorityFor must be ServiceNow's impact x urgency lookup (HIGH x LOW = MODERATE)")
+	}
+
+	select {
+	case m := <-mirrorCalled:
+		if m.Impact == nil || *m.Impact != impact || m.Urgency == nil || *m.Urgency != urgency ||
+			m.Subject == nil || *m.Subject != subject || m.AssignmentGroupID == nil || *m.AssignmentGroupID != group ||
+			m.Environment == nil || *m.Environment == nil || **m.Environment != "production" {
+			t.Errorf("mirror did not get the fields as sent: %+v", m)
+		}
+		if m.Priority != nil {
+			t.Errorf("mirror got priority %v; ServiceNow computes its own from impact x urgency", *m.Priority)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("mirror.UpdateIncident was never called")
+	}
+}
+
+// TestIncidentService_UpdateIncident_EnvironmentClear: an explicit null for
+// environment clears it, the one field that can be cleared.
+func TestIncidentService_UpdateIncident_EnvironmentClear(t *testing.T) {
+	var got repository.IncidentLifecycleUpdate
+	repo := &stubIncidentRepo{
+		updateIncidentLifecycle: func(_ context.Context, _ string, u repository.IncidentLifecycleUpdate, _ string) error {
+			got = u
+			return nil
+		},
+		getIncidentByID: func(_ context.Context, id string) (domain.IncidentView, error) {
+			return newTestIncidentView(id), nil
+		},
+	}
+	svc := NewIncidentServiceWithPublisher(repo, stubUpdateIncidentUserRepo{email: "jane.doe@example.com"}, nil)
+	var cleared *string
+	if _, err := svc.UpdateIncident(contextWithUserIDToken(fakeJWTWithEmail(t, "jane.doe@example.com")),
+		domain.UpdateIncidentRequest{ID: testDeploymentUUID, Environment: &cleared}); err != nil {
+		t.Fatalf("UpdateIncident(environment: null): %v", err)
+	}
+	if got.Environment == nil || *got.Environment != nil {
+		t.Errorf("environment = %v, want an explicit clear", got.Environment)
+	}
+}
+
+// TestIncidentService_UpdateIncident_RecordFieldValidation: the ServiceNow
+// path's checks apply here too, before anything is written or mirrored.
+func TestIncidentService_UpdateIncident_RecordFieldValidation(t *testing.T) {
+	repo := &stubIncidentRepo{
+		updateIncidentLifecycle: func(context.Context, string, repository.IncidentLifecycleUpdate, string) error {
+			panic("UpdateIncidentLifecycle must not be called for an invalid field")
 		},
 	}
 	mirror := &stubMirrorIncidentService{
 		updateIncident: func(context.Context, domain.UpdateIncidentRequest) (domain.UpdateIncidentResponse, error) {
-			panic("mirror.UpdateIncident must not be called when an unsupported field is rejected up front")
+			panic("mirror.UpdateIncident must not be called for an invalid field")
 		},
 	}
 	dispatcher := NewSNWritebackDispatcher(&recordingSNWritebackFailures{})
-	userRepo := stubUpdateIncidentUserRepo{email: "jane.doe@example.com"}
-	svc := NewIncidentServiceWithSNMirror(repo, userRepo, mirror, nil, dispatcher)
+	svc := NewIncidentServiceWithSNMirror(repo, stubUpdateIncidentUserRepo{email: "jane.doe@example.com"}, mirror, nil, dispatcher)
 	ctx := contextWithUserIDToken(fakeJWTWithEmail(t, "jane.doe@example.com"))
 
-	subject := "new subject"
-	category := domain.IncidentCategorySecurity
-	priority := domain.IncidentPriorityHigh
-	assignmentGroupID := "77777777-7777-7777-7777-777777777777"
-	watchList := []string{testDeploymentUUID}
-
-	tests := []struct {
-		name string
-		req  domain.UpdateIncidentRequest
-	}{
-		{name: "subject", req: domain.UpdateIncidentRequest{ID: testDeploymentUUID, Subject: &subject}},
-		{name: "category", req: domain.UpdateIncidentRequest{ID: testDeploymentUUID, Category: &category}},
-		{name: "priority", req: domain.UpdateIncidentRequest{ID: testDeploymentUUID, Priority: &priority}},
-		{name: "assignmentGroupId", req: domain.UpdateIncidentRequest{ID: testDeploymentUUID, AssignmentGroupID: &assignmentGroupID}},
-		{name: "watchList", req: domain.UpdateIncidentRequest{ID: testDeploymentUUID, WatchList: &watchList}},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := svc.UpdateIncident(ctx, tc.req)
-			var ve *apierror.ValidationError
-			if !asValidationError(err, &ve) {
-				t.Fatalf("expected *apierror.ValidationError for %s, got %T: %v", tc.name, err, err)
-			}
-		})
+	badImpact := domain.IncidentImpact("SEVERE")
+	badCategory := domain.IncidentCategory("HARDWARE")
+	badUUID := "not-a-uuid"
+	longEnv := strings.Repeat("x", 41)
+	longEnvPtr := &longEnv
+	badWatchList := []string{"jane@example.com"}
+	for name, req := range map[string]domain.UpdateIncidentRequest{
+		"unknown impact":       {ID: testDeploymentUUID, Impact: &badImpact},
+		"unknown category":     {ID: testDeploymentUUID, Category: &badCategory},
+		"malformed serviceId":  {ID: testDeploymentUUID, ServiceID: &badUUID},
+		"malformed group id":   {ID: testDeploymentUUID, AssignmentGroupID: &badUUID},
+		"environment too long": {ID: testDeploymentUUID, Environment: &longEnvPtr},
+		"watch list not ids":   {ID: testDeploymentUUID, WatchList: &badWatchList},
+	} {
+		_, err := svc.UpdateIncident(ctx, req)
+		var ve *apierror.ValidationError
+		if !asValidationError(err, &ve) {
+			t.Errorf("%s: expected *apierror.ValidationError, got %T: %v", name, err, err)
+		}
 	}
 }
 
