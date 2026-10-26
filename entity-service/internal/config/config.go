@@ -680,6 +680,34 @@ type Config struct {
 	SalesEntityClientSecret string
 	SalesEntityScopes       string
 
+	// SFTPGo* is the file store behind work item, comment and deployment
+	// attachments. entity-service holds the only credential: it logs in as the
+	// service user (SFTPGO_USER/SFTPGO_PASSWORD, at SFTPGO_URL), and what a
+	// browser receives is a short-lived SFTPGo *share* for exactly one file or
+	// one upload folder, never a token (see StoredAttachmentService). All three
+	// must be set together; with none set the attachment link and upload
+	// routes are not registered.
+	//
+	// SFTPGoPublicURL is the address the BROWSER uses to reach SFTPGo
+	// (SFTPGO_PUBLIC_URL). It differs from SFTPGoURL once SFTPGo sits behind a
+	// public reverse proxy; unset, it falls back to SFTPGoURL.
+	SFTPGoURL       string
+	SFTPGoPublicURL string
+	SFTPGoUser      string
+	SFTPGoPassword  string
+	// AttachmentMaxBytes and InlineImageMaxBytes cap one uploaded file
+	// (ATTACHMENT_MAX_BYTES, default 100 MiB) and one inline comment image
+	// (INLINE_IMAGE_MAX_BYTES, default 10 MiB). The declared size is checked
+	// when an upload starts and the real size when it is confirmed. Provisional
+	// defaults, to be set from the real size distribution.
+	AttachmentMaxBytes  int64
+	InlineImageMaxBytes int64
+	// AttachmentReadLinkTTL and AttachmentUploadLinkTTL are how long a download
+	// link (ATTACHMENT_READ_LINK_TTL, default 5m) and an upload link
+	// (ATTACHMENT_UPLOAD_LINK_TTL, default 15m) stay valid.
+	AttachmentReadLinkTTL   time.Duration
+	AttachmentUploadLinkTTL time.Duration
+
 	// Escalation* are the fixed EL1/EL2 case-escalation notification
 	// recipients EscalationService.CreateEscalation (Postgres data sources)
 	// adds to the per-case ones -- see EscalationRepository.CreateEscalation's
@@ -894,8 +922,25 @@ func Load() *Config {
 	cfg.RedisPassword = os.Getenv("REDIS_PASSWORD")
 	cfg.UserCacheTTL = envDuration("USER_CACHE_TTL", 10*time.Minute)
 	cfg.VulnerabilityMetaCacheTTL = envDuration("PRODUCT_VULNERABILITY_META_CACHE_TTL", 24*time.Hour)
+	cfg.SFTPGoURL = strings.TrimRight(strings.TrimSpace(os.Getenv("SFTPGO_URL")), "/")
+	cfg.SFTPGoPublicURL = strings.TrimRight(strings.TrimSpace(os.Getenv("SFTPGO_PUBLIC_URL")), "/")
+	if cfg.SFTPGoPublicURL == "" {
+		cfg.SFTPGoPublicURL = cfg.SFTPGoURL
+	}
+	cfg.SFTPGoUser = strings.TrimSpace(os.Getenv("SFTPGO_USER"))
+	cfg.SFTPGoPassword = os.Getenv("SFTPGO_PASSWORD")
+	cfg.AttachmentMaxBytes = envPositiveInt64("ATTACHMENT_MAX_BYTES", 100<<20)
+	cfg.InlineImageMaxBytes = envPositiveInt64("INLINE_IMAGE_MAX_BYTES", 10<<20)
+	cfg.AttachmentReadLinkTTL = envDuration("ATTACHMENT_READ_LINK_TTL", 5*time.Minute)
+	cfg.AttachmentUploadLinkTTL = envDuration("ATTACHMENT_UPLOAD_LINK_TTL", 15*time.Minute)
 	cfg.applySREEventHubTopic()
 	return cfg
+}
+
+// HasSFTPGo reports whether the SFTPGo file store is configured, which turns on
+// the attachment link and upload routes.
+func (c *Config) HasSFTPGo() bool {
+	return c.SFTPGoURL != "" && c.SFTPGoUser != "" && c.SFTPGoPassword != ""
 }
 
 // HasRedis reports whether a Redis connection is configured, which turns on
@@ -1202,6 +1247,22 @@ func (c *Config) Validate() error {
 	if salesEntitySet && !c.SalesEntityConfigured() {
 		return fmt.Errorf("SALES_ENTITY_BASE_URL, SALES_ENTITY_TOKEN_URL, SALES_ENTITY_CLIENT_ID, and SALES_ENTITY_CLIENT_SECRET must be set together or not at all")
 	}
+	// SFTPGO_PASSWORD is never echoed: the error names variables, not values.
+	sftpgoSet := c.SFTPGoURL != "" || c.SFTPGoUser != "" || c.SFTPGoPassword != ""
+	if sftpgoSet && !c.HasSFTPGo() {
+		return fmt.Errorf("SFTPGO_URL, SFTPGO_USER and SFTPGO_PASSWORD must be set together or not at all")
+	}
+	if c.HasSFTPGo() {
+		for _, u := range []struct{ name, val string }{
+			{"SFTPGO_URL", c.SFTPGoURL},
+			{"SFTPGO_PUBLIC_URL", c.SFTPGoPublicURL},
+		} {
+			parsed, err := url.Parse(u.val)
+			if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+				return fmt.Errorf("%s must be an http or https URL", u.name)
+			}
+		}
+	}
 	if (c.CSMPortalBackendClientID == "") != (c.CSMPortalUserDomain == "") {
 		return fmt.Errorf("CSM_PORTAL_BACKEND_CLIENT_ID and CSM_PORTAL_USER_DOMAIN must be set together or not at all")
 	}
@@ -1445,6 +1506,21 @@ func envDuration(key string, def time.Duration) time.Duration {
 		return def
 	}
 	return d
+}
+
+// envPositiveInt64 reads a positive integer, falling back to def when unset,
+// unparseable or not above zero (same posture as envDuration: a typo costs the
+// override, it does not stop the service starting).
+func envPositiveInt64(key string, def int64) int64 {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return def
+	}
+	n, err := strconv.ParseInt(v, 10, 64)
+	if err != nil || n <= 0 {
+		return def
+	}
+	return n
 }
 
 // envDurationOrOff is envDuration for an interval that can be switched off:
