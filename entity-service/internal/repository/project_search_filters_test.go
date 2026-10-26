@@ -39,6 +39,8 @@ func TestBuildProjectSearchWhere_Filters(t *testing.T) {
 			" AND p.end_date <= $1::date", []any{"2026-12-31"}},
 		{"onboardingStatus any of, SN spellings", domain.SearchProjectsRequest{OnboardingStatus: []string{"In-Progress", "OnHold", "completed"}},
 			" AND p.onboarding_status = ANY($1::text[]::onboarding_status_enum[])", []any{[]string{"IN_PROGRESS", "ON_HOLD", "COMPLETED"}}},
+		{"sfIds any of", domain.SearchProjectsRequest{SfIDs: []string{"SF001", "SF002"}},
+			" AND p.sf_id = ANY($1::text[])", []any{[]string{"SF001", "SF002"}}},
 		{"subRegion case-insensitive, trimmed", domain.SearchProjectsRequest{SubRegion: " na - west "},
 			" AND LOWER(TRIM(a.sub_region)) = LOWER($1)", []any{"na - west"}},
 	}
@@ -100,6 +102,8 @@ func TestValidateClosureFields(t *testing.T) {
 		{InvoiceDueDateClosureState: s("Suspended & Previously Paid")},
 		{ComplianceViolationClosureState: s("open")},
 		{HasAgent: new(bool)},
+		{ClosureState: s("read_only")},
+		{ClosureState: s("Restricted")},
 	}
 	for _, req := range ok {
 		if err := validateClosureFields(req); err != nil {
@@ -115,6 +119,8 @@ func TestValidateClosureFields(t *testing.T) {
 			`complianceViolationClosureState: "Restricted" is not a valid closure state; use one of Open, Suspended`},
 		{domain.ProjectUpdateRequest{EndDateClosureState: s("Paused")},
 			`endDateClosureState: "Paused" is not a valid closure state; use one of Closed, Closure Notices, Notified, Open, Pending Closed, Pending Closure Notices, Pending Notified, Pending Restricted, Restricted, Suspended`},
+		{domain.ProjectUpdateRequest{ClosureState: s("Paused")},
+			`closureState: "Paused" is not a valid closure state; use one of Closed, Open, Read Only, Restricted, Suspended`},
 	}
 	for _, tc := range cases {
 		err := validateClosureFields(tc.req)

@@ -101,12 +101,14 @@ import {
 } from "@features/csm-operations/utils/changeRequests";
 import CaseActivitiesFeed from "@features/csm-cases/components/CaseActivitiesFeed";
 import CsmCaseCommentInput from "@features/csm-cases/components/CsmCaseCommentInput";
-import { AttachmentsWidget } from "@features/csm-cases/components/CaseDetailWidgets";
+import AddTagDialog from "@features/csm-cases/components/AddTagDialog";
+import { AttachmentsWidget, TagsWidget } from "@features/csm-cases/components/CaseDetailWidgets";
 import {
   useGetCsmCaseAttachments,
   usePostCsmCaseAttachment,
   useDownloadCsmCaseAttachment,
 } from "@features/csm-cases/api/useCsmCaseAttachments";
+import { useAddCaseTag, useRemoveCaseTag } from "@features/csm-cases/api/useCaseTags";
 import type {
   BeChangeRequestCustomerProposal,
   BeChangeRequestDetail,
@@ -122,6 +124,9 @@ import { useQueryParamTabs } from "@hooks/useSectionTabs";
 import { isHttpUrl } from "@utils/isHttpUrl";
 
 const OPERATIONS_CR_PATH = "/operations/change-requests";
+
+/** Why the lifecycle actions are unavailable while the edit form is open. */
+const EDIT_IN_PROGRESS_REASON = "Save or cancel the edit first.";
 
 /**
  * The backend surfaces real rejection reasons on 4xx (e.g. a state
@@ -316,9 +321,10 @@ export default function CsmChangeRequestDetailPage(): JSX.Element {
   // several times at once (one per open tab, kept alive in the background —
   // see `CaseTabIsolatedRouter`), while there is only ever one real matched
   // route/location for the app as a whole.
-  // UX only — the backend 403s attachment downloads the same regardless of
-  // this flag, so hiding the control here is never the enforcement.
-  const { canDownloadAttachment } = usePortalAccess();
+  // UX only — the backend 403s attachment downloads and tag edits the same
+  // regardless of these flags, so hiding a control here is never the
+  // enforcement.
+  const { canDownloadAttachment, canWrite } = usePortalAccess();
   const routedId = useNormalizedIdParam("id");
   const routedNavigate = useNavTransition();
   const routedLocationState = useLocation().state;
@@ -389,6 +395,29 @@ export default function CsmChangeRequestDetailPage(): JSX.Element {
   const { data: attachments } = useGetCsmCaseAttachments(id, "change_request");
   const postAttachment = usePostCsmCaseAttachment();
   const downloadAttachment = useDownloadCsmCaseAttachment();
+  // Tags: the case page's own hooks and widget, pointed at this change
+  // request. The routes take a work item id (`POST /cases/{id}/tags`, ...),
+  // and the mutations invalidate THIS detail's query so the chips follow.
+  const [addTagOpen, setAddTagOpen] = useState(false);
+  const addTag = useAddCaseTag(id, [ApiQueryKeys.CHANGE_REQUEST_DETAILS, id ?? ""]);
+  const removeTag = useRemoveCaseTag(id, [ApiQueryKeys.CHANGE_REQUEST_DETAILS, id ?? ""]);
+  const onAddTag = useCallback(
+    (label: string) => {
+      addTag.mutate(label, {
+        onSuccess: () => setAddTagOpen(false),
+        onError: (err) => showError("Could not add the tag.", err),
+      });
+    },
+    [addTag, showError],
+  );
+  const onRemoveTag = useCallback(
+    (tagId: string) => {
+      removeTag.mutate(tagId, {
+        onError: (err) => showError("Could not remove the tag.", err),
+      });
+    },
+    [removeTag, showError],
+  );
   const [composerOpen, setComposerOpen] = useState(false);
   // Reports composerOpen up to the in-app case-tabs layer, purely so closing
   // this change request's tab from the tab strip can confirm first — see
@@ -864,6 +893,9 @@ export default function CsmChangeRequestDetailPage(): JSX.Element {
               cr={cr}
               isPending={transitionPending}
               pendingCustomerReview={customerReviewPending}
+              // A move such as Request Approval would lock fields the open form
+              // still holds unsaved changes to: finish or cancel the edit first.
+              lockedReason={editOpen ? EDIT_IN_PROGRESS_REASON : null}
               onAction={onTransition}
             />
             <Button
@@ -886,6 +918,8 @@ export default function CsmChangeRequestDetailPage(): JSX.Element {
                 patchCr.reset();
                 setEditOpen(true);
               }}
+              // Already editing: the form is open below the header.
+              disabled={editOpen}
               sx={{ flexShrink: 0 }}
             >
               Edit
@@ -993,6 +1027,62 @@ export default function CsmChangeRequestDetailPage(): JSX.Element {
         </Box>
       </Card>
 
+      {/* Tags: the case page's widget, read-only without write access. Shown
+          whenever the backend carried a `tags` array; another data source
+          leaves it null and has no tags to show or edit. */}
+      {cr.tags != null && (
+        <TagsWidget
+          // The same projection the case detail mapper applies to its tags.
+          tags={cr.tags.map((t) => ({ id: t.id, label: t.label }))}
+          onAdd={canWrite ? () => setAddTagOpen(true) : undefined}
+          onRemove={canWrite ? (t) => onRemoveTag(t.id) : undefined}
+          removingId={removeTag.isPending ? removeTag.variables : null}
+        />
+      )}
+
+      {/*
+        Edit happens in the page, not a modal: the form takes the place of the
+        tabs at full width and they come back on Save or Cancel. It is the same
+        EditChangeRequestDialog component (variant="inline"), so every edit rule
+        it enforces (the project frozen after New, add-only customer boxes, the
+        Emergency rules, the deployment window) applies unchanged.
+      */}
+      {editOpen && (
+        <EditChangeRequestDialog
+          variant="inline"
+          cr={cr}
+          isSaving={patchCr.isPending}
+          saveError={
+            patchCr.isError
+              ? backendErrorMessage(
+                  patchCr.error,
+                  "Could not update the change request.",
+                )
+              : null
+          }
+          onClose={() => {
+            if (!patchCr.isPending) setEditOpen(false);
+          }}
+          onSave={(patch) =>
+            patchCr.mutate(
+              { id: cr.id, patch },
+              {
+                onSuccess: () => setEditOpen(false),
+                onError: (err) =>
+                  showError(
+                    backendErrorMessage(
+                      err,
+                      "Could not update the change request.",
+                    ),
+                    err,
+                  ),
+              },
+            )
+          }
+        />
+      )}
+
+      {!editOpen && (
       <Box className="csm-print-hide" sx={{ borderBottom: 1, borderColor: "divider" }}>
         <Tabs
           value={activeTab}
@@ -1022,8 +1112,9 @@ export default function CsmChangeRequestDetailPage(): JSX.Element {
           })}
         </Tabs>
       </Box>
+      )}
 
-      {activeTab === "approval" && (
+      {!editOpen && activeTab === "approval" && (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
             <Typography
@@ -1096,7 +1187,7 @@ export default function CsmChangeRequestDetailPage(): JSX.Element {
         </Box>
       )}
 
-      {activeTab === "plan" && (
+      {!editOpen && activeTab === "plan" && (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
           {/*
             Field order here mirrors the SRE change-review packet's reading
@@ -1218,8 +1309,10 @@ export default function CsmChangeRequestDetailPage(): JSX.Element {
         </Box>
       )}
 
+      {/* Hidden, not unmounted, while the edit form is open: a reply being written
+          keeps its text and comes back as it was when the edit is done. */}
       {activeTab === "comments" && (
-        <Card sx={{ p: 2.5, display: "flex", flexDirection: "column", gap: 2 }}>
+        <Card sx={{ p: 2.5, display: editOpen ? "none" : "flex", flexDirection: "column", gap: 2 }}>
           {composerOpen ? (
             <Box className="csm-print-hide" sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1284,7 +1377,7 @@ export default function CsmChangeRequestDetailPage(): JSX.Element {
         </Card>
       )}
 
-      {activeTab === "attachments" && (
+      {!editOpen && activeTab === "attachments" && (
         <Card sx={{ p: 2.5, display: "flex", flexDirection: "column", gap: 2 }}>
           <AttachmentsWidget
             attachments={attachmentList}
@@ -1348,39 +1441,16 @@ export default function CsmChangeRequestDetailPage(): JSX.Element {
         />
       )}
 
-      {editOpen && (
-        <EditChangeRequestDialog
-          cr={cr}
-          isSaving={patchCr.isPending}
-          saveError={
-            patchCr.isError
-              ? backendErrorMessage(
-                  patchCr.error,
-                  "Could not update the change request.",
-                )
-              : null
-          }
-          onClose={() => {
-            if (!patchCr.isPending) setEditOpen(false);
-          }}
-          onSave={(patch) =>
-            patchCr.mutate(
-              { id: cr.id, patch },
-              {
-                onSuccess: () => setEditOpen(false),
-                onError: (err) =>
-                  showError(
-                    backendErrorMessage(
-                      err,
-                      "Could not update the change request.",
-                    ),
-                    err,
-                  ),
-              },
-            )
-          }
+      {addTagOpen && (
+        <AddTagDialog
+          existingLabels={(cr.tags ?? []).map((t) => t.label)}
+          isSaving={addTag.isPending}
+          onClose={() => setAddTagOpen(false)}
+          onSave={onAddTag}
         />
       )}
+
+
     </Box>
   );
 }

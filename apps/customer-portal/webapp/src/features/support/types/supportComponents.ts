@@ -59,6 +59,8 @@ export type CaseDetailsHeaderProps = {
   variant?: CaseDetailsHeaderVariant;
   isEscalated?: boolean;
   escalationLevelLabel?: string | null;
+  isPendingVerification?: boolean;
+  isCaseVerified?: boolean;
 };
 
 export type OutstandingCasesListProps = {
@@ -218,6 +220,12 @@ export type CommentBubbleProps = {
     firstName?: string;
     lastName?: string;
   } | null;
+  /**
+   * The case this comment belongs to. Forwarded to the backend as an
+   * authorization hint when resolving inline/attachment images — see
+   * useResolvedInlineImageHtml's own doc comment for why it's needed.
+   */
+  caseId?: string | null;
 };
 
 export type CaseDetailsActivityPanelProps = {
@@ -248,6 +256,8 @@ export type ActivityContentProps = {
     lastName?: string;
   } | null;
   onImageClick?: (src: string) => void;
+  /** Forwarded to each CommentBubble — see CommentBubbleProps.caseId. */
+  caseId?: string | null;
 };
 
 export type UploadAttachmentModalProps = {
@@ -426,6 +436,8 @@ export type CaseDetailsTabsProps = {
   hideEscalationTab?: boolean;
   escalationCount?: number;
   isEscalated?: boolean;
+  hideVerificationsTab?: boolean;
+  verificationsCount?: number;
 };
 
 export type CaseDetailsTabPanelsProps = {
@@ -468,6 +480,13 @@ export type CaseDetailsActionRowProps = {
   isEscalated?: boolean;
   canDeescalate?: boolean;
   onDeescalateSuccess?: () => void;
+  isCaseClosed?: boolean;
+  canAddToVerification?: boolean;
+  isPendingVerification?: boolean;
+  isCaseVerified?: boolean;
+  pendingVerificationId?: string | null;
+  onAddToVerificationSuccess?: () => void;
+  onMarkVerifiedSuccess?: () => void;
 };
 
 export type EscalateCaseModalProps = {

@@ -81,8 +81,15 @@ func main() {
 	if os.Getenv("GOOGLE_CHAT_AUDIENCE_SPACES") != "" {
 		slog.Warn("GOOGLE_CHAT_AUDIENCE_SPACES is set but no longer read; it was renamed to GOOGLE_CHAT_SPACES, which is now the only Google Chat routing config")
 	}
+	incidentChatSpaces := parseIncidentChatSpaces(os.Getenv("INCIDENT_CHAT_SPACES"))
+	incidentChatFanout := parseIncidentChatFanout(os.Getenv("INCIDENT_CHAT_FANOUT"), incidentChatSpaces)
+	// The Alert Settings group -> SRE team room mapping, shared by the
+	// dispatcher's incident card and the SRE ladder's replies under it; filled
+	// once the paging configuration is loaded (applyIncidentRoutes).
+	incidentRoutes := &notifications.IncidentRoutes{}
 	googleChatClient := notifications.NewGoogleChatClient(notifications.GoogleChatConfig{
-		AudienceSpaces: parseGoogleChatAudienceSpaces(os.Getenv("GOOGLE_CHAT_SPACES")),
+		AudienceSpaces: append(parseGoogleChatAudienceSpaces(os.Getenv("GOOGLE_CHAT_SPACES")),
+			incidentChatSpaces...),
 	})
 
 	// Twilio (the call channel, used by incident.created) is likewise
@@ -335,6 +342,17 @@ func main() {
 		slog.Warn("CALL_SENDING_ENABLED=false; incident.created calls will be logged, not placed")
 	}
 
+	// SLA notification killswitch, same disable-entirely convention as
+	// EMAIL_SENDING_ENABLED/CALL_SENDING_ENABLED above. When false, NO
+	// SLA-related message is sent: the SLA breach Google Chat card (and any
+	// SLA breach email, which this service does not send today). The
+	// sla.tier_reached event is still published and tier tracking still
+	// advances. Non-SLA alerts are unaffected.
+	slaEmailSendingEnabled := envBool("SLA_EMAIL_SENDING_ENABLED", true)
+	if !slaEmailSendingEnabled {
+		slog.Warn("SLA_EMAIL_SENDING_ENABLED=false; SLA breach Google Chat alerts (and SLA emails) are suppressed")
+	}
+
 	// Fallback on-call number (incident.created's call only) for when a
 	// publisher (e.g. entity-service) can't determine which on-call number
 	// applies and omits it from the payload — see
@@ -348,7 +366,16 @@ func main() {
 	defaultCSMEmailCC := splitComma(os.Getenv("DEFAULT_CSM_EMAIL_CC"))
 
 	dispatcher := dispatch.NewDispatcher(emailClient, googleChatClient, twilioClient, linkResolver, emailSendingEnabled, emailDebugMode, emailDebugRecipients, callSendingEnabled, defaultOnCallNumber, defaultCSMEmailCC).
-		WithOnboarding(loadOnboardingConfig(customerEntityClient, emailClient))
+		WithOnboarding(loadOnboardingConfig(customerEntityClient, emailClient)).
+		// Same customerEntityClient as every other optional entity-service
+		// caller above — unconditional, since NewCustomerEntityClient never
+		// fails to construct; an unconfigured/unreachable entity-service only
+		// surfaces as a fetch failure at call time, which
+		// handleCaseCreated/handleCommentAdded already fall back from (see
+		// resolveFullCaseDescription/resolveFullCommentContent).
+		WithFullContentFetcher(customerEntityClient).
+		WithIncidentChatFanout(incidentChatFanout).
+		WithIncidentRoutes(incidentRoutes)
 
 	// Status page webhooks (outage.status_page_due on sre-events): posted here
 	// the moment entity-service publishes them, reported back to
@@ -524,6 +551,10 @@ func main() {
 	var redisClient *redis.Client
 	var slaProducer *eventbus.Producer
 	var escalationConsumers []*eventbus.Consumer
+	// slaDurations is the SLA duration policy fetched below, kept for the
+	// Case Alerts rung email's "response SLA remaining time"; nil when the
+	// fetch failed (the email then uses the published defaults).
+	var slaDurations map[string]map[string]time.Duration
 	redisURL := os.Getenv("REDIS_URL")
 	redisAddr := os.Getenv("REDIS_ADDR")
 	if redisURL != "" || redisAddr != "" {
@@ -594,7 +625,8 @@ func main() {
 		if err != nil {
 			slog.Error("slaengine: failed to fetch sla duration policy at startup, sla tracking is disabled for this run", "err", err)
 		} else {
-			slaEngine := slaengine.NewEngine(slaengine.NewStore(redisClient), slaProducer, googleChatClient, linkResolver, durations)
+			slaDurations = durations
+			slaEngine := slaengine.NewEngine(slaengine.NewStore(redisClient), slaProducer, googleChatClient, linkResolver, durations, slaEntityClient, slaEmailSendingEnabled)
 			dispatcher = dispatcher.WithSLAEngine(slaEngine)
 
 			// One-shot reconciliation: rebuilds every currently-open clock's
@@ -628,6 +660,124 @@ func main() {
 			go slaEngine.RunTicker(ctx, tickInterval)
 		}
 	}
+
+	// Team-sourced Chat spaces: entity-service's "team" table
+	// (team.chat_webhook_url, migration 0240) is now the source of truth for
+	// a team's own Chat space, replacing hand-listing it in GOOGLE_CHAT_SPACES.
+	// Unlike the SLA duration policy fetch above (fetched once, since that
+	// data essentially never changes), this is refreshed on a ticker: an
+	// operator can add or change a team's webhook URL in the database at any
+	// time, and this service should pick it up without a restart. Gated on
+	// CUSTOMER_ENTITY_BASE_URL like every other optional entity-service
+	// feature — without it, a team simply has no Chat space unless one is
+	// still listed in GOOGLE_CHAT_SPACES.
+	if os.Getenv("CUSTOMER_ENTITY_BASE_URL") != "" {
+		refreshTeamAudienceSpaces := func(ctx context.Context) error {
+			fetchCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			defer cancel()
+			webhooks, err := customerEntityClient.GetTeamChatWebhooks(fetchCtx)
+			if err != nil {
+				// Logged, not fatal: this client keeps whatever it already
+				// had (nil on the very first failed fetch, same as a team
+				// simply having no configured space yet) rather than
+				// crash-looping the whole service over a reachability blip.
+				slog.Error("notifications: failed to refresh team chat webhooks from entity-service; keeping the previous set", "err", err)
+				return err
+			}
+			googleChatClient.SetTeamAudienceSpaces(webhooks)
+			return nil
+		}
+		// Retry the initial fetch, with backoff, before consumers start --
+		// not just one attempt. googlechat.go's own sendCardToAudience
+		// acknowledges (never retries) a record whose audience resolves to
+		// "no space configured", since that's indistinguishable from a team
+		// genuinely having no Chat space. Without this, a single transient
+		// entity-service failure at the moment this process starts would
+		// leave every team-routed alert (SLA breach, frustration detection,
+		// sr.* customer comments) looking exactly like "team has no space"
+		// until the next scheduled refresh (default 5m) -- silently dropped,
+		// never retried, since this was never a Kafka-level failure for
+		// eventbus.Consumer to see. Bounded, not indefinite: team-routed
+		// Chat is a best-effort enhancement over the static audiences (see
+		// GoogleChatClient's own doc comment), not core delivery, so a
+		// persistently-unreachable entity-service must not block this
+		// service from starting at all.
+		const (
+			maxInitialTeamWebhookFetchAttempts = 5
+			maxInitialTeamWebhookFetchBackoff  = 30 * time.Second
+		)
+		initialTeamWebhookFetchBackoff := 5 * time.Second
+		for attempt := 1; attempt <= maxInitialTeamWebhookFetchAttempts; attempt++ {
+			if err := refreshTeamAudienceSpaces(ctx); err == nil {
+				break
+			}
+			if attempt == maxInitialTeamWebhookFetchAttempts {
+				slog.Error("notifications: giving up retrying the initial team chat webhook fetch; team-routed Chat alerts will use only the static audiences until the next scheduled refresh", "attempts", attempt)
+				break
+			}
+			select {
+			case <-ctx.Done():
+			case <-time.After(initialTeamWebhookFetchBackoff):
+			}
+			if ctx.Err() != nil {
+				break
+			}
+			initialTeamWebhookFetchBackoff *= 2
+			if initialTeamWebhookFetchBackoff > maxInitialTeamWebhookFetchBackoff {
+				initialTeamWebhookFetchBackoff = maxInitialTeamWebhookFetchBackoff
+			}
+		}
+		teamChatSpacesInterval := envDuration("TEAM_CHAT_SPACES_REFRESH_INTERVAL", 5*time.Minute)
+		go func() {
+			ticker := time.NewTicker(teamChatSpacesInterval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					// Error already logged inside refreshTeamAudienceSpaces;
+					// the ticker just keeps retrying on its own schedule.
+					_ = refreshTeamAudienceSpaces(ctx)
+				}
+			}
+		}()
+	}
+
+	// Paging-number test calls (paging.test_call_requested, on this main
+	// topic). Wired before the main consumer starts, like WithSLAEngine. Needs
+	// Redis (one test call per person at a time) and entity-service (where
+	// the result is written); without them the event is acknowledged and
+	// logged.
+	if redisClient != nil && os.Getenv("CUSTOMER_ENTITY_BASE_URL") != "" {
+		testCallCfg, err := loadTestCallConfig()
+		if err != nil {
+			// The file decides what gets dialled; a broken one dials nothing.
+			slog.Error("invalid escalation configuration; paging test calls are reported failed", "err", err)
+			off := false
+			testCallCfg.Enabled = &off
+		}
+		tester := paging.NewTestCaller(ctx, twilioClient, paging.NewEntityClient(paging.EntityConfig{
+			BaseURL:      os.Getenv("CUSTOMER_ENTITY_BASE_URL"),
+			TokenURL:     os.Getenv("OAUTH2_TOKEN_URL"),
+			ClientID:     os.Getenv("OAUTH2_CLIENT_ID"),
+			ClientSecret: os.Getenv("OAUTH2_CLIENT_SECRET"),
+			Scopes:       splitComma(os.Getenv("CUSTOMER_ENTITY_SCOPES")),
+		}), paging.NewStore(redisClient), testCallCfg, callSendingEnabled)
+		dispatcher = dispatcher.WithPagingTestCalls(tester)
+		slog.Info("paging test calls are enabled", "enabled", testCallCfg.On(),
+			"allowListed", len(testCallCfg.AllowedNumbers) > 0, "sending", callSendingEnabled)
+	} else {
+		slog.Warn("paging test calls need Redis and CUSTOMER_ENTITY_BASE_URL; paging.test_call_requested will be ignored")
+	}
+
+	// incident.special_ops_alert (sre-events) pages the SME through the SRE
+	// engine, which is built further down, after the consumers start; until
+	// it is settled below, such an alert waits rather than being dropped.
+	dispatcher = dispatcher.DeferSpecialOpsPage()
+	// smePager is the SRE engine when it runs with sme.enabled; settled into
+	// the dispatcher once the escalation block below is done.
+	var smePager *paging.Engine
 
 	mainConsumers := startConsumers(ctx, "main", eventBusCfg, consumerGroup, mainConsumerCount, dispatcher.Handle, toDeadLetter)
 	dlqConsumers := startConsumers(ctx, "dlq", dlqCfg, dlqConsumerGroup, dlqConsumerCount, dispatcher.Handle, nil)
@@ -724,8 +874,19 @@ func main() {
 		// env-derived value, so an existing deployment behaves exactly as it
 		// did -- see loadEscalationConfig.
 		escalationCfg, cfgErr := loadEscalationConfig(escalationChannel)
+		if cfgErr == nil {
+			// What is saved on the Team Schedule's Alert Settings tab, for
+			// every ladder, over the file's (unset PAGING_CONFIG_SOURCE is db);
+			// off asks nobody.
+			if mode := caseAlertSettingsMode(os.Getenv("PAGING_CONFIG_SOURCE")); mode != caseAlertSourceOff {
+				escalationCfg = applyCaseAlertSettings(ctx, mode, escalationCfg, caseAlertSettingsEntity(), os.Setenv, caseAlertStartFor(redisClient))
+			}
+		}
 		creCfg, creRunning := escalationCfg.For(paging.LadderKeyCRE)
 		sreCfg, sreRunning := escalationCfg.For(paging.LadderKeySRE)
+		if cfgErr == nil {
+			applyIncidentRoutes(sreCfg, googleChatClient, incidentRoutes)
+		}
 		escalationRunning := creRunning || sreRunning
 		if cfgErr == nil {
 			// The file wins over INCIDENT_ESCALATION_CHANNEL when there is
@@ -801,16 +962,20 @@ func main() {
 			// Off by default: the rung model the schedule resolver implements
 			// is still an assumption awaiting confirmation, and a deployment
 			// should opt into it knowingly rather than inherit it on upgrade.
-			var escalationResolver paging.Resolver = paging.NewRosterResolver(roster)
+			// INCIDENT_ESCALATION_TEST_CALL_TO rings every roster recipient on
+			// one number, fixed, so a rehearsal never reaches a real phone.
+			var escalationResolver paging.Resolver = paging.NewRosterResolver(roster).
+				WithTestCallTo(os.Getenv("INCIDENT_ESCALATION_TEST_CALL_TO"))
 			if os.Getenv("INCIDENT_ESCALATION_RESOLVER") == "team-schedule" {
 				if escalationNotes == nil {
 					slog.Error("INCIDENT_ESCALATION_RESOLVER=team-schedule needs CUSTOMER_ENTITY_BASE_URL; " +
 						"falling back to the configured roster")
 				} else {
-					// The rota holds no phone numbers: they come from
-					// INCIDENT_ESCALATION_PHONES (e-mail -> E.164), or every
-					// call goes to INCIDENT_ESCALATION_TEST_CALL_TO. A chat-only
-					// ladder needs neither.
+					// The rota holds no phone numbers. INCIDENT_ESCALATION_PHONES
+					// (e-mail -> E.164) is a fallback behind the CSM profile
+					// number (ProfilePhoneResolver, below); every call goes to
+					// INCIDENT_ESCALATION_TEST_CALL_TO when it is set. A
+					// chat-only ladder needs neither.
 					phones, perr := paging.ParsePhoneBook(os.Getenv("INCIDENT_ESCALATION_PHONES"), os.Getenv("INCIDENT_ESCALATION_TEST_CALL_TO"))
 					if perr != nil {
 						// Not logging perr: the decode error can quote numbers.
@@ -835,23 +1000,49 @@ func main() {
 			// Phone numbers. The Team Schedule says who, never how to reach
 			// them, and a call plan drops anyone without a number. Each
 			// person keeps their mobile on their own CSM Portal profile,
-			// which the portal stores on their Asgardeo user; read it from
-			// there through the same SCIM operations service and OAuth2 app
-			// the onboarding flow uses. A number named in escalation.yaml
-			// (the heads) still wins.
+			// which the portal stores in CSM ("user".phone) as well as on
+			// their Asgardeo user. entity-service gives the number to call
+			// for a whole rung in one request: the profile number, else the
+			// paging-only number a lead or admin stored. A valid CSM profile
+			// number wins over a number named in paging-alert.yaml (the heads),
+			// which is a fallback. Only INCIDENT_ESCALATION_TEST_CALL_TO is
+			// never replaced.
+			//
+			// Asgardeo, through the SCIM operations service and the OAuth2 app
+			// the onboarding flow uses, is only the fallback for people CSM
+			// has no number for, until "user".phone has been filled from
+			// Asgardeo. PAGING_PHONE_SCIM_FALLBACK=false turns it off (the
+			// onboarding flow keeps its own use of SCIM).
 			if creCfg.PhoneSource() == paging.PhoneSourceProfile {
-				if scimURL := strings.TrimSpace(os.Getenv("SCIM_BASE_URL")); scimURL == "" {
-					slog.Warn("incident escalation: phones.source is profile but SCIM_BASE_URL is not set; " +
-						"recipients without a number in escalation.yaml cannot be called")
-				} else {
-					escalationResolver = paging.NewProfilePhoneResolver(escalationResolver, scim.NewClient(scim.Config{
+				var profiles paging.PhoneLookup
+				scimURL := strings.TrimSpace(os.Getenv("SCIM_BASE_URL"))
+				switch {
+				case strings.TrimSpace(os.Getenv("PAGING_PHONE_SCIM_FALLBACK")) == "false":
+					slog.Info("incident escalation: PAGING_PHONE_SCIM_FALLBACK is false; recipients' numbers come from CSM only " +
+						"(and paging-alert.yaml)")
+				case scimURL == "":
+					slog.Warn("incident escalation: SCIM_BASE_URL is not set; recipients' numbers come from CSM only " +
+						"(and paging-alert.yaml)")
+				default:
+					profiles = scim.NewClient(scim.Config{
 						BaseURL:      scimURL,
 						TokenURL:     os.Getenv("OAUTH2_TOKEN_URL"),
 						ClientID:     os.Getenv("OAUTH2_CLIENT_ID"),
 						ClientSecret: os.Getenv("OAUTH2_CLIENT_SECRET"),
 						Scopes:       splitComma(os.Getenv("SCIM_SCOPES")),
-					}))
-					slog.Info("incident escalation reads recipients' phone numbers from their CSM Portal profiles")
+					})
+					slog.Info("incident escalation falls back to recipients' Asgardeo profiles for numbers CSM does not have")
+				}
+				// Assigned only when present: a nil *EntityClient in the
+				// interface would not compare equal to nil.
+				var pagingContacts paging.PagingContactLookup
+				if escalationNotes != nil {
+					pagingContacts = escalationNotes
+					slog.Info("incident escalation reads recipients' numbers from CSM (profile, else paging number)")
+				}
+				if profiles != nil || pagingContacts != nil {
+					escalationResolver = paging.NewProfilePhoneResolver(escalationResolver, profiles).
+						WithPagingContacts(pagingContacts)
 				}
 			}
 
@@ -860,6 +1051,15 @@ func main() {
 			// its own consumer group and its own store namespace, because a
 			// P0 CRE incident climbs both ladders at the same time and the
 			// two must not mistake each other for a redelivery.
+			// ALERTING_CALL_OUTCOME_CHECK (default true; "false" turns it off):
+			// log how each placed call ended, asked of Twilio after the ring
+			// timeout -- the log otherwise stops at "queued". Shared by both
+			// engines; logging only.
+			var callOutcomes *paging.CallOutcomeWatcher
+			if envBool("ALERTING_CALL_OUTCOME_CHECK", true) {
+				callOutcomes = paging.NewCallOutcomeWatcher(ctx, twilioClient)
+			}
+
 			ladders := []struct {
 				kind    paging.Ladder
 				name    string
@@ -916,10 +1116,40 @@ func main() {
 						// Which incidents get a ladder, and what one may spend.
 						Ladder: l.cfg,
 						Kind:   l.kind,
+						// The Special Ops page; only the SRE engine places
+						// it, and it is off unless the file turns it on.
+						SME: escalationCfg.SME,
+						// An incident's paging replies under its card, in the spaces INCIDENT_CHAT_SPACES and INCIDENT_CHAT_FANOUT give it.
+						IncidentChatFanout: incidentChatFanout,
+						IncidentRoutes:     incidentRoutes,
 						// Which ladders a record climbs is DefaultRouting, in
 						// code -- not configurable (see paging.Config).
 					},
 				)
+				escalationEngine.WithCallOutcomeWatcher(callOutcomes)
+
+				if l.kind == paging.LadderSRE && escalationCfg.SME.Enabled {
+					// The SME page runs on the dispatcher's sre-events
+					// consumer, not on this engine's: the engine ignores
+					// incident.special_ops_alert even when it reads that topic.
+					smePager = escalationEngine
+				}
+
+				// The rung email (cre.email): one email per rung, L1 to L4.
+				// It follows the service's email switches, not
+				// CALL_SENDING_ENABLED, so silencing the phones leaves it on
+				// and a debug run redirects it like every other email.
+				if l.kind == paging.LadderCRE && l.cfg.Email.Enabled {
+					escalationEngine.WithRungEmail(emailClient, paging.RungEmailSending{
+						Enabled:         emailSendingEnabled,
+						DebugMode:       emailDebugMode,
+						DebugRecipients: emailDebugRecipients,
+						SLADurations:    slaDurations,
+					})
+					slog.Info("case paging: rung emails are on for the CRE ladder",
+						"teamLists", len(l.cfg.Email.TeamLists), "emailSendingEnabled", emailSendingEnabled,
+						"emailDebugMode", emailDebugMode, "responseSLAFrom", map[bool]string{true: "sla-duration-policy", false: "published defaults"}[slaDurations != nil])
+				}
 
 				escalationCount := envInt("INCIDENT_ESCALATION_CONSUMER_COUNT", 1)
 				escalationConsumers = append(escalationConsumers,
@@ -965,7 +1195,12 @@ func main() {
 					"ladder", l.name,
 					"channel", string(channel),
 					"ssml", os.Getenv("INCIDENT_ESCALATION_SSML") == "true",
-					"sending", callSendingEnabled)
+					"sending", callSendingEnabled,
+					"callOutcomeCheck", callOutcomes != nil)
+				if l.kind == paging.LadderSRE && escalationCfg.SME.Enabled {
+					slog.Info("case paging: incident.special_ops_alert pages the SME through the SRE engine",
+						"channel", string(escalationCfg.SME.Channel))
+				}
 			}
 
 			// dispatch.handleIncidentCreated's own single, immediate call to
@@ -983,6 +1218,17 @@ func main() {
 					"a new incident will get both the single immediate call and the escalation ladder")
 			}
 		}
+	}
+
+	// Settle the SME page on every path: an alert waiting in the dispatcher is
+	// released either to the SRE engine or to "not configured here". Passed as
+	// nil explicitly, never as a nil *paging.Engine, which would not compare
+	// equal to nil inside the interface.
+	if smePager != nil {
+		dispatcher.WithSpecialOpsPage(smePager)
+	} else {
+		dispatcher.WithSpecialOpsPage(nil)
+		slog.Info("case paging: no SME page here; incident.special_ops_alert is acknowledged and ignored")
 	}
 
 	<-ctx.Done()
@@ -1353,6 +1599,76 @@ func parseGoogleChatAudienceSpaces(raw string) []notifications.GoogleChatAudienc
 	return spaces
 }
 
+// parseIncidentChatSpaces decodes INCIDENT_CHAT_SPACES, {"<assignment group name>": "<webhook URL>"}, so onboarding a team is one .env entry.
+func parseIncidentChatSpaces(raw string) []notifications.GoogleChatAudienceSpace {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var byGroup map[string]string
+	if err := json.Unmarshal([]byte(raw), &byGroup); err != nil {
+		slog.Error("failed to parse INCIDENT_CHAT_SPACES; incident Chat cards will not be posted", "err", err)
+		return nil
+	}
+	spaces := make([]notifications.GoogleChatAudienceSpace, 0, len(byGroup))
+	for group, webhookURL := range byGroup {
+		if strings.TrimSpace(group) == "" || strings.TrimSpace(webhookURL) == "" {
+			slog.Error("INCIDENT_CHAT_SPACES entry has an empty assignment group or webhook URL and will be skipped", "assignmentGroup", group)
+			continue
+		}
+		spaces = append(spaces, notifications.GoogleChatAudienceSpace{Audience: notifications.IncidentAudience(group), WebhookURL: webhookURL})
+	}
+	return spaces
+}
+
+// parseIncidentChatFanout decodes INCIDENT_CHAT_FANOUT, {"<assignment group>":
+// ["<assignment group>", ...]}: the incident cards of a group with no space of
+// its own -- a default group, whose incidents belong to no SRE team -- go to
+// the INCIDENT_CHAT_SPACES spaces of the groups listed, e.g.
+// {"Default SRE Group": ["Apollo SRE Group", "Artemis SRE Group"]}. Group
+// names only, no URLs. Unset or unreadable is no fan-out: every group keeps
+// its own space. spaces is INCIDENT_CHAT_SPACES, parsed, read only to warn
+// about a listed group that has no space there.
+func parseIncidentChatFanout(raw string, spaces []notifications.GoogleChatAudienceSpace) map[string][]string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var fanout map[string][]string
+	if err := json.Unmarshal([]byte(raw), &fanout); err != nil {
+		slog.Error("failed to parse INCIDENT_CHAT_FANOUT; every group's incident cards go to its own space", "err", err)
+		return nil
+	}
+	// A group spelled twice (differing only in case or spaces) has no single list, so it keeps its own space rather than one picked by map order.
+	spellings := map[string][]string{}
+	for group := range fanout {
+		key := strings.ToLower(strings.TrimSpace(group))
+		spellings[key] = append(spellings[key], group)
+	}
+	for key, names := range spellings {
+		if len(names) < 2 {
+			continue
+		}
+		slog.Error("INCIDENT_CHAT_FANOUT lists one assignment group more than once, differing only in case or spaces; that group keeps its own space",
+			"assignmentGroup", key)
+		for _, name := range names {
+			delete(fanout, name)
+		}
+	}
+	known := map[string]bool{}
+	for _, sp := range spaces {
+		known[sp.Audience] = true
+	}
+	for group, targets := range fanout {
+		for _, target := range targets {
+			if !known[notifications.IncidentAudience(target)] {
+				slog.Warn("INCIDENT_CHAT_FANOUT names a group with no INCIDENT_CHAT_SPACES entry; that space gets no card",
+					"assignmentGroup", group, "target", target)
+			}
+		}
+	}
+	slog.Info("incident Chat cards fan out to other groups' spaces (INCIDENT_CHAT_FANOUT)", "groups", len(fanout))
+	return fanout
+}
+
 // deadLetterErrAttrs describes a handler failure without reproducing it. An
 // upstream failure arrives as *apierror.Error, whose Error() embeds up to 256
 // bytes of the response body -- which can carry recipient addresses or other
@@ -1437,6 +1753,20 @@ func loadEscalationConfig(envChannel paging.Channel) (paging.Config, error) {
 	return cfg, nil
 }
 
+// loadTestCallConfig reads the escalation file's testCall section. No file
+// means the defaults: test calls on, to any number.
+func loadTestCallConfig() (paging.TestCallConfig, error) {
+	path := os.Getenv("INCIDENT_ESCALATION_CONFIG")
+	if path == "" {
+		return paging.TestCallConfig{}, nil
+	}
+	cfg, err := paging.LoadConfig(path)
+	if err != nil {
+		return paging.TestCallConfig{}, err
+	}
+	return cfg.TestCall, nil
+}
+
 // resolverTeams merges the two ladders' team keys into the one resolver both
 // ladders share: the CRE section names the ABTs, the Americas team and the
 // heads; the SRE section names the SRE teams. Aliases from either apply to
@@ -1444,6 +1774,9 @@ func loadEscalationConfig(envChannel paging.Channel) (paging.Config, error) {
 func resolverTeams(cre, sre paging.LadderConfig) paging.TeamKeys {
 	teams := cre.Teams
 	teams.SRE = sre.Teams.ABTs
+	// Which SRE rota pages an incident with no SRE team of its own.
+	teams.DefaultRota = sre.Teams.DefaultRota
+	teams.DefaultGroups = sre.Teams.DefaultGroups
 	if len(sre.Teams.Aliases) > 0 {
 		merged := make(map[string]string, len(cre.Teams.Aliases)+len(sre.Teams.Aliases))
 		for k, v := range cre.Teams.Aliases {
@@ -1455,4 +1788,23 @@ func resolverTeams(cre, sre paging.LadderConfig) paging.TeamKeys {
 		teams.Aliases = merged
 	}
 	return teams
+}
+
+// applyIncidentRoutes points incident cards, and the paging replies under
+// them, at the SRE team rooms the Alert Settings mapping gives each
+// assignment group (paging.BuildIncidentRoutes): the mapping wins over
+// INCIDENT_CHAT_SPACES, and a group with no room goes to the shared SRE room.
+// Logs counts only, never a URL.
+func applyIncidentRoutes(sre paging.LadderConfig, chat *notifications.GoogleChatClient, routes *notifications.IncidentRoutes) {
+	table := paging.BuildIncidentRoutes(sre, func(c paging.Chat) (string, bool) {
+		return paging.ChatWebhookURL(c, chat, os.Getenv)
+	})
+	chat.SetIncidentRouteSpaces(table.Spaces)
+	routes.Set(table.Fanout)
+	_, fallback := table.Spaces[notifications.IncidentFallbackAudience]
+	slog.Info("incident cards follow the Alert Settings group mapping",
+		"mappedGroups", table.Mapped, "defaultGroupsFannedOut", len(table.Fanout), "sharedSRERoom", fallback)
+	if !fallback {
+		slog.Warn("incident cards: the SRE ladder has no shared room (sre.chat), so an incident whose group maps to no team room still gets no card")
+	}
 }

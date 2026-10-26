@@ -252,21 +252,31 @@ happen to point at the same host in some deployments, which is why `TrackingBase
 guaranteed to always match, so don't collapse them into a single field.
 
 It backs two routes:
-- `POST /projects/{projectId}/deployments/{deploymentId}/license` — provisions (or resumes
-  provisioning) a WSO2 API Manager application/subscription/credentials for a deployment and
-  returns the resulting license. `ProcessLicenseDownload` (`internal/productconsumption/subscription.go`)
-  implements the upstream state machine — it is **not idempotent-by-accident-safe to reimplement
-  casually**: it can make up to 5 sequential upstream calls, several with side effects (creating an
-  application, subscribing it, generating credentials), and each step only runs if the project's
-  upstream-tracked status hasn't reached it yet. Read the whole function before touching it — a
-  subtly wrong condition could create a duplicate WSO2 API Manager application. The handler first
-  calls `entity.GetProject` purely as an access-control gate, discarding the result —
-  entity-service is still the actual authorization boundary for "does this caller own this
-  project." Because up to 5 sequential upstream calls can plausibly exceed the server's global
-  `WriteTimeout` (see `cmd/server/main.go`) even when no single step is slow, the handler extends
-  its own write deadline via `http.NewResponseController(w).SetWriteDeadline` — which only works
-  because `middleware.responseWriter` forwards `SetWriteDeadline`/`SetReadDeadline` to the
-  underlying `ResponseWriter`, the same reason it forwards `Hijack` for the WebSocket route above.
+- `POST /projects/{projectId}/deployments/{deploymentId}/license` — returns the deployment's
+  license. `PRODUCT_CONSUMPTION_LICENSE_MODE` selects how `ProcessLicenseDownload`
+  (`internal/productconsumption/subscription.go`, the single dispatch point) provisions it:
+  - `service` (**the default**; unset or empty means service): **one call** to the subscription
+    service's `POST /projects/{projectId}/deployments/{deploymentId}/license`; the provisioning
+    state machine lives in that service, not here.
+  - `legacy` (must be set explicitly; an environment that must keep the old flow sets
+    `PRODUCT_CONSUMPTION_LICENSE_MODE=legacy`): the backend itself drives the subscription
+    service's per-project state machine (`subscription_legacy.go`, `types_legacy.go`,
+    `jsonint.go`): consumption-status check, create application, patch project, subscribe,
+    generate-credentials, generate-secret-keys, then fetch the license, each step only once and
+    resuming from the project's current state. Up to 5 sequential upstream requests.
+  Any other value fails startup (`productconsumption.ParseLicenseMode`). **The two modes must
+  never both drive the state machine for the same deployment**: in `legacy` the backend is the
+  driver, in `service` the subscription service is, and two drivers can create a duplicate
+  application. Switch the mode for the whole environment at once. In both modes the client refuses a `success:false` answer, missing
+  subscription data or a missing signature as a data error rather than handing back an unusable
+  license. The handler
+  first calls `entity.GetProject` purely as an access-control gate, discarding the result —
+  entity-service is still the authorization boundary for "does this caller own this project."
+  Provisioning a first license can take several upstream calls (made by this backend in `legacy`,
+  inside the subscription service in `service`), so the handler extends its own write deadline via
+  `http.NewResponseController(w).SetWriteDeadline`, which only works because
+  `middleware.responseWriter` forwards `SetWriteDeadline`/`SetReadDeadline` to the underlying
+  `ResponseWriter`, the same reason it forwards `Hijack` for the WebSocket route above.
 - `POST /deployment-usages` — imports a deployment-usage zip file. Unlike every other endpoint in
   this backend, the request body is **raw binary**, not JSON — see `readBinaryBody` in
   `internal/handler/response.go` (a `readJSONBody` counterpart with a larger size cap,
@@ -274,6 +284,27 @@ It backs two routes:
   check in the handler, which together validate the upload the way the upstream service requires.
   The Go client base64-encodes the bytes before forwarding to the upstream service, matching its
   JSON contract exactly (`{"email": "...", "zip": "<base64>"}`).
+  **The upload names no project, so the report decides whose usage it is.** A usage report is a
+  ZIP holding one JSON file as WSO2 products export it; `usageReportDeploymentNumber`
+  (`internal/handler/usage_report.go`) reads only its `export_metadata.deployment_id`
+  (decompression capped at `maxUsageReportBytes`), and the handler looks that deployment number up
+  with entity-service's `POST /deployments/search` (`numbers`, inactive included) **as the caller**.
+  entity-service returns it only to an internal user or a registered contact of its project, so a
+  report for someone else's deployment is a 404 and is never forwarded. Anything that is not such a
+  report is a 400. The product-consumption service then verifies the report's signature against that
+  deployment's key and refuses a report the product marked invalid; this backend checks neither.
+  **`PRODUCT_CONSUMPTION_USAGE_IMPORT_MODE`** (independent of the license mode) selects whether
+  that pre-check runs, dispatched in one place in `ImportDeploymentUsage`:
+  - `service` (**the default**; unset or empty means service): the behaviour just described.
+  - `legacy` (must be set explicitly): the upload is forwarded as is, with no report inspection
+    and no deployment lookup, so the 400-for-non-report and 404-for-invisible-deployment
+    answers above do not occur from this backend (only the content-type and size checks and the
+    upstream's own errors remain). The request and response shapes are the same in both modes.
+  Any other value fails startup (`productconsumption.ParseUsageImportMode`).
+
+  **Holding an environment on the old behaviour:** set both `PRODUCT_CONSUMPTION_LICENSE_MODE=legacy`
+  and `PRODUCT_CONSUMPTION_USAGE_IMPORT_MODE=legacy`. The two flags are independent, so all four
+  combinations work.
 
 ## The registry service
 
@@ -543,6 +574,21 @@ key set is pinned by `TestMapChangeRequestDetails_ExposesOnlyTheCustomerFields`,
 to be added there on purpose. The PATCH response is unchanged (id / updatedOn / updatedBy); the webapp re-reads
 the detail after an answer.
 
+**`customerApprovalRequired` / `customerReviewRequired` on the change-request detail.** The two requirement
+boxes (does the change need the customer's approval before it is scheduled / the customer's review before it is
+closed), decoded from entity-service's detail as `*bool` (`entity.ChangeRequest`) and passed on **only with a
+read entity-service computed for a customer on the PostgreSQL data source**, which is the read that carries
+`customerCanAnswer` (`dto.MapChangeRequestDetails`). They are the REQUIREMENT, never the outcome
+(`hasCustomerApproved` / `hasCustomerReviewed`), and the webapp's workflow reads them for one thing: a customer
+step the change passed with no approval on record says "Not required" when its box is false, "No approval
+recorded" when it is true or unknown. Absent means *unknown*, never "not required": on the previous system's data
+source entity-service does not compute the boxes and sends them as `false`, so a plain pass-through would call a
+change "not required" on no evidence
+(`TestMapChangeRequestDetails_PassesTheRequirementBoxesOnlyWithACustomerRead`,
+`TestGetChangeRequest_CarriesTheRequirementBoxesOnlyWithACustomerRead`). The webapp reads the approvals
+(`GET /change-requests/{id}/approvals`, unchanged: internal stages as label + status only) for the rest of its
+evidence; see the customer webapp's README, "Change request workflow: evidence, not position".
+
 **Which change requests a customer sees is entity-service's decision, never this API's.** A customer sees a
 change request once it was *designated* to them (it reached Customer Approval and/or Customer Review and they
 were one of the contacts asked), in every later state (Scheduled,
@@ -588,6 +634,61 @@ validated here.
 
 **When you add a field a customer may set, add it to `ChangeRequestCustomerUpdateRequest` and say
 why here; a field in `ChangeRequestUpdateRequest` is staff-only.**
+
+## The internal-write-group gate: an INTERNAL-type user needs a token-proven group to write here
+
+entity-service grants a caller classified `user_type = INTERNAL` a much broader ("Unrestricted")
+access scope than a genuine customer/partner gets (see that service's own CLAUDE.md,
+`AccessService.ResolveScope`). That matters here specifically because a WSO2-internal person can
+end up `INTERNAL` there for reasons that have nothing to do with the customer portal — e.g. being
+corrected from a misclassified `EXTERNAL` after being granted the entity-service `internal` role so
+they read correctly as an account manager / technical owner elsewhere. Without a separate check,
+becoming `INTERNAL` there would silently also hand that person full write access to every project's
+cases, change requests, deployments, etc. in *this* portal, since `permissionMatrix` already grants
+`RoleInternal` the same CRUD as `RoleAgent`.
+
+**The gate**: an `INTERNAL`-type caller (entity-service's `user_type`) may reach a write path here
+only if their own JWT `groups` claim — the token they authenticated with, not entity-service's
+business roles from `GetMe().Roles` — contains at least one of the names configured in
+`AUTH_INTERNAL_WRITE_GROUPS` (comma-separated, optional — see README.md). Unset/empty means the
+gate is off: every `INTERNAL` caller keeps full write access, same as before this gate existed; set
+it only once the real write-access group is known. A non-`INTERNAL` caller (a genuine
+customer/partner) is never touched by this gate; their write access
+is still decided entirely by `permissionMatrix`. `groups`, not `roles`, is deliberate: this app's
+own OAuth client has never been provisioned to emit a `roles` claim at all — the deprecated v1
+Ballerina backend's own JWT payload type (`modules/authorization/types.bal`) only ever decoded
+`email`/`groups`/`userid`, confirming `groups` is the claim this app's tokens actually carry
+(`middleware.UserInfo.Groups` already existed before this gate, unused until now).
+
+- **`user_type` plumbing**: `entity.GetUserMeResponse.UserType` (`internal/entity/types.go`,
+  `entity.UserTypeInternal = "internal"`) — entity-service's response was previously silently
+  dropping this field.
+- **Backend enforcement**: `middleware.CachedRoleResolver.IsInternalWriteBlocked` (`internal/middleware/rbac.go`)
+  answers the gate from the same cached `GetMe` entry `GetRoles` already populates (one round trip
+  serves both, not two). `RequirePermission`/`RequirePermissionOneOf`/`RequireRoles` apply it via an
+  optional-interface check (`WriteAccessResolver`), so adding it needed **no new parameter on any of
+  the ~40 call sites in `main.go`** — a resolver that doesn't implement it (every existing test fake)
+  is simply never blocked. `RequirePermission`/`RequirePermissionOneOf` only apply the gate to a
+  non-`ActionRead` action; every `RequireRoles` call site is a write route already, so it always
+  applies there. Construct the live resolver with `.WithInternalWriteGroups(groups)` (`main.go`); a
+  resolver built without it (every test) is inert, matching pre-feature behaviour exactly.
+- **Frontend signal**: `GetMe` additionally computes `dto.UserMeResponse.IsReadOnly` (same rule,
+  computed a second time there purely because the handler already has `entity.GetMe`'s result in
+  hand and isn't itself behind this gate — any authenticated caller may always read their own
+  profile). The webapp's `useCustomerPermissions.ts` folds it straight into `can()`: `isReadOnly &&
+  action !== "read"` always denies, so every existing `can("module", "create"/"update"/"delete")`
+  call site is covered with no changes elsewhere. **This is a UI hint, not the security boundary** —
+  the backend gate above is what actually matters; the frontend flag only decides what gets shown.
+
+**Known gap, not covered by this change**: a handful of write-shaped routes are registered as bare
+`mux.HandleFunc` with no `RequirePermission`/`RequirePermissionOneOf`/`RequireRoles` wrapper at all
+today — `POST`/`PATCH /projects/{id}/conversations*`, `PATCH /conversations/{id}`,
+`DELETE /attachments/{id}`, `POST /projects/{projectId}/deployments/{deploymentId}/license`, and
+`POST /deployment-usages`. The gate above only ever fires through those three guard functions, so an
+`INTERNAL` caller with no configured write group can still reach these specific routes. This predates
+the gate (those routes were already open to any authenticated caller of any role) and wasn't widened
+or narrowed by this change — closing it means first deciding what module/action (or a new one) each
+belongs under in `permissionMatrix`, which is a separate decision.
 
 ## Response shaping — the "wrapper" pattern
 
@@ -764,8 +865,23 @@ operations, not things a customer should be able to set on their own case. `dto.
 description, watchList, resolutionCode, cause, closeNotes), and
 `dto.BuildEntityUpdateCaseRequest(id, req)` builds the full entity-service request from it, leaving
 every excluded field zero/nil — so even if a client sends `{"workState": "ongoing"}`, it's silently
-dropped (the portal struct has no such field) rather than forwarded. The same pattern applies to
-`POST /cases/{id}/comments`: entity-service accepts `type: work_note|comment|activity`, but
+dropped (the portal struct has no such field) rather than forwarded.
+
+**`PATCH /cases/{id}`'s `stateKey` carries no transition-legality check in this backend, on
+purpose.** An earlier version of this handler carried its own copy of the legacy ServiceNow
+scoped-app's `ALLOWED_STATE_TRANSITIONS` table (which from→to state moves a customer may make), the
+same way `apps/csm-portal/backend`'s own `state.go` ports the agent-facing
+`SUPERUSER_STATE_TRANSITIONS` table. That copy was removed once entity-service grew its own,
+authoritative enforcement of both legacy tables (see entity-service's own CLAUDE.md, "Case
+state-transition legality") — entity-service now rejects an illegal move with 400 regardless of
+which BFF forwarded the request, so duplicating the table here would only risk drifting out of sync
+with the real rule. `PatchCase` just forwards `stateKey` (translated to entity-service's domain enum
+via `dto.BuildEntityUpdateCaseRequest`) and relays whatever response entity-service gives back,
+including its refusal. If a future endpoint here needs to know a case's own legal next states ahead
+of calling entity-service (e.g. to render which actions a customer may take), read entity-service's
+own `case_state_transitions.go` rather than reintroducing a local copy.
+
+The same pattern applies to `POST /cases/{id}/comments`: entity-service accepts `type: work_note|comment|activity`, but
 `dto.BuildEntityCreateCaseCommentRequest` always forces `type: comment`, regardless of what the
 client sends — a customer should never be able to create an internal work-note or system-activity
 entry. When you add a write endpoint, check the entity-service request struct for fields that read

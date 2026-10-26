@@ -171,6 +171,8 @@ paths:
       summary: Update a project's AI chat assistant settings.
       description: |
         Patches the AI chat assistant (Novera) settings for a project.
+        Requires `projects:update`, which only a customer's own admin
+        (`customer_admin`) holds; WSO2-side roles are refused with 403.
         Exactly one field may be supplied per request; sending both or
         neither is rejected with 400.
       operationId: patchProjectsId
@@ -830,7 +832,11 @@ paths:
         layer. This is a deliberately restricted subset of entity-service's
         update contract — internal WSO2 support fields (severity, subject,
         description, work state, engineer assignment, fix-ETA dates, case
-        relinking, auto-closure control) are not customer-settable.
+        relinking, auto-closure control) are not customer-settable. A
+        stateKey is additionally rejected with 400 if it is not a legal
+        transition from the case's current state for a customer caller (see
+        CLAUDE.md's own state-transition section) — e.g. a customer may not
+        move an open case directly to work_in_progress.
       operationId: patchCasesId
       parameters:
         - name: id
@@ -1384,6 +1390,20 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: caseId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: >
+            Optional hint: the case the caller is viewing this attachment
+            from. Used only as a fallback when the attachment is one pasted
+            inline into a case comment (its own referenceId is then the
+            comment's id, not the case's, so it cannot otherwise be resolved
+            to a case at all). Never a trust boundary by itself -- the caller's
+            access to this case, and that the attachment genuinely belongs to
+            one of its comments, are both independently re-verified.
       responses:
         "200":
           description: Ok
@@ -1437,6 +1457,16 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: caseId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: >
+            Optional hint: the case the caller is viewing this attachment
+            from. See GET /attachments/{id}/content's caseId parameter for why
+            this exists.
       responses:
         "200":
           description: Ok
@@ -3232,7 +3262,13 @@ paths:
       description: >
         Calls the separate product-consumption service, not entity-service —
         see this backend's CLAUDE.md, "The product-consumption service". The
-        request body is a raw zip file, not JSON.
+        request body is a raw zip file, not JSON: a usage report as a WSO2
+        product exports it (one JSON file). The report's
+        export_metadata.deployment_id must be a deployment the caller can see
+        (404 otherwise); the product-consumption service then verifies the
+        report's signature and refuses a report the product marked invalid
+        (400). The result carries importedCount and skippedCount (daily rows
+        the product marked invalid).
       operationId: postDeploymentUsages
       requestBody:
         required: true
@@ -3262,6 +3298,12 @@ paths:
                 $ref: '#/components/schemas/ErrorPayload'
         "403":
           description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+        "404":
+          description: The report's deployment was not found, or is not visible to the caller
           content:
             application/json:
               schema:
@@ -3365,7 +3407,7 @@ paths:
 
   /products/vulnerabilities/meta:
     get:
-      summary: Get product vulnerability metadata (severity reference options).
+      summary: Get product vulnerability metadata (severity, product and version options).
       operationId: getProductsVulnerabilitiesMeta
       responses:
         "200":
@@ -6007,6 +6049,160 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorPayload'
 
+  /pending-verifications:
+    post:
+      summary: Add a work item to a project's Pending Verification list.
+      description: >-
+        Manually flags a closed Case/Engagement/Security Report/Service
+        Request/Announcement/Change Request as needing formal customer
+        sign-off. addedBy is never accepted from the caller — entity-service
+        resolves it from the caller's own authenticated identity.
+      operationId: postPendingVerifications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PendingVerificationCreateRequest'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingVerificationCreateResponse'
+        "400":
+          description: BadRequest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+        "403":
+          description: Forbidden — Pending Verification is not enabled for this project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+        "409":
+          description: Conflict — the case already has an unverified entry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+        "500":
+          description: InternalServerError
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+
+  /pending-verifications/search:
+    post:
+      summary: Search a project's Pending Verification entries.
+      description: >-
+        Newest first. filters.includeVerified adds verified rows alongside
+        unverified ones; filters.verifiedOnly overrides includeVerified
+        entirely and narrows to verified rows only, letting a caller
+        paginate verified and unverified entries independently.
+      operationId: postPendingVerificationsSearch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PendingVerificationSearchRequest'
+      responses:
+        "200":
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingVerificationSearchResponse'
+        "400":
+          description: BadRequest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+        "403":
+          description: Forbidden — Pending Verification is not enabled for this project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+        "500":
+          description: InternalServerError
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+
+  /pending-verifications/{id}:
+    patch:
+      summary: Mark a Pending Verification entry verified.
+      description: >-
+        Not idempotent — verifying an already-verified entry, or an unknown
+        id, is a 404. Takes no request body. verifiedBy is never accepted
+        from the caller — entity-service resolves it from the caller's own
+        authenticated identity.
+      operationId: patchPendingVerificationsId
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingVerificationVerifyResponse'
+        "400":
+          description: BadRequest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+        "403":
+          description: Forbidden — Pending Verification is not enabled for this project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+        "404":
+          description: NotFound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+        "500":
+          description: InternalServerError
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -6078,6 +6274,175 @@ components:
         number:
           type: string
 
+    # ---- pending verifications ----
+
+    PendingVerificationView:
+      type: object
+      description: >-
+        A single entry in a project's Pending Verification list. caseId is
+        the record's human-readable number (e.g. "CS0441731"), for display
+        only, even for a non-Case record type — workItemId is the actual
+        work_item UUID, for navigating back into the record's own detail
+        page.
+      properties:
+        id:
+          type: string
+          format: uuid
+        workItemId:
+          type: string
+          format: uuid
+        caseId:
+          type: string
+        caseTitle:
+          type: string
+        severity:
+          type: string
+          description: >-
+            Lowercase domain severity (e.g. "critical") — only ever set for
+            Case-like record types.
+        recordType:
+          type: string
+          enum: [Case, Engagement, Security Report, Service Request, Announcement, Change Request]
+        addedReason:
+          type: string
+          enum: [auto-closed, manual]
+        previousStatus:
+          type: string
+          enum: [Solution Proposed, Awaiting Info]
+          description: Set iff addedReason is auto-closed.
+        addedAt:
+          type: string
+          format: date-time
+        addedBy:
+          type: string
+          description: Email, resolved server-side — never caller-supplied.
+        verifiedAt:
+          type: string
+          format: date-time
+        verifiedBy:
+          type: string
+          description: Email, resolved server-side — never caller-supplied.
+        note:
+          type: string
+
+    PendingVerificationCreateRequest:
+      type: object
+      required: [workItemId, addedReason]
+      properties:
+        workItemId:
+          type: string
+          format: uuid
+        addedReason:
+          type: string
+          enum: [auto-closed, manual]
+        previousStatus:
+          type: string
+          enum: [Solution Proposed, Awaiting Info]
+          description: Required iff addedReason is auto-closed, must be omitted when manual.
+        note:
+          type: string
+
+    PendingVerificationCreateResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        pendingVerification:
+          $ref: '#/components/schemas/PendingVerificationView'
+
+    PendingVerificationVerifyResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        pendingVerification:
+          $ref: '#/components/schemas/PendingVerificationView'
+
+    PendingVerificationSearchFilters:
+      type: object
+      properties:
+        workItemId:
+          type: string
+          format: uuid
+          description: Narrows to a single record's own entries.
+        recordTypes:
+          type: array
+          items:
+            type: string
+            enum: [Case, Engagement, Security Report, Service Request, Announcement, Change Request]
+        addedReason:
+          type: string
+          enum: [auto-closed, manual]
+          description: >-
+            Narrows to entries added for this one reason — backs the Support
+            page's Auto-closed/Manual stat boxes, which link into a
+            pre-filtered view of the list rather than landing on the
+            unfiltered tab.
+        searchQuery:
+          type: string
+        includeVerified:
+          type: boolean
+          description: >-
+            false (default): unverified only. true: adds verified rows
+            alongside unverified ones — there is no way to ask for verified
+            only via this field; use verifiedOnly instead.
+        verifiedOnly:
+          type: boolean
+          description: >-
+            Overrides includeVerified entirely — narrows to verified rows
+            only, deduped to the single most-recently-verified row per work
+            item. Lets the list page paginate verified and unverified
+            entries independently, showing one card per case rather than
+            one per historical verification round. A work item's full
+            multi-round history is still available, undeduped, via
+            includeVerified=true.
+
+    PendingVerificationSearchRequest:
+      type: object
+      required: [projectId]
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        filters:
+          $ref: '#/components/schemas/PendingVerificationSearchFilters'
+
+    PendingVerificationTypeCountView:
+      type: object
+      properties:
+        recordType:
+          type: string
+        count:
+          type: integer
+
+    PendingVerificationSearchResponse:
+      type: object
+      properties:
+        pendingVerifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/PendingVerificationView'
+        totalRecords:
+          type: integer
+          description: Computed against the current filters (not a global count).
+        autoClosedCount:
+          type: integer
+        manualCount:
+          type: integer
+        typeCounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/PendingVerificationTypeCountView'
+          description: Computed against every filter except recordTypes itself.
+        limit:
+          type: integer
+        offset:
+          type: integer
+        hasMore:
+          type: boolean
+
     # ---- users ----
 
     UserMeResponse:
@@ -6101,6 +6466,17 @@ components:
           type: string
         lastPasswordUpdateTime:
           type: string
+        isReadOnly:
+          type: boolean
+          description: >-
+            True only for an INTERNAL-type user (entity-service's own
+            user_type) who holds none of this deployment's configured
+            AUTH_INTERNAL_WRITE_GROUPS on their own token. Always false for a
+            genuine customer/partner, and always false for every caller when
+            AUTH_INTERNAL_WRITE_GROUPS is unset (the gate is off by default).
+            The webapp hides write-path UI when this is true; the backend
+            also enforces it on every write route independently, so this is
+            a UI hint, not the security boundary.
 
     UserUpdateRequest:
       type: object
@@ -6217,8 +6593,9 @@ components:
     ProjectUpdateRequest:
       type: object
       description: |
-        AI chat assistant settings. Exactly one property may be present per
-        request — the upstream rejects anything else.
+        AI chat assistant settings, or the Pending Verification feature
+        toggle. Exactly one property may be present per request — the
+        upstream rejects anything else.
       properties:
         hasAgent:
           type: boolean
@@ -6226,10 +6603,14 @@ components:
         hasKbReferences:
           type: boolean
           description: Whether the assistant cites knowledge-base articles.
+        verificationEnabled:
+          type: boolean
+          description: Whether the Pending Verification feature is enabled for the project.
       additionalProperties: false
       oneOf:
         - required: [hasAgent]
         - required: [hasKbReferences]
+        - required: [verificationEnabled]
     UpdatedProject:
       type: object
       description: The project as it stands after the patch.
@@ -6243,6 +6624,8 @@ components:
         hasAgent:
           type: boolean
         hasKbReferences:
+          type: boolean
+        verificationEnabled:
           type: boolean
     ProjectDetails:
       type: object
@@ -6306,6 +6689,9 @@ components:
           type: string
         closureState:
           type: string
+        verificationEnabled:
+          type: boolean
+          description: Whether the Pending Verification feature is enabled for the project.
 
     # ---- cases ----
 
@@ -7360,6 +7746,17 @@ components:
               type: string
             productVersion:
               type: string
+            cveId:
+              type: string
+              maxLength: 100
+              description: >-
+                Exact CVE identifier match (not a substring match, no
+                wildcards). Case-insensitive and ignores surrounding
+                whitespace. A blank value is treated as not provided.
+                Combined with any other filter using AND. Not supported by
+                every backing data source: where it is not supported the
+                request is rejected with a validation error instead of being
+                silently ignored.
         pagination:
           $ref: '#/components/schemas/Pagination'
 
@@ -8073,6 +8470,26 @@ components:
                 passed on). A held change refuses a proposed implementation time,
                 so the portal does not offer one; an answer is still accepted.
                 ABSENT when entity-service did not say, which is not "not held".
+            customerApprovalRequired:
+              type: boolean
+              description: >-
+                Whether the change request needs the customer's approval before
+                it is scheduled: the REQUIREMENT box, never the outcome
+                (hasCustomerApproved records that). The portal's workflow reads
+                it only to say "Not required" of a Customer Approval step the
+                change passed with no approval on record. Present only with a
+                read entity-service computed for a customer on the PostgreSQL
+                data source (the read that carries customerCanAnswer); ABSENT
+                otherwise, which means "unknown", never "not required": the
+                previous system's data source reports the box as false without
+                computing it.
+            customerReviewRequired:
+              type: boolean
+              description: >-
+                Whether the change request needs the customer's review before it
+                is closed: the REQUIREMENT box, never the outcome
+                (hasCustomerReviewed records that). Present and absent exactly
+                as customerApprovalRequired is.
             customerProposal:
               $ref: '#/components/schemas/ChangeRequestCustomerProposal'
             approvedBy:
@@ -9175,6 +9592,39 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ReferenceItem'
+        products:
+          type: array
+          description: >-
+            Distinct product names with the distinct versions found for each,
+            sorted ascending. Every option matches rows when passed back as the
+            exact-match productName/productVersion search filter. versions can
+            be empty.
+          items:
+            $ref: '#/components/schemas/VulnerabilityProductOption'
+      example:
+        severities:
+          - id: "4"
+            label: Critical
+          - id: "3"
+            label: High
+        products:
+          - name: wso2am
+            versions: ["4.10.0", "4.7.0"]
+          - name: wso2update_tool
+            versions: []
+
+    VulnerabilityProductOption:
+      type: object
+      required: [name, versions]
+      properties:
+        name:
+          type: string
+          description: Distinct product name.
+        versions:
+          type: array
+          description: Distinct versions found for this product, sorted ascending.
+          items:
+            type: string
 
     # ---- conversations (GET/PATCH by id, create) ----
 

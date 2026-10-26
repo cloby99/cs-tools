@@ -2935,7 +2935,7 @@ func TestSNCaseService_PatchCaseFields_NoGetCaseByIDOrEventPublish(t *testing.T)
 			publisher := &mockEventPublisher{}
 			svc := NewServiceNowCaseService(client, nil, publisher, nil, nil, "", nil).(*snCaseService)
 
-			result, err := svc.patchCaseFields(contextWithUserIDToken("token"), testDeploymentUUID, tt.state, tt.severity, tt.workState, nil, nil)
+			result, err := svc.patchCaseFields(contextWithUserIDToken("token"), testDeploymentUUID, tt.state, tt.severity, tt.workState, nil, nil, false)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -2958,6 +2958,60 @@ func TestSNCaseService_PatchCaseFields_NoGetCaseByIDOrEventPublish(t *testing.T)
 				t.Errorf("expected 0 publish calls, got %d", len(publisher.calls))
 			}
 		})
+	}
+}
+
+// TestSNCaseService_PatchCaseFields_AsSystemUserOmitsUserIDToken is the
+// regression guard for the production incident on case CS0378899:
+// ServiceNow's scripted API rejected resolutionCode/cause/closeNotes
+// outright when a mirror PATCH forwarded the acting caller's own
+// x-user-id-token ("resolutionCode, cause, and closeNotes cannot be
+// provided by this user"). This exercises patchCaseFields itself, at the
+// level below UpdateCase's own defaulting decision (which, as of
+// 2026-10-13, no longer defaults these fields for an external caller at
+// all -- see UpdateCase's own doc comment): whatever resolution values a
+// caller does end up supplying, asSystemUser=true must omit
+// x-user-id-token from the outgoing request entirely -- the same "no user
+// token" shape SNGithubCases already uses for its own M2M writes -- while
+// still sending every field asked for (nothing is silently dropped, only
+// the acting identity changes).
+func TestSNCaseService_PatchCaseFields_AsSystemUserOmitsUserIDToken(t *testing.T) {
+	state := domain.CaseStateClosed
+	code := domain.CaseResolutionCodeSolvedByCustomer
+	cause := domain.CaseCauseUnknown
+	notes := "Closed by the customer."
+	resolution := &caseResolutionFields{Code: &code, Cause: &cause, CloseNotes: &notes}
+
+	var gotUserIDTokenHeader string
+	var gotHeaderPresent bool
+	var gotBody map[string]any
+	client := newTestCaseClient(t, func(w http.ResponseWriter, r *http.Request) {
+		gotUserIDTokenHeader, gotHeaderPresent = r.Header.Get("x-user-id-token"), r.Header.Get("x-user-id-token") != ""
+		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+			t.Fatalf("decode request body: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"message": "Case updated successfully.",
+			"case": {"id": "` + testWLCaseSysid + `", "updatedOn": "2026-01-02 10:00:00", "updatedBy": "system@example.com"}
+		}`))
+	})
+	svc := NewServiceNowCaseService(client, nil, &mockEventPublisher{}, nil, nil, "", nil).(*snCaseService)
+
+	if _, err := svc.patchCaseFields(contextWithUserIDToken("customers-own-token"), testDeploymentUUID, &state, nil, nil, nil, resolution, true); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotHeaderPresent {
+		t.Errorf("x-user-id-token header = %q, want it omitted entirely when asSystemUser=true", gotUserIDTokenHeader)
+	}
+	if _, ok := gotBody["resolutionCode"]; !ok {
+		t.Errorf("resolutionCode missing from payload: %+v", gotBody)
+	}
+	if _, ok := gotBody["cause"]; !ok {
+		t.Errorf("cause missing from payload: %+v", gotBody)
+	}
+	if gotBody["closeNotes"] != notes {
+		t.Errorf("closeNotes = %v, want %q", gotBody["closeNotes"], notes)
 	}
 }
 
@@ -3138,5 +3192,69 @@ func TestSNCaseService_PatchCaseFieldsBundle_NoOpWhenNoSupportedFieldSet(t *test
 	}
 	if requestCount != 0 {
 		t.Fatalf("expected 0 HTTP requests for a no-op bundle, got %d", requestCount)
+	}
+}
+
+// TestSNCaseService_UpdateCase_ShareFixEta_PublicTicket verifies publicTicket
+// is optional when sharing a fix ETA: missing/blank values are forwarded as
+// "N/A", a real value is forwarded trimmed, and product stays required.
+func TestSNCaseService_UpdateCase_ShareFixEta_PublicTicket(t *testing.T) {
+	blank := ""
+	spaces := "   "
+	padded := "  https://example.com/org/repo/issues/1  "
+	tests := []struct {
+		name   string
+		ticket *string
+		want   string
+	}{
+		{name: "nil publicTicket forwards N/A", ticket: nil, want: "N/A"},
+		{name: "empty publicTicket forwards N/A", ticket: &blank, want: "N/A"},
+		{name: "whitespace-only publicTicket forwards N/A", ticket: &spaces, want: "N/A"},
+		{name: "real publicTicket forwarded trimmed", ticket: &padded, want: "https://example.com/org/repo/issues/1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotBody map[string]any
+			client := newTestCaseClient(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPatch {
+					if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+						t.Fatalf("decode request body: %v", err)
+					}
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{
+					"message": "Case updated successfully.",
+					"case": {"id": "` + testWLCaseSysid + `", "updatedOn": "2026-01-02 10:00:00", "updatedBy": "engineer@example.com"}
+				}`))
+			})
+			svc := NewServiceNowCaseService(client, nil, nil, nil, nil, "", nil)
+			add := true
+			eta := "2026-02-01"
+			product := "Example Product"
+			_, err := svc.UpdateCase(contextWithUserIDToken("token"), domain.UpdateCaseRequest{
+				ID: testDeploymentUUID, AddPublicComment: &add, MostLikelyFixEta: &eta,
+				Product: &product, PublicTicket: tt.ticket,
+			})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got := gotBody["publicTicket"]; got != tt.want {
+				t.Fatalf("publicTicket = %v, want %q (body: %+v)", got, tt.want, gotBody)
+			}
+		})
+	}
+}
+
+// TestSNCaseService_UpdateCase_ShareFixEta_ProductStillRequired verifies the
+// product requirement is unchanged by making publicTicket optional.
+func TestSNCaseService_UpdateCase_ShareFixEta_ProductStillRequired(t *testing.T) {
+	svc := NewServiceNowCaseService(nil, nil, nil, nil, nil, "", nil)
+	add := true
+	eta := "2026-02-01"
+	_, err := svc.UpdateCase(contextWithUserIDToken("token"), domain.UpdateCaseRequest{
+		ID: testDeploymentUUID, AddPublicComment: &add, MostLikelyFixEta: &eta,
+	})
+	if _, ok := err.(*apierror.ValidationError); !ok {
+		t.Fatalf("expected *apierror.ValidationError, got %T: %v", err, err)
 	}
 }

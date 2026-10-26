@@ -16,6 +16,7 @@
 package service
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/wso2-open-operations/cs-tools/entity-service/internal/repository"
@@ -63,6 +64,67 @@ func TestAccountRowToView_PopulatesCreAndSreTeam(t *testing.T) {
 	}
 	if detail.SreTeam == nil || detail.SreTeam.ID != "sre-id" {
 		t.Fatalf("detail.SreTeam = %+v, want ID sre-id", detail.SreTeam)
+	}
+}
+
+// TestAccountRowToView_PopulatesSubRegion pins a real bug: SearchAccounts
+// never selected account.sub_region at all, so a caller filtering accounts
+// by sub-region (a finer geography than Region, e.g. "ASIA"/"NA - WEST"
+// under Region "APAC"/"NA") had no field to filter on and silently matched
+// nothing.
+func TestAccountRowToView_PopulatesSubRegion(t *testing.T) {
+	row := repository.AccountRow{
+		ID:        "account-id",
+		Name:      "Acme",
+		Region:    strPtr("APAC"),
+		SubRegion: strPtr("ASIA"),
+		CreatedBy: "someone@wso2.com",
+	}
+	view := accountRowToView(row)
+	if view.SubRegion == nil || *view.SubRegion != "ASIA" {
+		t.Fatalf("view.SubRegion = %v, want \"ASIA\"", view.SubRegion)
+	}
+}
+
+// TestAccountRowToViewAndDetail_CarryCountry pins that account.country reaches
+// the wire as a top-level `country` string on both the search view and the
+// detail response, and as an explicit null when the account has none. The CSM
+// portal shows it beside Region on the account detail page.
+func TestAccountRowToViewAndDetail_CarryCountry(t *testing.T) {
+	withCountry := repository.AccountRow{
+		ID: "account-id", Name: "Acme", Country: strPtr("Sri Lanka"), CreatedBy: "someone@wso2.com",
+	}
+	withoutCountry := repository.AccountRow{ID: "account-id", Name: "Acme", CreatedBy: "someone@wso2.com"}
+
+	for name, build := range map[string]func(repository.AccountRow) any{
+		"view":   func(r repository.AccountRow) any { return accountRowToView(r) },
+		"detail": func(r repository.AccountRow) any { return accountRowToDetail(r) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			for label, tc := range map[string]struct {
+				row  repository.AccountRow
+				want any
+			}{
+				"set":   {withCountry, "Sri Lanka"},
+				"unset": {withoutCountry, nil},
+			} {
+				raw, err := json.Marshal(build(tc.row))
+				if err != nil {
+					t.Fatalf("%s/%s: marshal: %v", name, label, err)
+				}
+				var body map[string]any
+				if err := json.Unmarshal(raw, &body); err != nil {
+					t.Fatalf("%s/%s: unmarshal: %v", name, label, err)
+				}
+				got, present := body["country"]
+				if !present {
+					t.Fatalf("%s/%s: response has no top-level \"country\" key: %s", name, label, raw)
+				}
+				if got != tc.want {
+					t.Fatalf("%s/%s: country = %v, want %v", name, label, got, tc.want)
+				}
+			}
+		})
 	}
 }
 

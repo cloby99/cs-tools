@@ -24,6 +24,7 @@ import (
 	"html"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -86,6 +87,11 @@ type incidentReportService struct {
 type specialOpsAlerts struct {
 	publisher EventPublisherService
 	teams     *SpecialistHandoffConfig
+	// groups resolves teams configured without a groupId
+	// (WithSpecialOpsAlertTeamGroups); nil leaves them unmatched.
+	groups repository.SpecialistHandoffGroupRepository
+	// mu guards teams, which resolving writes in place.
+	mu sync.Mutex
 }
 
 // WithSpecialOpsAlerts makes the drainer publish incident.special_ops_alert
@@ -95,6 +101,21 @@ type specialOpsAlerts struct {
 func WithSpecialOpsAlerts(svc IncidentReportService, publisher EventPublisherService, teams *SpecialistHandoffConfig) IncidentReportService {
 	if r, ok := svc.(*incidentReportService); ok && publisher != nil && teams != nil && len(teams.Products) > 0 {
 		r.specialOps = &specialOpsAlerts{publisher: publisher, teams: teams}
+	}
+	return svc
+}
+
+// WithSpecialOpsAlertTeamGroups lets the alert match a team configured
+// without a groupId (a Team Schedule team) by resolving its group on demand:
+// whenever a group change matches no team while such a team is unresolved,
+// the alert resolves them before deciding, and a failed lookup is returned so
+// the change is retried. The router resolves its own copy of the
+// configuration at startup; this keeps the alert from missing a handoff that
+// copy took, however its own startup went. Without WithSpecialOpsAlerts it is
+// left unchanged.
+func WithSpecialOpsAlertTeamGroups(svc IncidentReportService, groups repository.SpecialistHandoffGroupRepository) IncidentReportService {
+	if r, ok := svc.(*incidentReportService); ok && r.specialOps != nil {
+		r.specialOps.groups = groups
 	}
 	return svc
 }
@@ -185,8 +206,11 @@ func (a *specialOpsAlerts) alert(ctx context.Context, tx repository.IncidentRepo
 	if a == nil {
 		return nil
 	}
-	product, team := a.teams.teamForGroup(group)
-	if team == nil {
+	product, teams, err := a.teamsFor(ctx, group)
+	if err != nil {
+		return err
+	}
+	if len(teams) == 0 {
 		return nil
 	}
 	previous, _ := c.Changes["assignment_group_id"]["from"].(string)
@@ -197,13 +221,18 @@ func (a *specialOpsAlerts) alert(ctx context.Context, tx repository.IncidentRepo
 	if err != nil {
 		return err
 	}
+	team := pickedTeam(teams, src.HandoffNote)
+	if len(teams) > 1 && team == teams[0] && handoffNoteTeam(src.HandoffNote) != team.Key {
+		slog.WarnContext(ctx, "specialops: several Special Ops teams share this group and the handoff note names none of them; alerting the first",
+			"incidentId", c.IncidentID, "group", group, "team", team.Key)
+	}
 	changedBy, _ := c.Snapshot["updated_by"].(string)
 	raw, err := json.Marshal(events.IncidentSpecialOpsAlertPayload{
 		IncidentID: c.IncidentID, Number: src.Number, Subject: src.Subject,
 		Description: strOrEmpty(src.Description), State: strOrEmpty(src.State), Priority: strOrEmpty(src.Priority),
 		Impact: strOrEmpty(src.Impact), Urgency: strOrEmpty(src.Urgency),
 		ServiceID: strOrEmpty(src.ServiceID), ServiceName: strOrEmpty(src.ServiceName),
-		Product: product.Name, TeamKey: team.Key, TeamLabel: team.Label,
+		Product: product.Name, TeamKey: team.Key, TeamLabel: team.Label, SMETeam: team.SMETeam,
 		AssignmentGroupID: group, AssignmentGroupName: strOrEmpty(src.GroupName),
 		PreviousAssignmentGroupID: previous, PreviousAssignmentGroupName: strOrEmpty(src.PreviousGroupName),
 		ChangedBy: changedBy, ChangedOn: c.OccurredOn.UTC().Format(time.RFC3339),
@@ -217,6 +246,53 @@ func (a *specialOpsAlerts) alert(ctx context.Context, tx repository.IncidentRepo
 	slog.InfoContext(ctx, "specialops: published incident.special_ops_alert",
 		"incidentId", c.IncidentID, "number", src.Number, "team", team.Key)
 	return nil
+}
+
+// teamsFor is teamsForGroup, resolving the teams configured without a
+// groupId first when group matches none and any of them is unresolved.
+func (a *specialOpsAlerts) teamsFor(ctx context.Context, group string) (*SpecialistHandoffProduct, []*SpecialistHandoffConfigTeam, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	product, teams := a.teams.teamsForGroup(group)
+	if len(teams) > 0 || a.groups == nil || !a.teams.hasUnresolvedTeams() {
+		return product, teams, nil
+	}
+	if _, err := a.teams.ResolveTeamGroups(ctx, a.groups); err != nil {
+		return nil, nil, fmt.Errorf("special ops alert: resolve the Team Schedule teams' groups: %w", err)
+	}
+	product, teams = a.teams.teamsForGroup(group)
+	return product, teams, nil
+}
+
+// pickedTeam is the team the alert is for: the only team on the group, or,
+// when several share it, the one the handoff's reason note names (the team
+// picked in the dialog). With no note naming one of them, the first.
+func pickedTeam(teams []*SpecialistHandoffConfigTeam, note *string) *SpecialistHandoffConfigTeam {
+	if len(teams) > 1 {
+		if key := handoffNoteTeam(note); key != "" {
+			for _, t := range teams {
+				if t.Key == key {
+					return t
+				}
+			}
+		}
+	}
+	return teams[0]
+}
+
+// handoffNoteTeam is the escalationTeam a handoff reason note names, "" when
+// there is no note, it is not the handoff's JSON or it names no team.
+func handoffNoteTeam(note *string) string {
+	if note == nil {
+		return ""
+	}
+	var blob struct {
+		EscalationTeam *string `json:"escalationTeam"`
+	}
+	if json.Unmarshal([]byte(*note), &blob) != nil || blob.EscalationTeam == nil {
+		return ""
+	}
+	return strings.TrimSpace(*blob.EscalationTeam)
 }
 
 // reportTaskFor is the Create Record step of "Create Incident Report Task".

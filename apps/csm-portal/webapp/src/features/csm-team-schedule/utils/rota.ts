@@ -42,14 +42,17 @@ const LOCAL_ZONE_NAMES: Record<string, string> = {
   "Asia/Colombo": "IST",
   "Asia/Kolkata": "IST",
   "America/Sao_Paulo": "BRT",
+  // Americas regular hours: 08:00-18:00 on a fixed UTC-7 clock, the PDT offset
+  // kept all year (Intl would print "GMT-7").
+  "Etc/GMT+7": "PDT",
 };
 
-export function zoneAbbreviation(tz: string): string {
+export function zoneAbbreviation(tz: string, at: Date = new Date()): string {
   const known = LOCAL_ZONE_NAMES[tz];
   if (known) return known;
   try {
     const name = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "short" })
-      .formatToParts(new Date())
+      .formatToParts(at)
       .find((p) => p.type === "timeZoneName")?.value;
     return name ?? tz;
   } catch {
@@ -84,6 +87,53 @@ export function partsInZone(iso: string, tz: string): { date: string; minutes: n
     date: `${p.year}-${p.month}-${p.day}`,
     // Intl renders midnight as 24 in some locales; fold it back to 0.
     minutes: (Number(p.hour) % 24) * 60 + Number(p.minute),
+  };
+}
+
+/** Minutes a zone's clock is ahead of UTC at an instant (IST +330, PDT -420). */
+export function utcOffsetMinutes(tz: string, at: Date): number {
+  const local = partsInZone(at.toISOString(), tz);
+  const [y, m, d] = local.date.split("-").map(Number);
+  const wall = Date.UTC(y, m - 1, d, 0, local.minutes);
+  const utc = Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate(), at.getUTCHours(), at.getUTCMinutes());
+  return Math.round((wall - utc) / 60_000);
+}
+
+/** The clocks Today can always be read on: the Sri Lankan day's and the
+ *  Americas day's. Americas regular hours are 08:00-18:00 on this PDT clock,
+ *  all year. */
+export const TODAY_FIXED_CLOCKS: readonly { value: string; label: string }[] = [
+  { value: "Asia/Colombo", label: "IST" },
+  { value: "Etc/GMT+7", label: "PDT" },
+];
+
+/**
+ * Today's clock picker, and the clock it opens on, for a reader whose CSM
+ * profile names a time zone.
+ *
+ * A profile zone on the same clock as IST or PDT right now (Asia/Kolkata;
+ * America/Los_Angeles while the US is on summer time) opens on that option,
+ * rather than adding a second entry that reads the same. Any other zone, or a
+ * Pacific one once the US is on winter time (PST), keeps its real local clock
+ * as an option of its own, first and selected.
+ */
+export function todayClockOptions(
+  profileTz: string,
+  at: Date,
+): { options: readonly { value: string; label: string }[]; initial: string } {
+  let offset: number | undefined;
+  try {
+    offset = utcOffsetMinutes(profileTz, at);
+  } catch {
+    offset = undefined;
+  }
+  const same = TODAY_FIXED_CLOCKS.find(
+    (o) => o.value === profileTz || (offset !== undefined && utcOffsetMinutes(o.value, at) === offset),
+  );
+  if (same) return { options: TODAY_FIXED_CLOCKS, initial: same.value };
+  return {
+    options: [{ value: profileTz, label: `${zoneAbbreviation(profileTz, at)} (your profile)` }, ...TODAY_FIXED_CLOCKS],
+    initial: profileTz,
   };
 }
 
@@ -444,6 +494,51 @@ export function zoneColumnOf(zoneCode: string): string {
   return zoneDisplayName(zoneCode);
 }
 
+/**
+ * Whether a family's views are narrowed to one rota at a time. SRE is, once it
+ * runs more than one: SaaS works TZ1-TZ3 and IaaS a Day and a Night, and a
+ * grid drawn for both would give each the other's columns. SME never is:
+ * every SME rotation is a Day and a Night, so they all share one grid (see
+ * zoneColumnOf), and narrowing it to the first rotation left every other SME
+ * team's people on the roster with none of their rota.
+ */
+export function narrowsToOneRota(family: RotaFamily, rotaCount: number): boolean {
+  return rotaCount > 1 && family !== "SME";
+}
+
+/**
+ * The rotas of a narrowed family (see narrowsToOneRota) a reader is shown.
+ *
+ * My week, This week and the roster are planning views of the reader's own
+ * rota: a SaaS engineer plans with Apollo, Artemis and the TZ3 night crew, and
+ * has no use for IaaS's Day and Night beside them, nor an IaaS engineer for
+ * SaaS's. So on those views a reader gets their own rota, and any rota they
+ * edit -- a lead, a rota marker, an SRE rota admin across both.
+ *
+ * Not a permission: Today and Case Paging still show every rota, because who
+ * is covering right now is everybody's question, and the server answers reads
+ * the same as before. A reader who may cross groups (a manager, Today, This
+ * week opened from Case Paging) gets every rota.
+ *
+ * A reader whose team runs no rota yet (PaaS) is shown none, rather than
+ * another sub-team's. One the page cannot place at all -- no team on their
+ * profile and nothing they edit -- keeps every rota, as before, rather than
+ * being locked into one that may not be theirs.
+ */
+export function rotasForReader(reader: {
+  familyRotas: readonly string[];
+  crosses: boolean;
+  ownRota?: string;
+  ownTeamKnown: boolean;
+  editRotas: readonly string[];
+}): string[] {
+  const { familyRotas, crosses, ownRota, ownTeamKnown, editRotas } = reader;
+  if (crosses) return [...familyRotas];
+  const theirs = familyRotas.filter((code) => code === ownRota || editRotas.includes(code));
+  if (theirs.length > 0) return theirs;
+  return ownTeamKnown ? [] : [...familyRotas];
+}
+
 
 /** The kinds a lead may mark somebody away for on one rota: leave, and the
  *  time allocations that rota uses.
@@ -453,6 +548,11 @@ export function zoneColumnOf(zoneCode: string): string {
  *  kind of leave, Allo-INT, Allo-EXT, the Brazil rotation). EXCLUDED, off
  *  the rota entirely, is not a lead's to set from a cell, and a retired kind
  *  is served only so the days already marked with it keep their label. */
+/** The half-day leave kinds (0234): still a day off the rota, but which
+ *  half is shown -- beside the name on the Day view's Leave card, and always
+ *  in the roster's legend. */
+export const HALF_DAY_LEAVE_CODES: ReadonlySet<string> = new Set(["HALF_DAY_LEAVE_MORNING", "HALF_DAY_LEAVE_EVENING"]);
+
 export function kindsOfferedOn(
   kinds: readonly ScheduleAbsenceKind[],
   family: RotaFamily,
@@ -588,4 +688,23 @@ function familyOfType(type: string): RotaFamily {
   if (t.startsWith("SRE")) return "SRE";
   if (t.startsWith("SME")) return "SME";
   return "CRE";
+}
+
+/**
+ * The groups (CRE, SRE, SME) a reader runs teams in -- as a lead, or as a rota
+ * admin of that group -- in the catalogue's order. Somebody who runs teams in
+ * more than one group plans more than one rota, so every view offers them the
+ * group switch, as it does a manager. Keys the catalogue does not list count
+ * for nothing.
+ */
+export function familiesRun(
+  teams: readonly { key: string; family: RotaFamily }[],
+  runs: readonly string[],
+): RotaFamily[] {
+  const mine = new Set(runs.map((k) => k.toLowerCase()));
+  const out: RotaFamily[] = [];
+  for (const t of teams) {
+    if (mine.has(t.key.toLowerCase()) && !out.includes(t.family)) out.push(t.family);
+  }
+  return out;
 }

@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { BeWidgetResourceType } from "@api/backend/types";
+import type { BeDashboardDistinctByConfig, BeWidgetResourceType } from "@api/backend/types";
 import { useCurrentUser } from "@context/current-user/CurrentUserContext";
 import { useWidgetData } from "@features/csm-dashboard/api/useWidgetData";
 import { WIDGET_RESOURCE_CONFIG } from "@features/csm-dashboard/config/widgetResourceConfig";
@@ -32,6 +32,8 @@ export interface WallboardTileDataInput {
   displayName: string;
   resourceType: BeWidgetResourceType;
   filters: Record<string, unknown>;
+  /** See `UseWidgetDataOptions.distinctBy`. */
+  distinctBy?: BeDashboardDistinctByConfig;
   selectedTeamCreGroupId?: string | string[];
   selectedTeamSreGroupId?: string | string[];
   selectedTeamLabel?: string;
@@ -77,6 +79,7 @@ export function useWallboardTileData({
   displayName,
   resourceType,
   filters,
+  distinctBy,
   selectedTeamCreGroupId,
   selectedTeamSreGroupId,
   selectedTeamLabel,
@@ -91,6 +94,7 @@ export function useWallboardTileData({
     resourceType,
     filters,
     shape: "count",
+    distinctBy,
     enabled: !awaitingCurrentUser,
     selectedTeamCreGroupId,
     selectedTeamSreGroupId,
@@ -105,7 +109,12 @@ export function useWallboardTileData({
     ),
     currentUserId,
   );
-  const href = config ? config.buildHref(resolvedFilters) : undefined;
+  const resolvedDisplayName = resolveWidgetText(displayName, selectedTeamLabel) ?? displayName;
+  // The widget's own id and name, so a tile whose filters its list page cannot
+  // hold can still link to the preview page that applies all of them.
+  const href = config
+    ? config.buildHref(resolvedFilters, { widgetId, displayName: resolvedDisplayName })
+    : undefined;
 
   const state: WallboardTileState =
     isLoading || awaitingCurrentUser ? "loading" : isError && !data ? "error" : "value";
@@ -121,7 +130,7 @@ export function useWallboardTileData({
 
   return {
     total: data?.total ?? 0,
-    resolvedDisplayName: resolveWidgetText(displayName, selectedTeamLabel) ?? displayName,
+    resolvedDisplayName,
     state,
     linkHref: linkable ? href : undefined,
   };

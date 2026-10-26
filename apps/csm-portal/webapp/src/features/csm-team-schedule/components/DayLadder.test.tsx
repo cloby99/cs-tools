@@ -221,6 +221,37 @@ describe("DayLadder: cards that share their hours", () => {
 });
 
 describe("DayLadder: who is not on the rota", () => {
+  it("keeps somebody on half-day leave in the Leave card, flagged with their half", () => {
+    const HD_AM = {
+      ...ANNUAL_LEAVE, id: "k-hdam", code: "HALF_DAY_LEAVE_MORNING", shortCode: "HD-AM",
+      label: "Half day leave — morning", colourToken: "HDM", sortOrder: 11,
+    };
+    const { container } = render(
+      <DayLadder
+        day={WEDNESDAY}
+        tz={TZ}
+        zoneLabel="IST"
+        lanes={[lane([nineToFive("Asela", REGULAR.code)])]}
+        shifts={SHIFTS}
+        zones={ZONES}
+        absences={[
+          absence({ name: "Nuwan", startsOn: ISO, endsOn: ISO }),
+          absence({ name: "Hiru", startsOn: ISO, endsOn: ISO, kindCode: HD_AM.code }),
+        ]}
+        absenceKinds={[ANNUAL_LEAVE, HD_AM]}
+        {...scopeControls()}
+      />,
+    );
+    const cards = [...container.querySelectorAll(".offcard")];
+    expect(cards).toHaveLength(1);
+    expect(cards[0].querySelector(".offh b")).toHaveTextContent("2");
+    const person = (name: string) =>
+      [...cards[0].querySelectorAll(".lnm")].find((n) => n.querySelector(".who")?.textContent === name);
+    expect(person("Hiru")?.querySelector(".hdflag")).toHaveTextContent("HD-AM");
+    // Whole-day leave still does not name its kind.
+    expect(person("Nuwan")?.querySelector(".hdflag")).toBeNull();
+  });
+
   it("lists leave ahead of the allocations", () => {
     renderLadder(
       [nineToFive("Asela", REGULAR.code)],
@@ -341,6 +372,48 @@ describe("DayLadder: TZ3 is one card", () => {
   });
 });
 
+describe("DayLadder: others in a zone, by team", () => {
+  const day = (name: string, teamKey: string) =>
+    assignment({ name, rotaDate: ISO, shiftCode: TZ1.code, zoneCode: "TZ1", teamKey });
+  const renderZone = (assignments: ReturnType<typeof day>[]) =>
+    render(
+      <DayLadder
+        day={WEDNESDAY}
+        tz={TZ}
+        zoneLabel="IST"
+        lanes={[{ name: "TZ1", assignments, layout: "zone" }]}
+        shifts={shiftMap(TZ1)}
+        zones={ZONES}
+        absences={[]}
+        absenceKinds={[ANNUAL_LEAVE]}
+        {...scopeControls()}
+      />,
+    );
+
+  it("lists each team under its own heading and count, as the Leave card does", () => {
+    const { container } = renderZone([
+      day("Nadia", "orion_abt_cre_team"),
+      day("Kasun", "lyra_abt_cre_team"),
+      day("Ruwan", "orion_abt_cre_team"),
+    ]);
+    const card = [...container.querySelectorAll(".zblk")].find((el) => el.textContent?.includes("Others in TZ1"))!;
+    const groups = [...card.querySelectorAll(".zteam")].map((g) => ({
+      heading: g.querySelector(".offgh")?.firstChild?.textContent,
+      count: g.querySelector(".offgh b")?.textContent,
+      names: [...g.querySelectorAll(".lnm .who")].map((n) => n.textContent),
+    }));
+    expect(groups).toEqual([
+      { heading: "Orion", count: "2", names: ["Nadia", "Ruwan"] },
+      { heading: "Lyra", count: "1", names: ["Kasun"] },
+    ]);
+  });
+
+  it("keeps the escalation card as tiers, not teams", () => {
+    const { container } = renderZone([{ ...day("Nadia", "orion_abt_cre_team"), tier: "L1" }]);
+    expect(container.querySelector(".zbp.tiers .zteam")).toBeNull();
+  });
+});
+
 describe("DayLadder: a stint worked on another team's rota", () => {
   const BRAZIL = {
     id: "k-br", code: "ALLO_BR", shortCode: "BR", label: "Brazil rotation", bucket: "ALLOCATION" as const,
@@ -400,6 +473,33 @@ describe("DayLadder: a stint worked on another team's rota", () => {
     expect(screen.getByText("Lena")).toBeInTheDocument();
     expect(screen.getByText("1 not available")).toBeInTheDocument();
   });
+
+  it("leaves people excluded from the rota out of who is off today", () => {
+    const EXCLUDED = {
+      id: "k-exc", code: "EXCLUDED", shortCode: "EXC", label: "Excluded from rota", bucket: "EXCLUDED" as const,
+      colourToken: "EXC", sortOrder: 110,
+    };
+    render(
+      <DayLadder
+        day={WEDNESDAY}
+        tz={TZ}
+        zoneLabel="IST"
+        lanes={[lane([])]}
+        shifts={SHIFTS}
+        zones={ZONES}
+        absences={[
+          absence({ name: "Ezra", startsOn: "2026-01-01", kindCode: "EXCLUDED" }),
+          absence({ name: "Lena", startsOn: "2026-09-23", endsOn: "2026-09-23" }),
+        ]}
+        absenceKinds={[ANNUAL_LEAVE, EXCLUDED]}
+        {...scopeControls()}
+      />,
+    );
+    expect(screen.queryByText("Ezra")).not.toBeInTheDocument();
+    expect(screen.queryByText("Excluded from rota")).not.toBeInTheDocument();
+    expect(screen.getByText("Lena")).toBeInTheDocument();
+    expect(screen.getByText("1 not available")).toBeInTheDocument();
+  });
 });
 
 describe("DayLadder: a crowded card's team pane", () => {
@@ -443,5 +543,376 @@ describe("DayLadder: a crowded card's team pane", () => {
     const heading = container.querySelector(".teampane .tlph");
     expect(heading).toHaveTextContent("Orion team");
     expect(heading).not.toHaveTextContent("orion_abt_cre_team");
+  });
+});
+
+describe("DayLadder: a reader west of the office", () => {
+  // Monday 12 October 2026, read in Los Angeles. Colombo's Monday regular
+  // hours (09:00-18:00 IST) run from 20:30 Sunday to 05:30 Monday here, and
+  // Tuesday's morning crew (06:00-09:00 IST) is on 17:30-20:30 Monday.
+  const MONDAY = new Date(2026, 9, 12);
+  const LA = "America/Los_Angeles";
+
+  function at(name: string, rotaDate: string, shiftCode: string, startsAt: string, endsAt: string) {
+    return assignment({ name, rotaDate, shiftCode, startsAt, endsAt });
+  }
+
+  function renderLA(lanes: LadderLane[], shifts = SHIFTS) {
+    return render(
+      <DayLadder
+        day={MONDAY}
+        tz={LA}
+        zoneLabel="PDT"
+        lanes={lanes}
+        shifts={shifts}
+        zones={ZONES}
+        absences={[]}
+        absenceKinds={[ANNUAL_LEAVE]}
+        {...scopeControls()}
+      />,
+    );
+  }
+
+  const READ = [
+    // Sunday's rota: over by 05:30 Sunday here.
+    at("Sunday Sam", "2026-10-11", REGULAR.code, "2026-10-11T03:30:00.000Z", "2026-10-11T12:30:00.000Z"),
+    // Monday's: carried in from Sunday evening.
+    at("Monday Mia", "2026-10-12", REGULAR.code, "2026-10-12T03:30:00.000Z", "2026-10-12T12:30:00.000Z"),
+    // Tuesday's morning and regular hours: Monday evening here.
+    at("Tuesday Tom", "2026-10-13", MORNING.code, "2026-10-13T00:30:00.000Z", "2026-10-13T03:30:00.000Z"),
+    at("Tuesday Ted", "2026-10-13", REGULAR.code, "2026-10-13T03:30:00.000Z", "2026-10-13T12:30:00.000Z"),
+    // Wednesday's: Tuesday evening here.
+    at("Wednesday Wen", "2026-10-14", REGULAR.code, "2026-10-14T03:30:00.000Z", "2026-10-14T12:30:00.000Z"),
+  ];
+
+  it("shows the office's next morning crew on the reader's evening", () => {
+    renderLA([lane(READ)]);
+    expect(screen.getByText("17:30 – 20:30")).toBeInTheDocument();
+    expect(screen.getByText("Tuesday Tom")).toBeInTheDocument();
+    expect(screen.getByText("Monday Mia")).toBeInTheDocument();
+    expect(screen.getByText("Tuesday Ted")).toBeInTheDocument();
+  });
+
+  it("leaves out rota days that do not touch the reader's day", () => {
+    renderLA([lane(READ)]);
+    expect(screen.queryByText("Sunday Sam")).not.toBeInTheDocument();
+    expect(screen.queryByText("Wednesday Wen")).not.toBeInTheDocument();
+  });
+
+  it("counts only the people on during the reader's day", () => {
+    const { container } = renderLA([lane(READ)]);
+    expect(container.querySelector("h2 .count")?.textContent).toBe("3");
+  });
+
+  it("keeps two rota days' escalations as two cards", () => {
+    const tiered = (name: string, rotaDate: string, startsAt: string, endsAt: string) => ({
+      ...assignment({ name, rotaDate, shiftCode: TZ1.code, zoneCode: "TZ1", startsAt, endsAt }),
+      tier: "L1" as const,
+    });
+    const { container } = renderLA(
+      [
+        {
+          name: "TZ1",
+          layout: "zone",
+          assignments: [
+            // Monday 18:00-21:00 IST and Tuesday 06:00-09:00 IST: 05:30 and
+            // 17:30 Monday here, a working day apart.
+            tiered("Evening Eve", "2026-10-12", "2026-10-12T12:30:00.000Z", "2026-10-12T15:30:00.000Z"),
+            tiered("Morning Max", "2026-10-13", "2026-10-13T00:30:00.000Z", "2026-10-13T03:30:00.000Z"),
+          ],
+        },
+      ],
+      shiftMap(TZ1),
+    );
+    expect(container.querySelectorAll(".zbp.tiers")).toHaveLength(2);
+  });
+});
+
+describe("DayLadder: where the Sri Lankan day and the Americas day meet", () => {
+  /** 08:00-18:00 on a fixed UTC-7 clock: 20:30-06:30 IST all year. */
+  const AMERICAS_PT = shift({
+    code: "CRE_AMERICAS_PT",
+    shortCode: "NLK",
+    label: "Americas regular hours",
+    startMinute: 480,
+    endMinute: 1080,
+    authoringTimeZone: "Etc/GMT+7",
+    isRotation: false,
+    colourToken: "NLK",
+    sortOrder: 55,
+  });
+  /** The window as it was: 21:00-06:00 on the Colombo clock. */
+  const AMERICAS_COVER = shift({
+    code: "CRE_AMERICAS",
+    shortCode: "NLK",
+    label: "Americas cover",
+    startMinute: 1260,
+    endMinute: 1800,
+    crossesMidnight: true,
+    isRotation: false,
+    colourToken: "NLK",
+    sortOrder: 50,
+  });
+  const shifts = shiftMap(REGULAR, EVENING, MORNING, AMERICAS_PT, AMERICAS_COVER);
+
+  const evening = assignment({
+    name: "Eve Ning",
+    rotaDate: ISO,
+    shiftCode: "CRE_EVENING",
+    startsAt: `${ISO}T12:30:00.000Z`,
+    endsAt: `${ISO}T15:30:00.000Z`,
+  });
+  const americas = (shiftCode: string, startsAt: string, endsAt: string) =>
+    assignment({ name: "Ann Merica", teamKey: "americas", rotaDate: ISO, shiftCode, startsAt, endsAt });
+
+  function renderCre(assignments: LadderLane["assignments"], regions = true) {
+    return render(
+      <DayLadder
+        day={WEDNESDAY}
+        tz={TZ}
+        zoneLabel="IST"
+        lanes={[{ name: "Rotations", assignments, layout: "flat", regions }]}
+        shifts={shifts}
+        zones={ZONES}
+        absences={[]}
+        absenceKinds={[ANNUAL_LEAVE]}
+        {...scopeControls()}
+      />,
+    );
+  }
+
+  it("marks the half hour both are on, and gives each side its own column", () => {
+    const { container } = renderCre([
+      nineToFive("Reg Ular", "CRE_REGULAR"),
+      evening,
+      americas("CRE_AMERICAS_PT", `${ISO}T15:00:00.000Z`, "2026-09-24T01:00:00.000Z"),
+    ]);
+    const overlap = screen.getByRole("note", { name: /Overlap 20:30–21:00, 30 min/ });
+    // A mark only: the time is in its tooltip, never written across the cards.
+    expect(overlap.textContent).not.toMatch(/\d/);
+    expect(overlap).toHaveAttribute("title", expect.stringContaining("20:30–21:00"));
+    const columns = container.querySelectorAll(".lane:not(.offlane) .lncol");
+    expect(columns).toHaveLength(2);
+    // On the edge the two columns share: it lives in the US column, not over
+    // the whole lane.
+    expect(columns[1]).toContainElement(overlap);
+    expect(columns[0]).toHaveTextContent("Eve Ning");
+    expect(columns[0]).toHaveTextContent("Reg Ular");
+    expect(columns[0]).not.toHaveTextContent("Ann Merica");
+    expect(columns[1]).toHaveTextContent("Ann Merica");
+  });
+
+  it("keeps the whole Sri Lankan day in one column, the morning handover included", () => {
+    // Packed by time, last night's Americas crew (in until 06:30) would push
+    // the morning into a second column and leave regular hours in the first.
+    const { container } = renderCre([
+      assignment({
+        name: "Ann Merica",
+        teamKey: "americas",
+        rotaDate: "2026-09-22",
+        shiftCode: "CRE_AMERICAS_PT",
+        startsAt: "2026-09-22T15:00:00.000Z",
+        endsAt: `${ISO}T01:00:00.000Z`,
+      }),
+      assignment({
+        name: "Mor Ning",
+        rotaDate: ISO,
+        shiftCode: "CRE_MORNING",
+        startsAt: `${ISO}T00:30:00.000Z`,
+        endsAt: `${ISO}T03:30:00.000Z`,
+      }),
+      nineToFive("Reg Ular", "CRE_REGULAR"),
+      evening,
+      americas("CRE_AMERICAS_PT", `${ISO}T15:00:00.000Z`, "2026-09-24T01:00:00.000Z"),
+    ]);
+    expect(screen.getByRole("note", { name: /Overlap 06:00–06:30/ })).toBeInTheDocument();
+    expect(screen.getByRole("note", { name: /Overlap 20:30–21:00/ })).toBeInTheDocument();
+    const columns = container.querySelectorAll(".lane:not(.offlane) .lncol");
+    expect(columns).toHaveLength(2);
+    expect(columns[0]).toHaveTextContent("Mor Ning");
+    expect(columns[0]).toHaveTextContent("Reg Ular");
+    expect(columns[0]).not.toHaveTextContent("Ann Merica");
+  });
+
+  it("marks nothing for a hole between the two days, and still keeps LK left and the US right", () => {
+    const { container } = renderCre([
+      evening,
+      americas("CRE_AMERICAS_PT", `${ISO}T16:00:00.000Z`, "2026-09-24T02:00:00.000Z"),
+    ]);
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+    const columns = container.querySelectorAll(".lane:not(.offlane) .lncol");
+    expect(columns).toHaveLength(2);
+    expect(columns[0]).toHaveTextContent("Eve Ning");
+    expect(columns[1]).toHaveTextContent("Ann Merica");
+  });
+
+  it("marks nothing where one day starts as the other ends, and still keeps LK left and the US right", () => {
+    const { container } = renderCre([
+      evening,
+      americas("CRE_AMERICAS", `${ISO}T15:30:00.000Z`, "2026-09-24T00:30:00.000Z"),
+    ]);
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+    const columns = container.querySelectorAll(".lane:not(.offlane) .lncol");
+    expect(columns).toHaveLength(2);
+    expect(columns[0]).toHaveTextContent("Eve Ning");
+    expect(columns[1]).toHaveTextContent("Ann Merica");
+  });
+
+  it("keeps the US card on the right even when it comes first in the day", () => {
+    // Last night's US crew is the first card of the morning, and packed by
+    // time it took the left column.
+    const { container } = renderCre([
+      assignment({
+        name: "Ann Merica",
+        teamKey: "americas",
+        rotaDate: "2026-09-22",
+        shiftCode: "CRE_AMERICAS",
+        startsAt: "2026-09-22T15:30:00.000Z",
+        endsAt: `${ISO}T00:30:00.000Z`,
+      }),
+      nineToFive("Reg Ular", "CRE_REGULAR"),
+    ]);
+    const columns = container.querySelectorAll(".lane:not(.offlane) .lncol");
+    expect(columns).toHaveLength(2);
+    expect(columns[0]).toHaveTextContent("Reg Ular");
+    expect(columns[1]).toHaveTextContent("Ann Merica");
+  });
+
+  it("is one column when only one side is on screen", () => {
+    const { container } = renderCre([nineToFive("Reg Ular", "CRE_REGULAR"), evening]);
+    expect(container.querySelectorAll(".lane:not(.offlane) .lncol")).toHaveLength(1);
+  });
+
+  it("leaves a lane that does not ask for it alone", () => {
+    renderCre([evening, americas("CRE_AMERICAS_PT", `${ISO}T15:00:00.000Z`, "2026-09-24T01:00:00.000Z")], false);
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+  });
+});
+
+describe("DayLadder: every name on a one-team card, and the clock", () => {
+  const AMERICAS_PT = shift({
+    code: "CRE_AMERICAS_PT",
+    shortCode: "NLK",
+    label: "Americas regular hours",
+    startMinute: 480,
+    endMinute: 1080,
+    authoringTimeZone: "Etc/GMT+7",
+    isRotation: false,
+    colourToken: "NLK",
+    sortOrder: 55,
+  });
+  const shifts = shiftMap(REGULAR, AMERICAS_PT);
+  const americasCrew = Array.from({ length: 15 }, (_, i) =>
+    assignment({
+      name: `Americas Engineer ${String(i + 1).padStart(2, "0")}`,
+      teamKey: "americas",
+      rotaDate: ISO,
+      shiftCode: "CRE_AMERICAS_PT",
+      startsAt: `${ISO}T15:00:00.000Z`,
+      endsAt: "2026-09-24T01:00:00.000Z",
+    }),
+  );
+
+  function renderWith(
+    assignments: LadderLane["assignments"],
+    clock?: { tz: string; onClockChange: (tz: string) => void },
+  ) {
+    return render(
+      <DayLadder
+        day={WEDNESDAY}
+        tz={clock?.tz ?? TZ}
+        zoneLabel="IST"
+        lanes={[{ name: "Rotations", assignments, layout: "flat", regions: true }]}
+        shifts={shifts}
+        zones={ZONES}
+        absences={[]}
+        absenceKinds={[ANNUAL_LEAVE]}
+        clockOptions={
+          clock
+            ? [
+                { value: "Asia/Colombo", label: "IST" },
+                { value: "Etc/GMT+7", label: "PDT" },
+              ]
+            : undefined
+        }
+        onClockChange={clock?.onClockChange}
+        {...scopeControls()}
+      />,
+    );
+  }
+
+  it("lists all fifteen people of a one-team card rather than splitting it by team", () => {
+    renderWith(americasCrew);
+    for (const a of americasCrew) expect(screen.getByText(a.engineer.name)).toBeInTheDocument();
+    expect(screen.queryByText(/more$/)).not.toBeInTheDocument();
+  });
+
+  it("keeps a cut-off card at its own hours, and opens it on hover with everyone", () => {
+    // jsdom lays nothing out: make every card report more content than room.
+    const scroll = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(900);
+    const client = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(100);
+    try {
+      const { container } = renderWith(americasCrew);
+      const cards = [...container.querySelectorAll<HTMLElement>(".zblk")];
+      expect(cards.length).toBeGreaterThan(0);
+      for (const card of cards) {
+        // At rest, exactly its hours.
+        expect(card).toHaveClass("canopen");
+        expect(card.style.height).toMatch(/^\d+(\.\d+)?px$/);
+        expect(card).toHaveTextContent("Show all 15");
+        // On hover, the whole list.
+        fireEvent.mouseEnter(card);
+        expect(card).toHaveClass("open");
+        expect(card.style.height).toBe("auto");
+        for (const a of americasCrew) expect(card).toHaveTextContent(a.engineer.name);
+        fireEvent.mouseLeave(card);
+        expect(card).not.toHaveClass("open");
+      }
+    } finally {
+      scroll.mockRestore();
+      client.mockRestore();
+    }
+  });
+
+  it("still splits a crowded card of several teams by team", () => {
+    const mixed = Array.from({ length: 14 }, (_, i) =>
+      nineToFive(`Engineer ${String(i + 1).padStart(2, "0")}`, "CRE_REGULAR", i % 2 === 0 ? "alpha" : "beta"),
+    );
+    renderWith(mixed);
+    expect(screen.queryByText("Engineer 01")).not.toBeInTheDocument();
+  });
+
+  it("draws no clock picker without choices", () => {
+    renderWith(americasCrew);
+    expect(screen.queryByRole("combobox", { name: "Read the day on" })).not.toBeInTheDocument();
+  });
+
+  it("offers IST and PDT, and reads the day on the one picked", () => {
+    const onClockChange = vi.fn();
+    const { rerender } = renderWith(americasCrew, { tz: TZ, onClockChange });
+    const picker = screen.getByRole("combobox", { name: "Read the day on" });
+    expect(picker).toHaveValue("Asia/Colombo");
+    fireEvent.change(picker, { target: { value: "Etc/GMT+7" } });
+    expect(onClockChange).toHaveBeenCalledWith("Etc/GMT+7");
+    // On the PDT clock the Americas day reads 08:00-18:00.
+    rerender(
+      <DayLadder
+        day={WEDNESDAY}
+        tz="Etc/GMT+7"
+        zoneLabel="PDT"
+        lanes={[{ name: "Rotations", assignments: americasCrew, layout: "flat", regions: true }]}
+        shifts={shifts}
+        zones={ZONES}
+        absences={[]}
+        absenceKinds={[ANNUAL_LEAVE]}
+        clockOptions={[
+          { value: "Asia/Colombo", label: "IST" },
+          { value: "Etc/GMT+7", label: "PDT" },
+        ]}
+        onClockChange={onClockChange}
+        {...scopeControls()}
+      />,
+    );
+    expect(screen.getByText("08:00 – 18:00")).toBeInTheDocument();
   });
 });

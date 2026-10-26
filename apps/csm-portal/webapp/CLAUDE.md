@@ -41,8 +41,26 @@ gating on top of a real server-side gate, by explicit choice rather than by the 
 default. If a future admin-only action is added, default to the show-and-reject norm unless there's a
 specific reason (as here) to also hide it.
 
+**Editing a project's closure state** (`CsmProjectDetailPage.tsx`'s pencil icon next to the "State"
+chip, `EditProjectClosureStateDialog.tsx`) is a third such exception, gated on
+`usePortalAccess().canUpdateProjectClosureState` — `admin` only, same shape as `canCreateUser`. The
+backend genuinely enforces it too: `PATCH /projects/{id}` narrows its `closureState` field to
+`PermAdmin` in-handler while every other field on the same route stays at the ordinary write
+permission (see `apps/csm-portal/backend`'s own `CLAUDE.md`, "PATCH /projects/{id}: closureState
+requires PermAdmin") — hiding the pencil icon for a `cs_engineer` just avoids offering an action that
+would 403 for them.
+
+**`AddUserDialog.tsx` only collects an email — there are no first/last name fields.** The backend
+(`apps/csm-portal/backend`'s own `CLAUDE.md`, "Creating a user") looks that email up in SCIM and fills
+`firstName`/`lastName`/phone from that record; a 400 from SCIM having no matching user (or a match with
+no name on file) surfaces in the form's error banner like any other create failure. This is a different
+mechanism from the token-sourced `cs_engineer` auto-provisioning on `GET /users/me` (same backend
+doc) — that path has the-caller's-own token to read from, this one doesn't (the admin is creating a
+row for someone else's email), so it has no choice but to ask SCIM.
+
 `AddUserDialog.tsx` has two independent role-shaped controls that must not be confused with each
-other. One narrower, required control: **"User type" (Internal/External)**. entity-service's `user_type` has no plain settable
+other. One narrower, required control: **"User type" (Internal/External)**, defaulting to **Internal**
+(`EMPTY_FORM.userType`). entity-service's `user_type` has no plain settable
 column — it's derived by a DB trigger from role membership (`recompute_user_type`, migration 0011) —
 so this selector works by sending exactly one of `roles: ["internal"]`/`["external"]` on submit, not a
 `type` field on the wire; `external` (not `customer`/`partner`/...) is the role every
@@ -84,6 +102,57 @@ no second, redundant permission check was added inside the dialog itself.
 ## Code organization
 
 Feature-based: each `src/features/<name>/` folder owns its own `api/` (React Query hooks), `components/`, `pages/`, `types/`, `utils/`. Tests are colocated as `<File>.test.tsx` next to the file under test, not in a separate `__tests__` tree.
+
+## There is one app, not two — `viewer` uses the same pages as everyone else
+
+This app used to ship a second, separately-routed app-in-an-app (`features/sales-sa`, mounted at
+`/spl/*`, its own nav/shell/auth-gate) that a `viewer`-role caller landed on instead of the shared
+`csm-*` pages admin/cs_engineer use — same backend data, different frontend, different look. That
+split is gone: `features/sales-sa` has been deleted entirely (no "spl"/"sales-sa" naming survives
+anywhere in this codebase) and every caller, `viewer` included, now lands on the same nav, the same
+`/dashboard`, `/customers/accounts`, `/customers/projects` pages, and the same `CsmIssuesView`-backed
+Cases list. A `viewer`'s lack of write access already renders correctly on these shared pages via the
+existing `canWrite`-gated controls — no parallel read-only clone was needed.
+
+A handful of features from that old app have no equivalent on the shared side and were relocated
+(not rewritten) into their own properly-named `csm-*` feature folders, restyled to this app's table/
+page conventions, but still calling the exact same backend routes they always did (`/customer-health/*`,
+`/usage-metrics/*`, `/user-scan`, the Time-log report endpoint — all still gated backend-side by
+`PermViewCustomerHealth`/`PermViewerAccess`/`PermUsageMetricsViewer`, see `apps/csm-portal/backend`'s
+own `CLAUDE.md`): `csm-customer-health`, `csm-usage-metrics`, `csm-user-scan`, `csm-reports`. Four gating flags on
+`usePortalAccess()` (`portalAccess.ts`) control who sees what in this merged app, and are NOT
+interchangeable:
+
+- **`isSplAudience`** — true for anyone holding the `viewer` role, regardless of what else they hold.
+  Gates User Scan, the Escalations and Artifacts-Repository sections added to `CsmAccountDetailPage.tsx`
+  and the Time report button added to `CsmProjectDetailPage.tsx` — all of it invisible to a caller
+  who has never held `viewer`.
+- **`canViewCustomerHealth`** — the Customer Health dashboard: `viewer` as well as `cs_engineer`/`admin`
+  (mirrors the backend's `PermViewCustomerHealth`). Wider than `isSplAudience` on purpose, so a
+  `cs_engineer` or `admin` who does not also hold `viewer` still sees it. Customer Health and Usage Metrics
+  sit together at the end of the sidebar, just above User Scan and Help — except for a `viewer` who is not
+  also a `cs_engineer`/`admin` (`showCustomerHealthUnderCustomers`): for them Customers opens as a dropdown
+  (Accounts, Projects, Customer Health) and the top-level Customer Health entry is dropped. That dropdown entry
+  is a nav *shortcut* (`CsmNavNode.shortcutTo`): it owns no routes and is never a Customers page tab, so the
+  route guard, Recent and Pin keep resolving `/customer-health` to the top-level node for every role. A
+  shortcut does not inherit a WIP section's state and does not promote one; it is only offered while its
+  section is `enabled` for the user, otherwise the owner keeps its own top-level entry (so a deployment that
+  marks Customers WIP does not take Customer Health away from viewers). Feature Preview: a shortcut has no
+  toggle of its own (`listPreviewableFeatures` leaves it out, `featureState` ignores a stored value for it, and
+  it never counts toward its section's preview promotion); only the owner's preview reaches it. Admins never
+  hold the placement flag, so an admin's preview never shows the shortcut or changes what a viewer sees.
+- **`canViewUsageMetrics`** — the other deliberate exception: `cs_engineer`/`admin`/`usage_metrics_viewer`.
+  A plain `viewer` with none of those does NOT get this (reported live, correcting an earlier pass that
+  granted it to every `viewer`) — don't conflate it with `isSplAudience`.
+- **`canViewStaffSections`** — false only when a caller's role set is *exactly* `{viewer}` (no other
+  role at all). Gates Team Schedule, Knowledge, Settings, and the Chats sub-tab inside a project's Work
+  Items tab (which itself relabels to "Cases" for such a caller, since there's only one sub-tab left).
+  A `viewer` who also holds any other role is unaffected by this flag — it targets the narrower
+  "viewer-only, nothing else" audience, not "holds viewer" in general.
+
+Every new section/control these flags gate must default to visible for anyone who isn't newly excluded
+— the standing constraint on this whole consolidation is that admin/cs_engineer's existing pages stay
+byte-identical to before it.
 
 ## Routing (`src/App.tsx`)
 
@@ -210,11 +279,31 @@ The change request create page and edit dialog share `useChangeRequestScope` (`f
 - Changing or clearing the project clears the deployments below it and re-derives the Customer Group. Deployment products are never picked — they are derived (`productsReady` is false while the lookup for the current selection is in flight, and the products are then not sent).
 - **Customer Group is read-only and derived.** It is the chosen project's registered contacts (the people asked at the customer gates, who answer in the customer portal), shown as name chips with a lock icon, helper "Derived from the customer project's registered contacts" ("Select a Customer Project first." / "—" until a project is chosen, "No registered contacts on this project…" when empty). It is not form state, not in drafts or clones, and **never sent**: the backend refuses `customerGroupId` (and `environmentIds`) with a 400. The detail page shows the same list from `customerContacts`; at a customer gate with an empty list the Approval tab explains that no customer approvers were assigned (`noCustomerContactsHelper`).
 - **Refusals of the create are worded by the entity service and shown as written.** A person with no ServiceNow account (a user created in this database, which nothing in the web can tell apart in the picker) or an assignment group ServiceNow does not have is refused by the create itself with a 400 that says who or what cannot be used, why, and which field to change. The create form shows every 4xx message of the entity service as written in its error banner (`CreateChangeRequestPage` `onError`), so keep that wording on the entity-service side and do not replace it with a generic message here.
-- Sent only when non-empty. The create page sends `projectId`, `deploymentIds`, `deploymentProductIds` (plus `category`, `comment`, `workNote`); the edit dialog sends the three scope fields **together** when any of them changed (the backend validates them as a unit), and not at all once the CR has reached `implement` (the dialog locks the deployments with the reason; the backend refuses from there on). The **Customer Project itself is editable only in New** (see the next section): after New the dialog shows it read-only and, when only the deployments changed, sends the stored project beside them, which the backend accepts as a no-op. A saved project can be swapped (in New) but not cleared (the patch cannot express "no project").
+- Sent only when non-empty. The create page sends `projectId`, `deploymentIds`, `deploymentProductIds` (plus `category`, `comment`, `workNote`); the edit dialog sends the three scope fields **together** when any of them changed (the backend validates them as a unit), and not at all once the CR has been approved -- from Customer Approval / Scheduled on, i.e. editable only in New, Assess and Authorize (the dialog locks the deployments with the reason; the backend refuses from there on). The **Customer Project itself is editable only in New** (see the next section): after New the dialog shows it read-only and, when only the deployments changed, sends the stored project beside them, which the backend accepts as a no-op. A saved project can be swapped (in New) but not cleared (the patch cannot express "no project").
 - Clone carries the project and category, but deliberately **not** deployments / products: they name the deployment the change targets, and a clone exists to promote the change to another one. A draft or clone from before this change may still hold `customerGroupId` / `environmentIds`; they are ignored (not read, not re-saved).
 - The draft keeps display names next to the ids (`*Labels`), because the pickers only know ids; without them a restored form shows raw UUIDs.
 - The detail response's `category` is the enum value (or an `{id, name|label}` ref on older responses) — always read it through `changeRequestCategoryValue` / `changeRequestCategoryLabel`.
 - e2e: `tests/e2e/utils/fakeChangeRequestApi.ts` fakes the whole slice (projects, link-options with per-project contacts, create, PATCH, detail) with the backend's own validation (including the `customerGroupId` / `environmentIds` refusals), so the cascade, wire payload, 400 path and lifecycle are tested without creating records anywhere.
+
+### Change request tags: the case page's widget, dialog and hooks, not a copy
+
+`CsmChangeRequestDetailPage` shows a change request's `tags` (on
+`BeChangeRequestDetail`, the same shape as a case's) in the case page's own
+`TagsWidget` (`csm-cases/components/CaseDetailWidgets`), mounted under the
+Overview card, and adds one through the case page's `AddTagDialog` (whose
+type-ahead is `useSearchTags`, `POST /tags/search`). The writes are the case
+hooks themselves: `useAddCaseTag` / `useRemoveCaseTag` (`csm-cases/api/useCaseTags`)
+call `POST /cases/{id}/tags` / `DELETE /cases/{id}/tags/{tagId}`, which take a
+work item id, so they are given the change request's id and -- their one
+parameter added for this -- the detail query key to invalidate
+(`[CHANGE_REQUEST_DETAILS, id]`; the case detail key stays the default), so the
+chips follow a write. Do not fork the widget, the dialog or the hooks for
+another work item type: pass the id and the detail key. The widget is read-only
+without `canWrite` (no Tag button, no chip delete), and not rendered at all when
+the backend carried no `tags` array (another data source). Tags are staff
+bookkeeping -- the backend leaves them null on a customer's read -- and a change
+request's tag is never mirrored to the previous system. e2e: the fake API holds
+them (`seedTags`, `tags()`) behind the same case tag routes and `POST /tags/search`.
 
 ### The customer's part is fixed once approval is requested (Edit dialog, action bar)
 
@@ -224,9 +313,26 @@ Who the customer is (the **Customer Project**, from which the read-only Customer
 - **After New** (Request Approval was pressed; a change request never returns to New) the Customer Project is **frozen for everyone**: the dialog shows it read-only with "Fixed when approval was requested. Cancel and clone to change it." (`customerProjectLockedReason`). A correction is Cancel + Clone; there is no override.
 - **After New a tick box is add-only** (`customerApprovalLockedReason` / `customerReviewLockedReason`, each taking `(state, {stored, hasProject})`): a **ticked** box is read-only ("Once approval has been requested a customer requirement can be added but never removed."); an **unticked** one stays tickable until the gate it controls (Customer Approval: while the change is New / Assess / Authorize; Customer Review: until Customer Review), with the helper "Once saved this can't be removed." (`customerRequirementOnceSavedHelper`), is disabled past its gate with "Locked: the change request has already reached the customer approval|review step or later.", and is disabled when the change has **no project** ("Needs a Customer Project, which can no longer be set. Cancel and clone."). A ticked box can never be unticked, so nothing can untick the customer's part to skip it: a Re-schedule asks the same contacts again.
 - **Request Approval needs somebody to ask** when a customer box is ticked. The backend refuses it (a 400 in words, `REQUEST_APPROVAL_NEEDS_PROJECT` / `REQUEST_APPROVAL_NEEDS_CONTACT` in the fake) when the change has no Customer Project, and when it has one but nobody on it can be asked (no registered portal-user contact other than the requester, none still active): such a change would reach Customer Approval / Customer Review with nobody to answer and, with no staff action that answers for the customer, could only be cancelled (or rolled back from Review). The action bar says so up front where the page knows: disabled with "Select a Customer Project before requesting approval" (`requestApprovalNeedsProjectReason`) or, when the change's own `customerContacts` is an EMPTY list, "Register a contact for the Customer Project before requesting approval" (`requestApprovalNeedsContactReason`); both are wired into `TARGET_BLOCKED_REASON.assess` after the team check, as a focusable labelled wrapper (`Request Approval: <reason>`). Neither reason is ever given for an Emergency change (both helpers return `null` for `isEmergencyChangeRequestType(cr.type)`): the backend ignores its two customer boxes, so a box still ticked on an older or synced row asks nobody and Request Approval stays enabled with no project and no registered contact. Where the page cannot tell (the requester is the project's only contact, or a contact cannot sign in yet: `customerContacts` lists them all) nothing is guessed and there is deliberately no second definition of who can be asked in the web: the request goes out and the backend's words show in the error banner (`showError`), the place every refused transition uses. Ticking a box on after New is refused the same way when nobody on the project can be asked; the Edit dialog does not pre-empt it (the box stays tickable) and shows the words in `saveError`, and the create form shows any refused create's message verbatim in the same banner (a create in New is never refused for this).
-- Deployments and deployment products keep their own window (editable until Implement) and always within the frozen project.
+- Deployments and deployment products keep their own window (editable until the change request is approved: New, Assess, Authorize) and always within the frozen project.
 - **One table, two modules.** `utils/__tests__/changeRequests.test.ts` writes the rule out one row per state under the ids `"<STATE>/<column>"` and outcome codes of the backend's Go truth table (`entity-service/internal/repository/change_request_customer_lock_test.go`); neither imports the other's file (the container tests copy only entity-service), so a rule change must change both and a drift shows as a failing row. `NO_CUSTOMER_CONTACTS_HELPER` no longer promises that changing the project routes the step (it cannot be changed any more).
 - e2e: the fake API enforces the same freeze, add-only and Request Approval rules with the backend's own messages (`projectFrozenMessage`, `requirementCannotBeRemovedMessage`, `requirementNeedsProjectMessage`, `requirementGatePassedMessage`, `REQUEST_APPROVAL_NEEDS_PROJECT`, `CANNOT_RETURN_TO_NEW`, exported from `fakeChangeRequestApi.ts`). A spec whose change has a customer box ticked needs a Customer Project (`{ projectId }` as the fake's scope) with a registered contact other than the creator (Acme: Mia and Max) before Request Approval; Gamma has none, so `describe("Request Approval is refused when nobody can be asked")` uses it. The dead end that remains for OLDER changes (already at a gate with nobody asked) starts there instead: `api.startAtState("customer_approval" | "customer_review" | "review")` in the Playwright fake (`openOlderChangeAt` in the lifecycle spec) and `lcSeedAtGate` in the page test's fake backend; a real-stack row is CHG0039104 (below). Real stack, in "the customer requirements lock": the refusal test finds a project whose throwaway change reports no `customerContacts` (the generated projects hold no registered portal-user contact, so the backend's own answer picks it, not a second definition in the spec) and asserts the fake's exported words against the real API, the disabled button and the Edit dialog's `saveError`; it skips when every project of the database has a contact.
+
+### Every create field is editable, and an approved change request is read-only
+
+The edit form (`EditChangeRequestDialog`, inline on the detail page) offers every field the create form sets: Subject,
+Type (New only: it decides the approval flow, `CHANGE_REQUEST_TYPE_FROZEN_REASON` after; choosing Emergency unticks both
+customer boxes in the same request, which the backend requires), Impact, Priority (read through
+`changeRequestPriorityValue`: a value, or the previous system's `{ id, label }` ref), Description, Justification and Risk and
+impact analysis (sent as `impactDescription`), beside the fields it already had. Only what changed is sent.
+
+Once the change request has been approved (`changeRequestApprovedReadOnlyReason`: Customer Approval, Scheduled, Implement,
+Review, Customer Review, Closed, Rollback -- CAB approval received, or a Standard change scheduled; not Canceled) every
+field is disabled under one notice and the form's only input is the internal **Work note**, sent as `workNote` with the
+button "Add work note". This mirrors entity-service's approved-content lock (400 `change_request_approved_read_only`),
+which is the authority; the deployments' window (`changeRequestScopeLockedReason`) closes at the same point, and the review
+box can no longer be added after the approval. A work note can ride with any save before the approval too;
+`usePatchChangeRequest` refreshes the comments query when one was sent. The CSM microapp disables its Edit button in the
+same states. e2e: the fake API refuses the same edits in the backend's words (`approvedReadOnlyMessage`, `APPROVED_STATES`).
 
 ### Customers never decide in the CSM portal
 
@@ -260,6 +366,120 @@ The previous system's own mechanism, which the schema already carries: a custome
 - **"Proposed time accepted".** A change scheduled by Accept is never stamped as the customer's approval, so every reader of `hasCustomerApproved` that prints Yes / No reads `customerApprovedDisplay(cr)`: the Overview cell, the PDF row (`changeRequestReportPdf.ts`) and, with the same gate in its own model (`isProposedTimeAccepted` in `apps/csm-portal/microapp/src/types/changeRequest.model.ts`), the CSM microapp's Approval card. It reads "Proposed time accepted" only once the change has moved on from Customer Approval (Scheduled or later): the Agree (`customerProposal.answer === "agreed"` or the raw `agree`) stays on the row after it, and **nothing clears it when the customers are asked again**: entity-service writes `AGREE` only in Accept, a plain Re-schedule never touches it (a Re-schedule is only possible out of Customer Approval, so a standing Agree there comes from the previous system's data) and only a customer's own new proposal clears it. So a change that is (back) in Customer Approval with an Agree standing reads No: the customers are being asked, and "accepted" would say there is nothing left to answer. Out of scope here: the legacy Ballerina customer-portal backend mapping (`apps/customer-portal/backend/utils.bal`); the customer portal's own readers (webapp `isProposalAccepted`, microapp `isProposedTimeAccepted`) carry the same gate.
 - **Not mirrored.** Proposals and WSO2's answers are PostgreSQL-only until the sync stops (the previous system's PATCH API has no field for them); Accept's mirror to the previous system is best effort (a failure is recorded in entity-service's table of failed write-backs) and while the sync runs it can rewrite `customer_updated_on`, the confirmation, `state`, `start_on` and `end_on`.
 - **Tests.** vitest: `ChangeRequestProposedTimeBanner.test.tsx`, `ChangeRequestAcceptProposedTimeDialog.test.tsx`, `ChangeRequestRescheduleDialog.test.tsx` (counter, stored-time and plain modes), `ChangeRequestActionBar.test.tsx` (the label), `CsmChangeRequestDetailPage.test.tsx` ("lifecycle: Re-schedule" holds the stateful fake of the contract: pending allowlist, Accept, counter, decline, the nobody-to-ask refusal, version checks, `lcCustomerProposes`). e2e, fake API (`utils/fakeChangeRequestApi.ts`; `customerProposes`, `seedProposal`, `setOnHold`, `addInternalRequestedRow`; the refusal texts are exported and the real-stack describe asserts the same strings): describes "change request approval flow — Re-schedule" and "— a customer's proposed time (mocked backend)". e2e, real stack ("a customer's proposed time (real stack)"): a native proposal accepted from the page, a counter and a decline, and the rows the sync writes (a migrated change in Customer Approval with a customer date and no answer -- a stored time nobody is recorded as having proposed: Accept refused, a plain Re-schedule that writes no answer --, one in Authorize with an unlabeled approval, a date equal to the plan, a standing answer, a date left far ahead). The customer proposes there the way the customer portal does (`proposeAsCustomer`, `utils/customerPortalDecision.ts`).
+
+## List bulk actions and export (Change requests, Incidents)
+
+Both lists have a checkbox column (for `canWrite` only), a selection bar (`BulkSelectionBar`: "N selected", **Edit (n)**,
+**Assign to me (n)**, Clear selection), a result banner (`BulkResultAlert`) and an **Export** menu (`FilteredExportMenu`).
+
+- **Selection** is `useRowSelection(getId, canSelect, currentRows)` (`features/csm-operations/hooks`): kept by id across
+  pages, a filter change clears it, a closed / cancelled incident and a closed / canceled / rolled-back change request are
+  never added (`isIncidentTerminal`, `isChangeRequestTerminal`; the row shows a disabled box with a tooltip naming its
+  state). `selected` gives a picked row as the current page shows it (`currentRows`), so a run plans from fresh data; a
+  row that has become final since it was picked keeps an enabled, checked box ("Deselect …, now canceled") and can always
+  be taken out. The checkbox cell stops the row's own click, so ticking never opens the record. The boxes are disabled
+  while a run is in flight, and the page box while a page loads (the rows held are still the previous page's).
+- **There is no bulk endpoint.** `runBulkUpdate` (`utils/bulkUpdate.ts`) sends one PATCH per record, four at a time, and
+  never stops on a refusal: the banner lists each record that was not updated with the backend's own 4xx words
+  (`bulkFailureMessage`; a 5xx is a generic line) and each record skipped before sending. The backend stays the authority
+  for every rule; the dialogs only keep from offering what cannot work.
+- **Both dialogs are wide** (`maxWidth="lg"`, 1200px) with grid columns of `minmax(0, 1fr)` from `md` up, so no field
+  is squeezed, nothing scrolls sideways and a rich-text panel's toolbar fits whole (the e2e "Edit is wide enough"
+  case checks all three). Their pickers pass `shrinkLabel` (`AsyncEntitySelect` / `AsyncEntityMultiSelect`, opt-in) so
+  they read "No change" under a raised label, like the selects beside them.
+- **Edit, incidents** (`BulkEditIncidentsDialog`): the whole incident form, laid out in ServiceNow's sections, with
+  every field `PATCH /incidents/{id}` accepts: short description, state, channel, impact, urgency, environment,
+  category, subcategory, service, service offering, configuration item, assignment group, assigned to, watch list,
+  work note, additional comment (customer-visible), parent incident, change request, problem, caused by change,
+  resolution code and notes, incident report. "No change" is the default of every field and only set fields are sent
+  (`bulkIncidentPlan`, `utils/bulkIncidentEdit.ts`).
+  - State offers what every selected incident can move to (`bulkIncidentTargetStates`, the Edit dialog's table), never
+    narrowed by one closed since it was picked (it is skipped). Resolved / Closed need a resolution code and notes,
+    applied to all; the two can also be set alone.
+  - Subcategory follows the category being set, or the category every selected incident shares (else it is disabled
+    with the reason). A new category needs a subcategory (the single Edit dialog's rule): a PATCH can't clear one, so
+    on the ServiceNow paths the old category's subcategory would stay. Service offering is disabled until a service is
+    set, and narrows to it: nothing checks that an offering belongs to an incident's service.
+  - Environment is capped at 40 characters (`incident.environment` is VARCHAR(40); a longer one fails every incident).
+  - Incident report is disabled while the state is Resolved: resolving regenerates the report (entity-service's
+    `IncidentReportService`) seconds later, over whatever was typed.
+  - Watch list: add people to each incident's own list, remove them, or replace the list. The API only replaces, so
+    adding or removing reads each incident's detail first, never from the cache (`fetchQuery` with `staleTime: 0`:
+    the list sent back replaces the whole one); one whose list cannot be read is skipped, and a list that would not
+    change is not sent. On the Postgres data sources the detail reads `work_item_watcher` (entity-service
+    `incidentWatchers`; it used to return an empty list there, which made "add" a replace).
+  - Parent incident never offers a selected incident (`useSearchIncidentsExcludingIds`), and the plan refuses one as
+    its own parent. Caused by change is a change request picker (its column references `change_request`).
+  - Not offered: priority (it follows from impact and urgency) and `parentIncidentId` (a second parent column with no
+    label in the portal).
+- **Edit, change requests** (`BulkEditChangeRequestsDialog`): every field `PATCH /change-requests/{id}` takes from the
+  edit form, plus on hold and the two journals, in sections (Change request, On hold, Service, Assignment, Schedule,
+  Customer, Planning, Notes): short description, state, type, category, impact, priority, originating service request,
+  on hold and its reason, service and offering, assignment group, assigned to, requested by, planned start and end,
+  rollback duration, Customer Project with its deployments, customer approval / review required, Implementation Plan
+  visible to customers, the eight rich-text plans (`ExpandableRichTextField`), service outage, communication plan,
+  work note and additional comment. Not offered: Request approval and the answers to a customer's proposed time (one
+  change request's own conversation). Each record's request is `bulkChangeRequestPlan` (`utils/bulkChangeRequestEdit.ts`).
+  - State offers the moves every selected change request can make, read from each one's own `legalNextStates` (fetched
+    with `changeRequestDetailQuery`) through the action bar's filter (`bulkChangeRequestTargets`:
+    `isOfferedChangeRequestTarget`, never `authorize`, never `scheduled`, never a Close out of Customer Review).
+    Cancel change / Roll back need a reason, sent as `workNote` **in the same PATCH as the state** (a refused move then
+    records no reason; the detail page posts its reason first because it handles one record).
+  - An approved change request (Customer Approval and later) gets only the state, on hold and the two journals: an
+    allow-list (`APPROVED_ALLOWED_FIELDS`), so a field added later is read-only once approved until it is listed (the
+    backend's `approvedLockFields` refuses the rest, 400 `change_request_approved_read_only`).
+  - Type and Customer Project are enabled only while every not-yet-approved selected change request is New (they are
+    fixed once approval is requested). Past New the **deployments** still change until approval (the backend's
+    `changeRequestLinksLockedStates`): when every not-yet-approved one shares a stored project, that project is shown
+    fixed and the deployments are offered within it; with different projects neither is. The scope goes out only when
+    it was changed in the dialog (`scopeTouched`; past New only with deployments picked), so the project shown is never
+    sent on its own (it would clear the deployments). Project, deployments and deployment products go together (the
+    backend validates them as a unit), and Apply waits for the products. The plan skips one asked for another type or
+    project after New; resending its own is a no-op. Past New the edit carries `projectFixed` (plan-only, never sent):
+    a record whose project is no longer the one shown, New included, is skipped rather than moved to it.
+  - Customer approval / review offer "Required" and "Not required" only as far as every selected one can take them
+    (`customerApprovalLockedReason` / `customerReviewLockedReason`: add-only after New, a Customer Project needed, never
+    for an Emergency change). Choosing type Emergency disables both, and the plan turns a ticked one off in the same
+    PATCH (the backend refuses re-typing into Emergency while a box stays ticked). A box already as asked is not sent,
+    checked before the Emergency refusal (an older Emergency change still ticked is left alone, not skipped). A choice
+    is used only while it is offered (`offered`), so one a type change took off the list is never sent unseen.
+  - On hold: "Put on hold" on one already on hold sends only the reason (a second `onHold: true` would clear it), "Take
+    off hold" on one that isn't is not sent, and one on hold is skipped when the edit changes its state without taking
+    it off hold (the backend's gate). The dialog says how many of the selection are on hold.
+  - A blank text is never sent (a bulk edit clears nothing). The planned window is judged as it will stand: nothing
+    in the backend orders the two bounds, so one date set alone is checked against each record's own other date and
+    a record it doesn't fit is skipped (`PLANNED_WINDOW_SKIPPED`). Both sides go through `parseBackendTimestamp`: the
+    edit's zoneless UTC ("YYYY-MM-DD HH:mm:ss") would otherwise read as the browser's local time against the detail's
+    RFC 3339 `Z` (the plan test pins `process.env.TZ` to show it). Rollback duration is capped at 255 characters
+    (`CHANGE_REQUEST_ROLLBACK_DURATION_MAX`, `VARCHAR(255)`; the single edit form too). While the details are
+    loading, or if one can't be loaded, the fields that depend on them say which.
+- **Assign to me** sends `{assignedEngineerId: <me>}`; it skips a record already assigned to the user, and for change
+  requests `assignChangeRequestToMePlan` also skips an approved one (its assignee is read-only).
+- **Plan from the record as it is now.** A change request run reads each one's detail again just before planning
+  (`queryClient.fetchQuery` of `changeRequestDetailQuery` with `staleTime: 0`, not the dialog's cached read) and plans from
+  it, so one approved or put on hold since it was picked is planned as it now is instead of drawing a refused PATCH;
+  one whose detail can't be read is skipped ("Couldn't read it just now…"), never sent blind. An incident run plans
+  from the refreshed row and skips one closed since it was picked. The dialogs leave such a record out of the moves they
+  offer and say how many will be skipped.
+- **After a run** the dialog is closed with `flushSync` before anything is refreshed (its per-record detail queries would
+  otherwise all refetch), then each record is refreshed exactly as a single edit refreshes it:
+  `refreshChangeRequestRecord` (detail, approvals, comments when a work note or comment was sent) and
+  `refreshIncidentRecord` (detail, tasks, activity and comments after every update, and again after the In
+  Progress / Resolved flows), both exported from the single-record PATCH hooks so the two paths cannot drift. Only the run's own ids leave the selection (`remove`).
+- **Focus and announcements**: the result banner takes focus when it appears (the button that started the run has gone
+  with the bar, and focus makes a screen reader read the outcome); Clear selection puts focus on the page's select-all
+  box; `BulkSelectionBar` keeps one hidden `role="status"` region mounted even at 0, so the first count is announced.
+- **Export** (`FilteredExportMenu` + `useFilteredListExport`) pages the current filtered **and sorted** search to the end
+  or the safety cap (`fetchAllPages`, as the CSV button did) and builds CSV (`rowsToCsvText`, formula-guarded), Excel
+  (`utils/xlsxWriter.ts`: a stored zip with inline strings, bold frozen header; no dependency; `_xHHHH_` in text is
+  escaped, since Excel would read it as a character, and a cell is cut at Excel's 32,767 characters), JSON (one object per row
+  keyed by the column header) or PDF (`utils/tableExportPdf.ts`, jsPDF + autotable, loaded on demand). A capped export is
+  named `-partial`. `FilteredCsvExportButton` is still used by the other lists.
+- Tests: the two tabs' tests ("bulk selection", "Assign to me", "bulk edit", "export"; the blocks that drive the whole
+  dialog have a 20 s timeout), `BulkEditIncidentsDialog.test.tsx`, `BulkEditChangeRequestsDialog.test.tsx`,
+  `utils/__tests__/bulk*.test.ts`, `useRowSelection.test.ts`, `FilteredExportMenu.test.tsx`, `xlsxWriter.test.ts`,
+  `listExport.test.ts`, `tableExportPdf.test.ts`; e2e `tests/e2e/specs/operations/list-bulk-actions.spec.ts` (the list
+  searches and PATCHes faked in memory, sign-in and pickers real; every export format downloaded and read back).
 
 ## Change request Approval tab: Approve / Reject follow the backend, never the state
 
@@ -384,7 +604,7 @@ interface BeDashboardWidget {
   description?: string;        // subtitle shown under displayName; not shape-specific by design
   resourceType: BeWidgetResourceType;  // "case" | "incident" | "change_request" | "account" | "project"
                                         // | "user" | "time_card" | "problem" | "product_vulnerability"
-  shape: BeWidgetShape;         // "count" | "list" | "pie" | "bar"
+  shape: BeWidgetShape;         // "count" | "list" | "pie" | "bar" | "line"
   gridWidth: number;            // 1-12, CSS grid columns this widget occupies
   filters: Record<string, unknown>;  // opaque; passed verbatim as the filters of that
                                       // resourceType's own POST /{resourceType}s/search
@@ -393,6 +613,7 @@ interface BeDashboardWidget {
   listLimit?: number;           // shape "list" only: how many rows to show
   slices?: BeDashboardPieSlice[]; // shapes "pie"/"bar" only: see below
   section?: string;            // groups widgets under a titled sub-heading — see below
+  days?: number;                // shape "line" only: size of the trailing day window; see below
 }
 
 interface BeDashboardPieSlice {
@@ -407,11 +628,12 @@ Every field beyond `widgetId`/`displayName`/`resourceType`/`shape`/`gridWidth`/`
 
 ### How each `shape` resolves its data
 
-All four shapes ultimately do the same thing — issue that `resourceType`'s own `POST /{resourceType}s/search` and read the response — they just differ in *how many* searches and what they do with the result(s):
+Four of the five shapes do the same thing — issue that `resourceType`'s own `POST /{resourceType}s/search` and read the response — they just differ in *how many* searches and what they do with the result(s). The fifth, `"line"`, is its own fixed resolution path against a dedicated endpoint instead:
 
 - **`count`** (`useWidgetData`, shape `"count"`): one search, `pagination.limit: 1`, reads `total`. Renders a big number, the whole tile is a link to that resource's own tab (`WIDGET_RESOURCE_CONFIG[resourceType].buildHref(filters)`).
 - **`list`** (`useWidgetData`, shape `"list"`): one search, `pagination.limit: listLimit ?? 4`, reads the item array. Renders through `WIDGET_LIST_RENDERERS[resourceType]` (`widgetListConfig.tsx`) — reuses each resource's **own real tab component** where one exists (e.g. `case` renders through the identical `CasesList` the Cases tab uses, via the same `mapCaseSearchViewToRow` mapper), falling back to the generic `DashboardMiniTable` otherwise. A "View more" link (shown only once `total > (listLimit ?? 4)`) goes to a dedicated, real, bookmarkable preview route (`DashboardWidgetPreviewPage`, `/dashboard/:previewSlug`) with pagination and search — not directly to the resource's own tab.
-- **`pie`** / **`bar`** (`useWidgetPieData`): one search **per `slices` entry**, each with `pagination.limit: 1`, merging that slice's own `filters` under the widget's base `filters` (slice keys win). `useWidgetPieData` is shape-agnostic — it just resolves N labeled totals; `DashboardPieChart`/`DashboardBarChart` (both under `components/`) render the same resolved data as wedges or bars respectively. Each wedge/bar/legend row navigates to that slice's own filtered destination the same way a `count` tile does. A total of `0` across every slice renders an empty state (inbox icon + "Nothing to show here right now"), not an all-grey chart.
+- **`pie`** / **`bar`** (`useWidgetPieData` for a hand-authored `slices` config, `useWidgetGroupByData` for a server-side `groupBy`): one search **per `slices` entry** (or one `POST /{resourceType}/aggregate` call for `groupBy`), each with `pagination.limit: 1`, merging that slice's own `filters` under the widget's base `filters` (slice keys win). Both hooks are shape-agnostic — they just resolve N labeled totals; `DashboardPieChart`/`DashboardBarChart` (both under `components/`) render the same resolved data as wedges or bars respectively. Each wedge/bar/legend row navigates to that slice's own filtered destination the same way a `count` tile does — **unless** `groupBy.linkResourceType` is set, in which case a named bucket's click-through goes instead to that OTHER `resourceType`'s own `detailHref`, keyed by the bucket's raw `key` (e.g. `groupBy: {field: "account", linkResourceType: "account"}` on a `case`-resourceType widget sends each bar to that account's own detail page — `/customers/accounts/{id}` — rather than the Cases list filtered to it). This only applies to a named `groupBy` bucket (never a hand-authored `slices` entry, and never the synthetic "Others" bucket, which carries no id of its own); backend-enforced at config-load time to only ever accompany `groupBy.field`, never `groupBy.bucket`. A total of `0` across every slice renders an empty state (inbox icon + "Nothing to show here right now"), not an all-grey chart.
+- **`line`** (`useCaseVolumeTrendData`, `resourceType: "case"` only — backend-enforced at config-load time, see `registry.go`'s own validation): one call to `POST /cases/volume-trend`, a dedicated case-volume-trend endpoint, **not** `/cases/search` — the widget's `filters` is forwarded verbatim as that request's own `filters`, alongside `days` (defaults to 30 when the widget omits it; the endpoint itself caps it at 90). The response is always exactly two named series ("Opened"/"Closed"), one point per day; the hook zips them by date into one `{date, opened, closed}` array for `DashboardLineChart` (`components/`, built on `@wso2/oxygen-ui-charts-react`'s own `LineChart`) to render as two lines, colored by this app's own semantic palette (`info` for Opened, `success` for Closed) rather than a chart-library hue rotation. Unlike `pie`/`bar`, a day's point is not a single filterable selector the case list's search can scope to, so there is no per-point click-through and no tile-level background click-through either — the `Card` is plain, non-link chrome, same posture as shape `"list"`. An all-zero trend (every point 0 across both series) renders the same empty state `pie`/`bar` do.
 
 `DashboardWidgetTile.tsx` is the per-widget dispatcher: it reads `shape` and picks which of the above to render, plus the shared per-widget loading/error states.
 
@@ -425,6 +647,65 @@ All four shapes ultimately do the same thing — issue that `resourceType`'s own
 
 `WIDGET_RESOURCE_CONFIG` is the one place that knows, per `resourceType`: its search endpoint, response items key, list-row label extractors, tile icon/color, `buildHref` (translates a widget's opaque filters into that resource's **own** tab's URL filter scheme — e.g. the dashboard's lowercase `catastrophic`/`critical`/... severity values get translated to the Cases tab's own `S0`/`S1`/... codes), and `previewSlug` (the URL segment for that resourceType's `/dashboard/:previewSlug` preview page). Adding a new `resourceType` the backend can send means adding an entry here and to `WIDGET_LIST_RENDERERS` — everything else (tile rendering, preview page, pagination) is generic over any entry in these two config objects.
 
+**A tile and the list it opens must show the same records.** The tile counts with the widget's own filters; the list is rebuilt from the URL `buildHref` writes, and a filter the URL scheme or the list has no place for used to vanish without a trace, so the list held more than the tile counted (reported live: an "SLA violations" tile reading 739 opened a list of 836). The rule now is lossless-or-preview:
+
+- Case-family widgets: `translateCaseDashboardFiltersChecked(filters)` returns the `CasesFilters` it could build and `lossless`. `lossless` is false when any entry of the widget's `filters.filters` was not taken (a field with no `CasesFilters` home such as `accountEscalationActive`, a second `in` entry on one field, a bound given twice, an unknown severity), when another top-level key (an `anyOf` OR group, a flat legacy key) holds a value, or when the filters do not come back unchanged from `readCasesFiltersFromUrl(writeCasesFiltersToUrl(...))` (a state the list's URL reader does not know, a work state without the single in-progress state it needs). `caseFamilyBuildHref` then opens the generic preview page (`/dashboard/preview/...`), which sends the widget's own filters to the search endpoint verbatim, and `DashboardWidgetPreviewPage` skips the editable `CasesFilterBar` for the same widget. Never add a translation that quietly drops a predicate: add the field to the translator AND to the list (`CasesFilters`, or a row in `advancedFilters.ts`'s catalogue, which is what `slaBreached` and `resolvedOn` do) or leave it untranslated so the click goes to the preview page.
+- Several `notIn` entries on one field are one exclusion (`tag notIn [patch]` plus `tag notIn [s_dip]` means neither); the translator and `buildWidgetPreviewHref` merge them. Repeated `in` entries are an intersection and cannot be merged, hence the fallback.
+- `incident`, `change_request` and `problem` lists read only a few named filters from their URL (`INCIDENT_LIST_FILTER_KEYS`, `CHANGE_REQUEST_LIST_FILTER_KEYS`, none for problems); any other filter value sends the click to the preview page via `hasFiltersBeyond`. `buildHref`'s `ctx` (widget id and name) is what the preview link needs, so every caller passes it; without one the link gets a generic title instead of a dead end.
+- `reopened` is a real case state (cases carried over from the previous system hold it and the tiles count them), so it is in `PRIMARY_STATES` and the URL reader, not only a `nextStates` marker.
+- `widgetResourceConfig.clickThrough.test.ts` holds one fixture per widget shape of a real overview dashboard and asserts, for each, that the list sends the widget's own request or the click opens the preview page with every filter intact. Add a fixture there when a dashboard grows a new filter shape.
+
+**`project`'s own `buildHref` used to ignore `filters` entirely and always return the bare `/customers/projects` path** — a real, reported bug, not a deliberate "no filter support" choice (unlike `problem`/`task`/`call_request`'s own entries, each of which documents why they have none): clicking a dashboard tile like "Active Onboarding" (`query: {onboardingStatus: ["In-Progress"]}`) landed on the plain, unfiltered Projects page with no way to tell which status it meant, and no URL-driven filtering existed on that page to apply one even if `buildHref` had sent it. Fixed on both ends: `project.buildHref` now encodes `filters.onboardingStatus` as a comma-joined `?onboardingStatus=` query param (the same array-as-comma-list encoding the preview page's own URL round-trip already uses), and `CsmProjectsPage.tsx` reads that param on mount into its own `onboardingStatus` filter state, keeps it synced to the URL via `useSearchParams` as the filter control changes, and sends it through to `POST /projects/search` (a field that endpoint already accepted — see `WIDGET_RESOURCE_CONFIG.project.buildSearchRequestBody`'s own comment on that request's flat shape — but `SearchProjectsRequest`/this page never had a way to set it before). Any other `resourceType` whose `buildHref` returns a bare, filter-ignoring path should be treated as a similar bug unless its own comment says otherwise. `onboardingStatus` is also the only key `PROJECT_LIST_FILTER_KEYS` lists as representable on that URL — a widget filtering by anything else `/projects/search` accepts (`accountId`, `subRegion`, ...) goes through `hasFiltersBeyond`/`widgetPreviewFallbackHref` to the preview page instead, the same lossless-or-preview shape `incident`/`change_request`/`problem` already use, rather than silently landing on a broader list than the tile counted.
+
+Separately, `CsmProjectsPage.tsx`'s `onboardingStatus` used to be seeded from the URL **only in a `useState` initializer**, which only ever runs once on mount — so a URL change that doesn't remount the page (the route stays `/customers/projects`, only the query string differs: browser back/forward across two different dashboard-tile click-throughs, or any other same-route navigation) left the filter control and the search request showing the first click's status instead of the URL's current one. Fixed by dropping the separate state entirely: `onboardingStatus` is now derived straight from `searchParams.get("onboardingStatus")` on every render (`useMemo`, keyed on that string so the array reference stays stable across unrelated re-renders), and `handleOnboardingStatusChange` writes directly to the URL instead of to local state — one source of truth, nothing to go stale. Pagination still needs resetting whenever the param changes, including from an external navigation `handleOnboardingStatusChange` didn't cause (and so didn't already reset itself for) — a small `useEffect` keyed on the param handles that one piece, with the same `eslint-disable-next-line react-hooks/set-state-in-effect` escape hatch (and the same justification: syncing state to an external source) `QuickNav.tsx`'s own initial-`q`/`goto`-param sync already uses.
+
 ### Current-user placeholder
 
 The backend resolves a `"__current_user__"` filter placeholder into the caller's real platform user id **before** it reaches the frontend (see the backend's `ResolveFilters`/`ResolveSliceFilters`) — the frontend never sees or handles that placeholder for a widget's own data-fetching. Separately, the "View more" preview page's own **URL** masks the current user's id to a `@me` sentinel (`widgetPreviewUrl.ts`'s `buildWidgetPreviewHref`/`resolveCurrentUserSentinels`) purely so a bookmarked/shared link doesn't carry a bare internal user id — that's a frontend-only, URL-display concern, unrelated to the backend's own placeholder resolution.
+
+### `groupBy`-based bar/pie widgets (`useWidgetGroupByData`) and `DashboardBarChart`'s axis labels
+
+A `shape: "bar"`/`"pie"` widget configured with `groupBy.field` (e.g. "Top customers by open cases",
+grouped on `account`) resolves its per-bucket totals via a single server-side `POST
+{resourceType}/aggregate` call (`useWidgetGroupByData`), not the per-slice `useWidgetPieData` path —
+see that hook's own doc comment for the full mechanism (one call, `maxGroups` caps the named buckets,
+everything past the cap rolls into a response `othersCount`).
+
+- **`groupBy.hideOthers`** (`BeDashboardGroupByConfig`, additive, defaults to `false`): drops the
+  synthetic "Others" bucket entirely instead of rendering it as an extra, non-navigable bar/wedge —
+  for a widget where the long tail beyond `maxGroups` isn't itself meaningful (an "Others" column
+  mixing together every account past the top N adds noise, not information). `useWidgetGroupByData`'s
+  own `total` is derived from the slices it actually returns, so hiding Others also drops it from the
+  widget's displayed total, not just from the chart. A widget's own JSON config sets this directly —
+  there's no frontend toggle for it. **`shape: "bar"` ignores this config and always hides Others
+  anyway** — `DashboardWidgetTile` forces `hideOthers: true` onto the `groupBy` it passes to
+  `useWidgetGroupByData` whenever `shape === "bar"`, regardless of what a widget's own JSON config
+  says (reported live on "Top customers by open cases," which had `hideOthers` unset). A bar chart's
+  whole point is comparing named, labeled categories side by side; an unlabeled "everything else"
+  catch-all bar sitting among them reads as confusing rather than informative, unlike a pie chart,
+  where an "Others" wedge is a legitimate completeness signal — so this is a deliberate, bar-specific
+  override, not something a widget's config can opt back into. `shape: "pie"` is unaffected and still
+  honors `groupBy.hideOthers` as configured.
+- **`DashboardBarChart`'s x-axis category labels (account/bucket names) always render horizontally,
+  word-wrapped onto up to two lines — never rotated.** Found live: recharts' own default `<XAxis>`
+  tick silently drops a label it decides doesn't fit at the tile's rendered width — with several real,
+  reasonably long account names on one "Top customers" bar chart, this meant *no* label rendered under
+  *any* bar, not even on hover (the chart's own `tooltip` still showed the name, but only on hover,
+  which was the actual reported complaint). Fixed by suppressing the library wrapper's own `<XAxis>`
+  (`xAxis={{ show: false }}` on `<BarChart>`) and rendering a custom one as a plain child instead,
+  with `interval={0}` (forces every tick to render, instead of recharts deciding some don't fit) and a
+  custom `tick` render function (`renderAxisTick`) that calls `wrapAxisLabel` to word-wrap the label
+  onto at most `MAX_X_AXIS_LABEL_LINES` (2) lines of at most `MAX_X_AXIS_LABEL_LINE_CHARS` (11)
+  characters each, rendered as stacked `<tspan>`s under a centered (`textAnchor="middle"`), unrotated
+  `<text>`. A first version of this rotated the label -35° instead — reported live as hard to read at
+  a glance, replaced with this horizontal two-line wrap. Whatever still doesn't fit after two lines is
+  dropped with an ellipsis on the second line; the chart's own hover tooltip still shows the
+  untruncated name either way, so nothing is actually lost, just not all shown under every bar at
+  once. This is shared by every `shape: "bar"` widget (`DashboardBarChart` has no per-widget config),
+  not just "Top customers" — there's no mechanism to special-case one widget's axis rendering today.
+- **Test-mocking note**: `DashboardWidgetTile.test.tsx`'s `vi.mock("@wso2/oxygen-ui-charts-react", ...)`
+  must export a (no-op) `XAxis` alongside its existing `Pie`/`Bar`/`PieChart`/`BarChart`/`Cell` stand-ins
+  now that `DashboardBarChart` renders one — omitting it fails every test that renders a `shape: "bar"`
+  widget with an uncaught "`XAxis` export is not defined on the mock" error, not a normal assertion
+  failure, so it's easy to miss if a future edit to this component imports a new named export from that
+  package without checking this mock first.

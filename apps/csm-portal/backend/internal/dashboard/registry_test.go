@@ -18,6 +18,7 @@ package dashboard
 
 import (
 	"bytes"
+	"encoding/json"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -851,6 +852,36 @@ func TestLoadDir_RejectsInvalidWidgets(t *testing.T) {
 			 "query": {}}`,
 			want: `widget "w": shape "bar" needs either "slices" or "groupBy"`,
 		},
+		{
+			name: "line widget on a resourceType other than case",
+			widgets: `{"id": "w", "displayName": "W", "resourceType": "incident", "shape": "line", "gridWidth": 6,
+			 "query": {}}`,
+			want: `widget "w": shape "line" only supports resourceType "case"`,
+		},
+		{
+			name: "line widget with days above the endpoint's own cap",
+			widgets: `{"id": "w", "displayName": "W", "resourceType": "case", "shape": "line", "gridWidth": 6,
+			 "query": {}, "days": 91}`,
+			want: `widget "w": "days" is 91; it must be between 1 and 90`,
+		},
+		{
+			name: "groupBy with an unknown linkResourceType",
+			widgets: `{"id": "w", "displayName": "W", "resourceType": "case", "shape": "bar", "gridWidth": 6,
+			 "query": {}, "groupBy": {"field": "account", "linkResourceType": "bogus"}}`,
+			want: `widget "w": unknown "groupBy.linkResourceType" "bogus"`,
+		},
+		{
+			name: "groupBy.bucket widget with a linkResourceType",
+			widgets: `{"id": "w", "displayName": "W", "resourceType": "case_feedback", "shape": "bar", "gridWidth": 6,
+			 "query": {}, "groupBy": {"bucket": "day", "linkResourceType": "account"}}`,
+			want: `widget "w": "groupBy.linkResourceType" is only meaningful with "groupBy.field", not "groupBy.bucket"`,
+		},
+		{
+			name: "groupBy.linkResourceType paired with a mismatched field",
+			widgets: `{"id": "w", "displayName": "W", "resourceType": "case", "shape": "bar", "gridWidth": 6,
+			 "query": {}, "groupBy": {"field": "state", "linkResourceType": "account"}}`,
+			want: `widget "w": "groupBy.linkResourceType" "account" only supports "groupBy.field" "account", got "state"`,
+		},
 	}
 
 	for _, tc := range cases {
@@ -908,6 +939,57 @@ func TestLoadDir_AcceptsBarWidgetWithBucketGroupBy(t *testing.T) {
 	}
 	if w.GroupBy.Field != "" {
 		t.Errorf("groupBy.field = %q, want empty for a bucket-mode groupBy", w.GroupBy.Field)
+	}
+}
+
+// A "line" widget (the Case Summary dashboard's case-volume trend) loads
+// clean with an explicit days window, and defaults to zero (the frontend/
+// endpoint default of 30) when omitted.
+func TestLoadDir_AcceptsLineWidget(t *testing.T) {
+	dir := t.TempDir()
+	writeDefinition(t, dir, "d.json", `{
+	  "id": "d", "displayName": "D", "type": "cs",
+	  "widgets": [
+	    {"id": "volume-trend", "displayName": "Case volume, last 30 days", "resourceType": "case", "shape": "line", "gridWidth": 6,
+	     "query": {}, "days": 30}
+	  ]
+	}`)
+
+	dashboards, err := LoadDir(dir)
+	if err != nil {
+		t.Fatalf("LoadDir returned error: %v", err)
+	}
+	if len(dashboards) != 1 || len(dashboards[0].Widgets) != 1 {
+		t.Fatalf("unexpected loaded dashboards: %+v", dashboards)
+	}
+	w := dashboards[0].Widgets[0]
+	if w.Shape != ShapeLine {
+		t.Errorf("shape = %q, want %q", w.Shape, ShapeLine)
+	}
+	if w.Days != 30 {
+		t.Errorf("days = %d, want 30", w.Days)
+	}
+}
+
+// A bar widget's "cases grouped by account" config may opt into linking each
+// bucket to the account's own detail page instead of a filtered cases list.
+func TestLoadDir_AcceptsGroupByLinkResourceType(t *testing.T) {
+	dir := t.TempDir()
+	writeDefinition(t, dir, "d.json", `{
+	  "id": "d", "displayName": "D", "type": "cs",
+	  "widgets": [
+	    {"id": "top-customers", "displayName": "Top customers", "resourceType": "case", "shape": "bar", "gridWidth": 6,
+	     "query": {}, "groupBy": {"field": "account", "maxGroups": 5, "linkResourceType": "account"}}
+	  ]
+	}`)
+
+	dashboards, err := LoadDir(dir)
+	if err != nil {
+		t.Fatalf("LoadDir returned error: %v", err)
+	}
+	w := dashboards[0].Widgets[0]
+	if w.GroupBy == nil || w.GroupBy.LinkResourceType != ResourceAccount {
+		t.Fatalf("groupBy = %+v, want linkResourceType %q", w.GroupBy, ResourceAccount)
 	}
 }
 
@@ -1175,5 +1257,167 @@ func TestLoadDir_PartFileWithUnexpectedFieldFailsWholeLoad(t *testing.T) {
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("err = %q, does not mention %q", err.Error(), want)
 		}
+	}
+}
+
+// distinctBy turns a Shape "count" widget into a distinct-values count. A
+// valid config loads, an omitted maxGroups is filled with the default so the
+// frontend always sees an explicit value, and the config is forwarded as-is.
+func TestLoadDir_DistinctBy(t *testing.T) {
+	cases := []struct {
+		name          string
+		widget        string
+		wantField     string
+		wantMaxGroups int
+	}{
+		{
+			name: "explicit maxGroups",
+			widget: `{"id": "w", "displayName": "W", "resourceType": "case", "shape": "count", "gridWidth": 3,
+			 "query": {"filters": [{"field": "isEscalated", "op": "eq", "value": true}]},
+			 "distinctBy": {"field": "account", "maxGroups": 250}}`,
+			wantField: "account", wantMaxGroups: 250,
+		},
+		{
+			name: "omitted maxGroups gets the default",
+			widget: `{"id": "w", "displayName": "W", "resourceType": "case", "shape": "count", "gridWidth": 3,
+			 "query": {}, "distinctBy": {"field": "account"}}`,
+			wantField: "account", wantMaxGroups: DefaultDistinctByMaxGroups,
+		},
+		{
+			name: "upper bound is accepted",
+			widget: `{"id": "w", "displayName": "W", "resourceType": "case", "shape": "count", "gridWidth": 3,
+			 "query": {}, "distinctBy": {"field": "severity", "maxGroups": 10000}}`,
+			wantField: "severity", wantMaxGroups: MaxDistinctByMaxGroups,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeDefinition(t, dir, "d.json", `{"id": "d", "displayName": "D", "type": "cs", "widgets": [`+tc.widget+`]}`)
+			dashboards, err := LoadDir(dir)
+			if err != nil {
+				t.Fatalf("LoadDir returned error: %v", err)
+			}
+			db := dashboards[0].Widgets[0].DistinctBy
+			if db == nil {
+				t.Fatalf("distinctBy was dropped")
+			}
+			if db.Field != tc.wantField || db.MaxGroups != tc.wantMaxGroups {
+				t.Errorf("distinctBy = %+v, want field %q maxGroups %d", db, tc.wantField, tc.wantMaxGroups)
+			}
+		})
+	}
+}
+
+func TestLoadDir_RejectsInvalidDistinctBy(t *testing.T) {
+	cases := []struct {
+		name   string
+		widget string
+		want   string
+	}{
+		{
+			name: "on a list widget",
+			widget: `{"id": "w", "displayName": "W", "resourceType": "case", "shape": "list", "gridWidth": 3,
+			 "query": {}, "distinctBy": {"field": "account"}}`,
+			want: `"distinctBy" is only supported on shape "count"`,
+		},
+		{
+			name: "on a bar widget",
+			widget: `{"id": "w", "displayName": "W", "resourceType": "case", "shape": "bar", "gridWidth": 3,
+			 "query": {}, "groupBy": {"field": "account"}, "distinctBy": {"field": "account"}}`,
+			want: `"distinctBy" is only supported on shape "count"`,
+		},
+		{
+			name: "non-case resourceType",
+			widget: `{"id": "w", "displayName": "W", "resourceType": "incident", "shape": "count", "gridWidth": 3,
+			 "query": {}, "distinctBy": {"field": "account"}}`,
+			want: `"distinctBy" only supports resourceType "case"`,
+		},
+		{
+			name: "case-subtype resourceType",
+			widget: `{"id": "w", "displayName": "W", "resourceType": "service_request", "shape": "count", "gridWidth": 3,
+			 "query": {}, "distinctBy": {"field": "account"}}`,
+			want: `"distinctBy" only supports resourceType "case"`,
+		},
+		{
+			name: "combined with groupBy",
+			widget: `{"id": "w", "displayName": "W", "resourceType": "case", "shape": "count", "gridWidth": 3,
+			 "query": {}, "groupBy": {"field": "account"}, "distinctBy": {"field": "account"}}`,
+			want: `"distinctBy" cannot be combined with "groupBy" or "slices"`,
+		},
+		{
+			name: "combined with slices",
+			widget: `{"id": "w", "displayName": "W", "resourceType": "case", "shape": "count", "gridWidth": 3,
+			 "query": {}, "slices": [{"label": "A", "query": {}}], "distinctBy": {"field": "account"}}`,
+			want: `"distinctBy" cannot be combined with "groupBy" or "slices"`,
+		},
+		{
+			name: "missing field",
+			widget: `{"id": "w", "displayName": "W", "resourceType": "case", "shape": "count", "gridWidth": 3,
+			 "query": {}, "distinctBy": {}}`,
+			want: `unknown "distinctBy.field" ""`,
+		},
+		{
+			name: "field outside the aggregate allowlist",
+			widget: `{"id": "w", "displayName": "W", "resourceType": "case", "shape": "count", "gridWidth": 3,
+			 "query": {}, "distinctBy": {"field": "assignee"}}`,
+			want: `unknown "distinctBy.field" "assignee"`,
+		},
+		{
+			name: "negative maxGroups",
+			widget: `{"id": "w", "displayName": "W", "resourceType": "case", "shape": "count", "gridWidth": 3,
+			 "query": {}, "distinctBy": {"field": "account", "maxGroups": -1}}`,
+			want: `"distinctBy.maxGroups" is -1`,
+		},
+		{
+			name: "maxGroups above the ceiling",
+			widget: `{"id": "w", "displayName": "W", "resourceType": "case", "shape": "count", "gridWidth": 3,
+			 "query": {}, "distinctBy": {"field": "account", "maxGroups": 10001}}`,
+			want: `"distinctBy.maxGroups" is 10001`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeDefinition(t, dir, "d.json", `{"id": "d", "displayName": "D", "type": "cs", "widgets": [`+tc.widget+`]}`)
+			_, err := LoadDir(dir)
+			if err == nil {
+				t.Fatalf("LoadDir accepted an invalid distinctBy config")
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("error = %q, want it to contain %q", err.Error(), tc.want)
+			}
+		})
+	}
+}
+
+// A count widget without distinctBy loads exactly as before: no DistinctBy is
+// invented, and nothing about distinctBy appears when re-serialized.
+func TestLoadDir_WidgetWithoutDistinctByIsUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	writeDefinition(t, dir, "d.json", `{"id": "d", "displayName": "D", "type": "cs", "widgets": [
+	  {"id": "w", "displayName": "W", "resourceType": "case", "shape": "count", "gridWidth": 3,
+	   "query": {"filters": [{"field": "isEscalated", "op": "eq", "value": true}]}},
+	  {"id": "p", "displayName": "P", "resourceType": "case", "shape": "pie", "gridWidth": 3,
+	   "query": {}, "groupBy": {"field": "account", "maxGroups": 5}}
+	]}`)
+	dashboards, err := LoadDir(dir)
+	if err != nil {
+		t.Fatalf("LoadDir returned error: %v", err)
+	}
+	for _, w := range dashboards[0].Widgets {
+		if w.DistinctBy != nil {
+			t.Errorf("widget %q gained a distinctBy: %+v", w.ID, w.DistinctBy)
+		}
+		b, err := json.Marshal(w)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(b), "distinctBy") {
+			t.Errorf("widget %q serializes distinctBy: %s", w.ID, b)
+		}
+	}
+	if g := dashboards[0].Widgets[1].GroupBy; g == nil || g.MaxGroups != 5 {
+		t.Errorf("groupBy widget changed: %+v", g)
 	}
 }

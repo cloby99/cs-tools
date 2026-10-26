@@ -19,6 +19,7 @@ package paging
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -229,8 +230,9 @@ func TestApplySafety_VerifiedLeadsGate(t *testing.T) {
 }
 
 // Through the real engine: a call-only ladder held by an unverified lead pool
-// schedules nothing and writes no work note -- it is setup, not an outcome.
-func TestEngine_UnverifiedLeadsHoldQuietly(t *testing.T) {
+// schedules nothing, but says so on the incident: a held ladder pages nobody,
+// and silence there once hid that for hours.
+func TestEngine_UnverifiedLeadsHoldIsAnnounced(t *testing.T) {
 	store, caller, notes := newMemStore(), &fakeCaller{}, &fakeNotes{}
 	e := testEngine(store, caller, notes, enabled())
 	e.resolver = poolResolver{StaticResolver: fullResolver(),
@@ -241,8 +243,8 @@ func TestEngine_UnverifiedLeadsHoldQuietly(t *testing.T) {
 	if len(store.wakes) != 0 {
 		t.Errorf("%d calls scheduled; a held ladder schedules none", len(store.wakes))
 	}
-	if len(notes.notes) != 0 {
-		t.Errorf("work notes written = %d; a held ladder writes none", len(notes.notes))
+	if len(notes.notes) != 1 || !strings.Contains(notes.notes[0], "CALLS_HELD") {
+		t.Errorf("work notes = %q; a held ladder writes one naming the hold", notes.notes)
 	}
 }
 
@@ -252,15 +254,29 @@ func TestEngine_HeldCallIsNotDialled(t *testing.T) {
 	e := testEngine(newMemStore(), caller, &fakeNotes{}, enabled())
 	c := call(Level3, "cre.head@example.com", "+94770000003")
 	c.HoldCall = true
-	if err := e.place(context.Background(), Plan{Calls: []PlannedCall{c}}, c); err != nil {
+	if err, _ := e.place(context.Background(), Plan{Calls: []PlannedCall{c}}, c, false); err != nil {
 		t.Fatal(err)
 	}
 	if len(caller.placed) != 0 {
 		t.Errorf("dialled %d calls for a held entry", len(caller.placed))
 	}
 	c.HoldCall = false
-	_ = e.place(context.Background(), Plan{Calls: []PlannedCall{c}}, c)
+	_, _ = e.place(context.Background(), Plan{Calls: []PlannedCall{c}}, c, false)
 	if len(caller.placed) != 1 {
 		t.Errorf("an unheld entry dialled %d calls, want 1", len(caller.placed))
+	}
+}
+
+// A plan with no calls has nothing to hold: marking it CallsHeld would end
+// schedule() silently and swallow the "no reachable recipients" work note.
+func TestApplySafety_NoCallsIsNotHeld(t *testing.T) {
+	ctx := context.Background()
+	for _, ch := range []Channel{ChannelCall, ChannelBoth} {
+		e := &Engine{resolver: poolResolver{}, cfg: EngineConfig{Channel: ch}}
+		plan := Plan{}
+		e.applySafety(ctx, &plan)
+		if plan.CallsHeld {
+			t.Errorf("%s: CallsHeld set on a plan with no calls", ch)
+		}
 	}
 }

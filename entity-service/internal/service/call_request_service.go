@@ -108,6 +108,21 @@ func callerEmail(ctx context.Context) (string, error) {
 	return email, nil
 }
 
+// resolveCreateCallRequestState picks the row's starting state.
+// A nil state means the field was omitted: the customer raised the request, so
+// it waits on WSO2. A supplied value is checked before any repository call.
+// Only pending_on_customer is accepted (an agent-raised request). An empty
+// string and every other state are refused.
+func resolveCreateCallRequestState(state *domain.CallRequestStateType) (domain.CallRequestStateType, error) {
+	if state == nil {
+		return domain.CallRequestStatePendingOnWSO2, nil
+	}
+	if *state == domain.CallRequestStatePendingOnCustomer {
+		return domain.CallRequestStatePendingOnCustomer, nil
+	}
+	return "", &apierror.ValidationError{Msg: "state on create must be omitted or pending_on_customer"}
+}
+
 // CreateCallRequest implements CallRequestService.
 func (s *callRequestService) CreateCallRequest(ctx context.Context, req domain.CreateCallRequestRequest) (domain.CreateCallRequestResponse, error) {
 	if req.CaseID == "" {
@@ -125,6 +140,11 @@ func (s *callRequestService) CreateCallRequest(ctx context.Context, req domain.C
 	if req.DurationMinutes <= 0 {
 		return domain.CreateCallRequestResponse{}, &apierror.ValidationError{Msg: "durationInMinutes must be positive"}
 	}
+	state, err := resolveCreateCallRequestState(req.State)
+	if err != nil {
+		return domain.CreateCallRequestResponse{}, err
+	}
+	req.State = &state
 
 	email, err := callerEmail(ctx)
 	if err != nil {
@@ -279,13 +299,12 @@ func (s *callRequestService) SearchAllCallRequests(ctx context.Context, req doma
 // UpdateCallRequest implements CallRequestService. The input rules mirror the
 // ServiceNow implementation's (per-state required fields, except that a conclude
 // needs no notes -- see below); req.Assignee is
-// interpreted as the assignee's email, resolved to a user id. CancellationReason
-// is rejected: customer_call has no column to store it, and accepting it would
-// report success while silently discarding what the caller sent.
+// interpreted as the assignee's email, resolved to a user id.
+// CancellationReason is stored in customer_call.reject_reason -- a distinct
+// column from the request's own "reason" (migration 0073, set once at
+// creation): this one is captured later, whenever a call is rejected or
+// canceled, and must not overwrite that original value.
 func (s *callRequestService) UpdateCallRequest(ctx context.Context, req domain.UpdateCallRequestRequest) (domain.UpdateCallRequestResponse, error) {
-	if req.CancellationReason != nil {
-		return domain.UpdateCallRequestResponse{}, &apierror.ValidationError{Msg: "cancellationReason is not supported for the Postgres data source"}
-	}
 	if err := validateUUIDs("id", []string{req.ID}); err != nil {
 		return domain.UpdateCallRequestResponse{}, err
 	}

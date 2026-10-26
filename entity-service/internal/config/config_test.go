@@ -18,6 +18,8 @@ package config
 
 import (
 	"net/url"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -27,10 +29,13 @@ import (
 // test only needs to override the field(s) under test.
 func baseValidConfig() Config {
 	return Config{
-		DataSource: DataSourcePostgres,
-		DBUser:     "user",
-		DBPassword: "password",
-		DBName:     "db",
+		DataSource:           DataSourcePostgres,
+		SLADataSource:        SLADataSourcePostgres,
+		UsageReadMode:        UsageReadModePostgres,
+		AttachmentDataSource: AttachmentDataSourcePostgres,
+		DBUser:               "user",
+		DBPassword:           "password",
+		DBName:               "db",
 		// Both ports carry their real defaults: Load always populates them,
 		// and Validate rejects the two being equal — which a zero-value
 		// Config would be.
@@ -295,6 +300,67 @@ func TestConfig_Validate_ServiceNowRequiresIntegrationServiceFields(t *testing.T
 	}
 }
 
+func TestConfig_Validate_SLADataSource(t *testing.T) {
+	t.Run("invalid value is rejected", func(t *testing.T) {
+		c := baseValidConfig()
+		c.SLADataSource = SLADataSource("bogus")
+		if err := c.Validate(); err == nil {
+			t.Error("Validate() = nil, want an error for an invalid SLA_DATA_SOURCE")
+		}
+	})
+
+	// SLADataSource is independent of DataSource: a plain DATA_SOURCE=postgres
+	// deployment must still be able to require servicenow for SLA reads
+	// specifically, and must then require the same ServiceNow integration
+	// service credentials DATA_SOURCE=servicenow itself requires.
+	t.Run("servicenow requires integration service credentials even under DATA_SOURCE=postgres", func(t *testing.T) {
+		base := func() Config {
+			c := baseValidConfig()
+			c.SLADataSource = SLADataSourceServiceNow
+			c.ServiceNowIntegrationServiceBaseURL = "https://example.com"
+			c.ServiceNowIntegrationServiceTokenURL = "https://example.com/token"
+			c.ServiceNowIntegrationServiceClientID = "client-id"
+			c.ServiceNowIntegrationServiceClientSecret = "client-secret"
+			return c
+		}
+
+		valid := base()
+		if err := valid.Validate(); err != nil {
+			t.Fatalf("unexpected error for DATA_SOURCE=postgres + SLA_DATA_SOURCE=servicenow, fully configured: %v", err)
+		}
+		if valid.DataSource != DataSourcePostgres {
+			t.Fatalf("test setup error: expected DataSource to stay postgres, got %q", valid.DataSource)
+		}
+
+		tests := []struct {
+			name   string
+			mutate func(c *Config)
+		}{
+			{"missing base URL", func(c *Config) { c.ServiceNowIntegrationServiceBaseURL = "" }},
+			{"missing token URL", func(c *Config) { c.ServiceNowIntegrationServiceTokenURL = "" }},
+			{"missing client ID", func(c *Config) { c.ServiceNowIntegrationServiceClientID = "" }},
+			{"missing client secret", func(c *Config) { c.ServiceNowIntegrationServiceClientSecret = "" }},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				c := base()
+				tt.mutate(&c)
+				if err := c.Validate(); err == nil {
+					t.Errorf("Validate() = nil, want an error when %s", tt.name)
+				}
+			})
+		}
+	})
+
+	t.Run("postgres needs no ServiceNow credentials", func(t *testing.T) {
+		c := baseValidConfig()
+		c.SLADataSource = SLADataSourcePostgres
+		if err := c.Validate(); err != nil {
+			t.Errorf("unexpected error for SLA_DATA_SOURCE=postgres with no ServiceNow credentials: %v", err)
+		}
+	})
+}
+
 func TestConfig_Validate_RejectsPortsThatResolveToTheSameNumber(t *testing.T) {
 	// A string comparison would wave "8080"/"08080" through: different
 	// strings, same TCP port, so both listeners race for one port and the
@@ -327,6 +393,9 @@ func TestConfig_Validate_RejectsUnbindablePort(t *testing.T) {
 func baseValidServiceNowConfig() Config {
 	return Config{
 		DataSource:                               DataSourceServiceNow,
+		SLADataSource:                            SLADataSourcePostgres,
+		UsageReadMode:                            UsageReadModePostgres,
+		AttachmentDataSource:                     AttachmentDataSourcePostgres,
 		ServiceNowIntegrationServiceBaseURL:      "https://example.com",
 		ServiceNowIntegrationServiceTokenURL:     "https://example.com/token",
 		ServiceNowIntegrationServiceClientID:     "client-id",
@@ -881,7 +950,11 @@ func TestLoad_Redis(t *testing.T) {
 	t.Setenv("REDIS_URL", "")
 	t.Setenv("REDIS_ADDR", "")
 	t.Setenv("USER_CACHE_TTL", "")
+	t.Setenv("PRODUCT_VULNERABILITY_META_CACHE_TTL", "")
 	c := Load()
+	if c.VulnerabilityMetaCacheTTL != 24*time.Hour {
+		t.Errorf("VulnerabilityMetaCacheTTL = %v, want the 24h default", c.VulnerabilityMetaCacheTTL)
+	}
 	if c.HasRedis() {
 		t.Error("HasRedis() = true with neither REDIS_URL nor REDIS_ADDR set")
 	}
@@ -891,7 +964,11 @@ func TestLoad_Redis(t *testing.T) {
 
 	t.Setenv("REDIS_ADDR", " localhost:6379 ")
 	t.Setenv("USER_CACHE_TTL", "90s")
+	t.Setenv("PRODUCT_VULNERABILITY_META_CACHE_TTL", "2h")
 	c = Load()
+	if c.VulnerabilityMetaCacheTTL != 2*time.Hour {
+		t.Errorf("VulnerabilityMetaCacheTTL = %v, want 2h", c.VulnerabilityMetaCacheTTL)
+	}
 	if !c.HasRedis() || c.RedisAddr != "localhost:6379" {
 		t.Errorf("HasRedis() = %v, RedisAddr = %q; want true, %q", c.HasRedis(), c.RedisAddr, "localhost:6379")
 	}
@@ -1136,5 +1213,197 @@ func TestConfig_Validate_CaseEscalationNotices(t *testing.T) {
 	c.CaseEscalationNotices = "yes"
 	if err := c.Validate(); err == nil {
 		t.Error(`"yes": want a startup error`)
+	}
+}
+
+// TestConfig_HasGithubIntegration_RepoTokens: per-repository tokens alone are
+// enough to run the sync -- GITHUB_TOKEN becomes the optional fallback.
+func TestConfig_HasGithubIntegration_RepoTokens(t *testing.T) {
+	for _, tc := range []struct {
+		name              string
+		token, repoTokens string
+		want              bool
+	}{
+		{"GITHUB_TOKEN only", "pat", "", true},
+		{"GITHUB_REPO_TOKENS only", "", `{"wso2-enterprise/choreo":"pat"}`, true},
+		{"both", "pat", `{"wso2-enterprise/choreo":"pat"}`, true},
+		{"neither", "", "", false},
+		{"GITHUB_REPO_TOKENS set but empty", "", `{}`, false},
+		{"GITHUB_REPO_TOKENS null", "", `null`, false},
+		{"GITHUB_REPO_TOKENS malformed", "", `{"org/ repo":"pat"}`, false},
+	} {
+		c := Config{GithubIntegrationEnabled: true, GithubIntegrationLogin: "csm-bot", GithubToken: tc.token, GithubRepoTokens: tc.repoTokens}
+		if got := c.HasGithubIntegration(); got != tc.want {
+			t.Errorf("%s: HasGithubIntegration = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+// TestConfig_Validate_GithubRepoTokens: a malformed GITHUB_REPO_TOKENS refuses
+// to start rather than leaving repositories without their token.
+func TestConfig_Validate_GithubRepoTokens(t *testing.T) {
+	for _, v := range []string{"", `{"wso2-enterprise/choreo":"pat","asgardeo-org":"pat2"}`} {
+		c := baseValidConfig()
+		c.GithubRepoTokens = v
+		if err := c.Validate(); err != nil {
+			t.Errorf("%q: unexpected error %v", v, err)
+		}
+	}
+	for _, v := range []string{`not json`, `null`, `{"a/b/c":"pat"}`, `{"org/ repo":"pat"}`, `{"wso2-enterprise/choreo":""}`} {
+		c := baseValidConfig()
+		c.GithubRepoTokens = v
+		if err := c.Validate(); err == nil {
+			t.Errorf("%q: want a startup error", v)
+		}
+	}
+}
+
+func TestConfig_GithubServiceNowFirst(t *testing.T) {
+	c := baseValidConfig()
+	c.GithubSRServiceNowFirst = true
+	c.DataSource = DataSourcePostgres
+	if c.GithubServiceNowFirst() {
+		t.Error("on plain postgres: there is no ServiceNow to create in")
+	}
+	c.DataSource = DataSourcePostgresServiceNowDualWrite
+	if !c.GithubServiceNowFirst() {
+		t.Error("off under dual-write with GITHUB_SR_SERVICENOW_FIRST=true")
+	}
+	c.GithubSRServiceNowFirst = false
+	if c.GithubServiceNowFirst() {
+		t.Error("on without GITHUB_SR_SERVICENOW_FIRST")
+	}
+}
+
+func TestConfig_Validate_UsageReadMode(t *testing.T) {
+	for _, m := range []UsageReadMode{UsageReadModePostgres, UsageReadModeLegacy} {
+		c := baseValidConfig()
+		c.UsageReadMode = m
+		if err := c.Validate(); err != nil {
+			t.Errorf("Validate() with PRODUCT_CONSUMPTION_DATA_READ_MODE=%q: %v", m, err)
+		}
+	}
+	for _, bad := range []UsageReadMode{"bogus", "Legacy", ""} {
+		c := baseValidConfig()
+		c.UsageReadMode = bad
+		err := c.Validate()
+		if err == nil || !strings.Contains(err.Error(), "PRODUCT_CONSUMPTION_DATA_READ_MODE") {
+			t.Errorf("Validate() with PRODUCT_CONSUMPTION_DATA_READ_MODE=%q = %v, want a PRODUCT_CONSUMPTION_DATA_READ_MODE error", bad, err)
+		}
+	}
+}
+
+func TestLoad_UsageReadMode(t *testing.T) {
+	cases := []struct {
+		name  string
+		set   bool
+		value string
+		want  UsageReadMode
+	}{
+		{"unset defaults to postgres", false, "", UsageReadModePostgres},
+		{"empty defaults to postgres", true, "", UsageReadModePostgres},
+		{"postgres", true, "postgres", UsageReadModePostgres},
+		{"legacy", true, "legacy", UsageReadModeLegacy},
+		{"invalid is carried through for Validate to reject", true, "bogus", UsageReadMode("bogus")},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("PRODUCT_CONSUMPTION_DATA_READ_MODE", "")
+			if tc.set {
+				t.Setenv("PRODUCT_CONSUMPTION_DATA_READ_MODE", tc.value)
+			} else {
+				os.Unsetenv("PRODUCT_CONSUMPTION_DATA_READ_MODE")
+			}
+			if got := Load().UsageReadMode; got != tc.want {
+				t.Errorf("UsageReadMode = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestConfig_UsageReadRoute(t *testing.T) {
+	cases := []struct {
+		ds   DataSource
+		mode UsageReadMode
+		want UsageReadRoute
+	}{
+		{DataSourcePostgres, UsageReadModePostgres, UsageReadRoutePostgres},
+		{DataSourcePostgres, UsageReadModeLegacy, UsageReadRoutePostgres},
+		{DataSourceServiceNow, UsageReadModePostgres, UsageReadRouteServiceNowOnly},
+		{DataSourceServiceNow, UsageReadModeLegacy, UsageReadRouteServiceNowOnly},
+		{DataSourcePostgresServiceNowDualWrite, UsageReadModePostgres, UsageReadRoutePostgres},
+		{DataSourcePostgresServiceNowDualWrite, UsageReadModeLegacy, UsageReadRoutePreviousPathFallback},
+	}
+	for _, tc := range cases {
+		c := Config{DataSource: tc.ds, UsageReadMode: tc.mode}
+		if got := c.UsageReadRoute(); got != tc.want {
+			t.Errorf("DataSource=%s mode=%s: route = %d, want %d", tc.ds, tc.mode, got, tc.want)
+		}
+	}
+}
+
+// TestConfig_Validate_QueryHourInternalEmailDomain covers the one thing a
+// reader of this setting is likely to get wrong. The service matches it with
+// strings.HasSuffix, so "wso2.com" without the leading "@" also accepts
+// someone@notwso2.com -- the report names accounts, their owners and what
+// each has spent, so that is a disclosure, not a cosmetic slip. Empty stays
+// valid: NewQueryHourService falls back to "@wso2.com".
+func TestConfig_Validate_QueryHourInternalEmailDomain(t *testing.T) {
+	tests := []struct {
+		name    string
+		domain  string
+		wantErr bool
+	}{
+		{name: "unset is valid, the service defaults", domain: "", wantErr: false},
+		{name: "with the @ is valid", domain: "@wso2.com", wantErr: false},
+		{name: "without the @ is rejected", domain: "wso2.com", wantErr: true},
+		{name: "a bare suffix is rejected", domain: ".com", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := baseValidConfig()
+			c.QueryHourInternalEmailDomain = tt.domain
+			err := c.Validate()
+			if tt.wantErr && err == nil {
+				t.Fatalf("QueryHourInternalEmailDomain=%q: expected an error, got none", tt.domain)
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("QueryHourInternalEmailDomain=%q: unexpected error: %v", tt.domain, err)
+			}
+		})
+	}
+}
+
+// INCIDENT_EXTRA_ASSIGNMENT_GROUP_IDS is optional: comma-separated UUIDs,
+// trimmed, empty entries dropped; a non-UUID entry refuses
+// to start.
+func TestConfig_IncidentExtraAssignmentGroupIDs(t *testing.T) {
+	const a = "791ae9fb-1b41-8d10-a30d-edb8b04bcbd4"
+	const b = "5ddddddd-dddd-4ddd-8ddd-dddddddddddd"
+	for name, tc := range map[string]struct {
+		env     string
+		want    []string
+		wantErr bool
+	}{
+		"unset":              {env: "", want: nil},
+		"only separators":    {env: " , ,, ", want: []string{}},
+		"one":                {env: a, want: []string{a}},
+		"whitespace":         {env: "  " + a + " ,\t" + b + "  ", want: []string{a, b}},
+		"empty entries":      {env: "," + a + ",," + b + ",", want: []string{a, b}},
+		"invalid uuid":       {env: a + ",not-a-uuid", want: []string{a, "not-a-uuid"}, wantErr: true},
+		"name instead of id": {env: "Security Operations Center", want: []string{"Security Operations Center"}, wantErr: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("INCIDENT_EXTRA_ASSIGNMENT_GROUP_IDS", tc.env)
+			c := Load()
+			if !reflect.DeepEqual(c.IncidentExtraAssignmentGroupIDs, tc.want) {
+				t.Errorf("Load() = %#v, want %#v", c.IncidentExtraAssignmentGroupIDs, tc.want)
+			}
+			base := baseValidConfig()
+			base.IncidentExtraAssignmentGroupIDs = c.IncidentExtraAssignmentGroupIDs
+			if err := base.Validate(); (err != nil) != tc.wantErr {
+				t.Errorf("Validate() err = %v, want error %v", err, tc.wantErr)
+			}
+		})
 	}
 }

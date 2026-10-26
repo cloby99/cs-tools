@@ -16,10 +16,12 @@
  * under the License.
  */
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type JSX, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type JSX, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import RosterLegend, { type LegendItem } from "./RosterLegend";
 import RotaPicker, { type RotaOption } from "./RotaPicker";
 import type {
   CellAbsence,
+  EngagementAllocation,
   ScheduleAbsence,
   ScheduleAbsenceKind,
   ScheduleAssignment,
@@ -28,7 +30,15 @@ import type {
   ScheduleTier,
   RotaFamily,
 } from "../types";
-import { addDays, initialsOf, isRotationShift, mondayOf, toIsoDate, zoneColumnOf, zoneLabelOn, type RosterSpan } from "../utils/rota";
+import { addDays, initialsOf, isRotationShift, kindsOfferedOn, mondayOf, movesOfferedOn, toIsoDate, zoneColumnOf, zoneLabelOn, type RosterSpan } from "../utils/rota";
+import {
+  ENGAGEMENTS_FAILED_NOTE,
+  ENGAGEMENT_MARK_LEGEND_ITEM,
+  allocationsByPersonAndDay,
+  dayMarkerAriaLabel,
+  dayMarkerTitle,
+} from "../utils/engagementAllocations";
+import { ordinaryDayCode, REGULAR_HOURS_CODE } from "../utils/standingDay";
 import { useTeamColour, useTeamName } from "../utils/teamColourContext";
 
 export type { RosterSpan };
@@ -51,6 +61,12 @@ interface MonthRosterProps {
    *  choice to offer. */
   span?: RosterSpan;
   onSpanChange?: (span: RosterSpan) => void;
+  /** Confirmed customer engagement allocations over the days shown, drawn
+   *  read-only as a strip under each day an engineer is on one. */
+  engagementAllocations?: EngagementAllocation[];
+  /** The allocations could not be read: the roster is drawn without them,
+   *  with a quiet note saying so. */
+  engagementsFailed?: boolean;
   assignments: ScheduleAssignment[];
   absences: ScheduleAbsence[];
   shifts: Map<string, ScheduleShift>;
@@ -84,6 +100,10 @@ interface MonthRosterProps {
   /** Each team's ordinary-weekday window, by team key, where it is not
    *  Regular hours -- Americas cover for the Americas team. */
   teamDefaultShift?: Readonly<Record<string, string>>;
+  /** Teams whose unmarked weekday draws nothing. LK is a CRE day across every
+   *  zone; an SRE SaaS engineer works TZ1 or TZ2 and nights, which the
+   *  generated SUP says, so drawing LK there would claim all three. */
+  teamsWithoutDefault?: ReadonlySet<string>;
   /** CRE and SRE in the order they should read -- the reader's own group
    *  first, because the first of a pair reads as the default. */
   families: readonly RotaFamily[];
@@ -146,6 +166,7 @@ interface MonthRosterProps {
 }
 
 
+
 interface Cell {
   code: string;
   token: string;
@@ -165,6 +186,18 @@ interface Cell {
   absence?: CellAbsence;
   /** Drawn, not stored: what an unmarked weekday means for the row's team. */
   isDefault?: boolean;
+  /** An on-call window. Two windows can share a short code ("6-9am" and
+   *  "6-9am on-call"), so the chip is drawn dashed -- the grid's mark for
+   *  on-call, as on L3 -- rather than relying on a tooltip to tell them apart. */
+  onCall?: boolean;
+  /** A move to another team drawn as that team's hours (Americas cover on
+   *  the Brazil rotation): it reads, and is explained, as those hours. */
+  asHours?: boolean;
+  /** A day of a move onto a team that is worked as that team's own rota with
+   *  no hours of its own (the SaaS Night cover), on that team's row: being on
+   *  the row says it all, so it draws as an empty day -- and still opens the
+   *  move, so it can be ended or removed. */
+  quiet?: boolean;
 }
 
 /** What a weekday nobody has marked is: an ordinary working day.
@@ -197,6 +230,8 @@ export default function MonthRoster({
   to: rangeTo,
   span,
   onSpanChange,
+  engagementAllocations,
+  engagementsFailed = false,
   assignments,
   absences,
   shifts,
@@ -210,6 +245,7 @@ export default function MonthRoster({
   teams,
   teamMembers,
   teamDefaultShift,
+  teamsWithoutDefault,
   families,
   rotas,
   rotaCode,
@@ -255,6 +291,11 @@ export default function MonthRoster({
     const count = Math.round((last.getTime() - first.getTime()) / 86_400_000) + 1;
     return Array.from({ length: count }, (_, i) => new Date(first.getFullYear(), first.getMonth(), first.getDate() + i));
   }, [month, monthCount, fromIso, toIso]);
+  /** Customer engagements, engineer then day, over the days on the grid. */
+  const engByPerson = useMemo(
+    () => allocationsByPersonAndDay(engagementAllocations ?? [], days.map(toIsoDate)),
+    [engagementAllocations, days],
+  );
   /** The 1st of each month after the first: where the grid draws a month rule
    *  and names the month, so ninety columns still read as three months. */
   const opensMonth = (d: Date): boolean => d.getDate() === 1 && d.getTime() !== days[0].getTime();
@@ -338,6 +379,10 @@ export default function MonthRoster({
          *  that zone, keyed like `zoned`. Kept under the turn, the same way an
          *  allocation is, so the cell says both: TZ1 regular hours and L1. */
         zonedBase: Map<string, Cell>;
+        /** Turns still rostered on a day the person is on leave. Leave is
+         *  the cell -- they are away -- but the turn is kept beside it, so the
+         *  gap a lead has to cover shows instead of hiding under the leave. */
+        clash: Map<string, Cell[]>;
       }
     >();
 
@@ -350,11 +395,20 @@ export default function MonthRoster({
     const firstIso = toIsoDate(days[0]);
     const nowIso = toIsoDate(new Date());
     const refIso = nowIso >= firstIso && nowIso <= toIsoDate(days[days.length - 1]) ? nowIso : firstIso;
+    const lastIso = toIsoDate(days[days.length - 1]);
     const movedTo = new Map<string, { target: string; home: string; active: boolean }>();
     for (const ab of absences) {
       const kind = kindByCode.get(ab.kindCode);
       if (!kind?.movesToTeamKey || !ab.homeTeamKey) continue;
-      const active = ab.startsOn <= refIso && (!ab.endsOn || ab.endsOn >= refIso);
+      // A move with no hours of its own (SaaS Night cover: being on the team
+      // is the whole of it) seats them under that team whenever it is in
+      // view, not only once it has started -- otherwise a move starting
+      // tomorrow left them on their own team, the move drawn there as a row
+      // of NC chips, which is the one thing it should never read as.
+      const teamOnly = kind.worksRotaThere && !kind.showsAsShiftCode;
+      const active = teamOnly
+        ? ab.startsOn <= lastIso && (!ab.endsOn || ab.endsOn >= firstIso)
+        : ab.startsOn <= refIso && (!ab.endsOn || ab.endsOn >= refIso);
       if (active || !movedTo.has(ab.engineer.userId)) {
         movedTo.set(ab.engineer.userId, { target: ab.teamKey, home: ab.homeTeamKey, active });
       }
@@ -379,7 +433,7 @@ export default function MonthRoster({
           isMember: !teamMembers,
           movedDays: new Set(),
           homeMember: !teamMembers,
-          days: new Map(), zoned: new Map(), allocs: new Map(), zonedBase: new Map(),
+          days: new Map(), zoned: new Map(), allocs: new Map(), zonedBase: new Map(), clash: new Map(),
         };
         people.set(key, row);
       } else if (isLead && !redirected) {
@@ -410,6 +464,7 @@ export default function MonthRoster({
         isRotation,
         shiftCode: a.shiftCode,
         tier: a.tier,
+        onCall: Boolean(shift?.isOnCall && isRotation && !a.tier),
       };
 
       // A zoned window lands in its own sub-column; anything else is a fact
@@ -439,8 +494,15 @@ export default function MonthRoster({
     /** Does this engineer hold a rotation turn on this day -- anything but
      *  regular hours -- in any zone or none? */
     const holdsTurn = (row: { days: Map<string, Cell>; zoned: Map<string, Cell> }, iso: string) =>
-      Boolean(row.days.get(iso)?.isRotation) ||
-      [...row.zoned.entries()].some(([k, c]) => k.startsWith(`${iso}|`) && c.isRotation);
+      turnsOn(row, iso).length > 0;
+    /** The turns this engineer holds on this day, in any zone or none. */
+    function turnsOn(row: { days: Map<string, Cell>; zoned: Map<string, Cell> }, iso: string): Cell[] {
+      const whole = row.days.get(iso);
+      return [
+        ...(whole?.isRotation ? [whole] : []),
+        ...[...row.zoned.entries()].filter(([k, c]) => k.startsWith(`${iso}|`) && c.isRotation).map(([, c]) => c),
+      ];
+    }
 
     // Leave wins: someone on leave is not on the rota that day, whatever a
     // generated row says. An allocation is different -- time given elsewhere
@@ -468,11 +530,13 @@ export default function MonthRoster({
       const end = ab.endsOn ?? toIsoDate(days[days.length - 1]);
       for (const d of days) {
         const iso = toIsoDate(d);
-        // Leave is not taken on a weekend -- nobody is rostered to be away
-        // from a Saturday -- so a span running across one leaves those days
-        // alone rather than painting them as leave.
+        // Leave covers the whole span, the weekend inside it included: it is
+        // stored that way, the picker marks it that way, and somebody away
+        // Friday to Monday is not back for two days in the middle. Leaving the
+        // Saturday blank read as "working", and hid a weekend turn the person
+        // could not do. (Leave still cannot *start* on a weekend -- the picker
+        // says so.)
         const weekendDay = d.getDay() === 0 || d.getDay() === 6;
-        if (weekendDay && kind?.bucket === "LEAVE") continue;
         // Days on the team this row is: only a row under the team the span
         // moved them to has moved days; on their own team's row they are the
         // move's days, drawn as the span, edited as their own team's.
@@ -510,11 +574,43 @@ export default function MonthRoster({
               token: shownAs.colourToken,
               title: `${shownAs.label} · ${kind?.label ?? ab.kindCode}`,
               isRotation: false,
+              asHours: true,
+            });
+            continue;
+          }
+          // A move onto a team of the same rota (the SaaS Night cover) has no
+          // hours of its own: on that team's row a day is just a day of theirs
+          // there, and a turn that day is what it shows.
+          if (
+            kind?.worksRotaThere &&
+            !kind.showsAsShiftCode &&
+            kind.movesToTeamKey?.toLowerCase() === row.teamKey.toLowerCase()
+          ) {
+            if (holdsTurn(row, iso)) continue;
+            row.days.set(iso, {
+              absenceKindCode: ab.kindCode,
+              absence: {
+                id: ab.id,
+                kindCode: ab.kindCode,
+                startsOn: ab.startsOn,
+                endsOn: ab.endsOn,
+                allocatedTo: ab.allocatedTo,
+                homeTeamKey: ab.homeTeamKey,
+              },
+              code: "",
+              token: "",
+              title: kind.label,
+              isRotation: false,
+              quiet: true,
             });
             continue;
           }
           const target =
             kind?.bucket === "ALLOCATION" && holdsTurn(row, iso) ? row.allocs : row.days;
+          if (kind?.bucket === "LEAVE" && iso >= ab.startsOn && !row.clash.has(iso)) {
+            const turns = turnsOn(row, iso);
+            if (turns.length > 0) row.clash.set(iso, turns);
+          }
           target.set(iso, {
             absenceKindCode: ab.kindCode,
             absence: {
@@ -581,9 +677,10 @@ export default function MonthRoster({
   }, [absences, assignments, days, kindByCode, shifts, teams, teamKey, teamMembers]);
 
   const q = query.trim().toLowerCase();
-  const rows = q
-    ? grid.filter((r) => r.name.toLowerCase().includes(q) || r.teamKey.toLowerCase().includes(q))
-    : grid;
+  // The SaaS Night cover is a team like any other -- people a lead moved
+  // onto it sit under it for the move's months -- so it needs no group of its
+  // own here.
+  const rows = q ? grid.filter((r) => r.name.toLowerCase().includes(q) || r.teamKey.toLowerCase().includes(q)) : grid;
 
   const todayIso = toIsoDate(new Date());
 
@@ -628,26 +725,36 @@ export default function MonthRoster({
    *  Americas cover on the Americas team, Regular hours elsewhere -- and only
    *  for somebody on that team, so a leaver's month stops at their last day.
    *  On a row a span moved someone to, the days outside the span are their
-   *  own team's ordinary day. */
+   *  own team's ordinary day. The lead of a team on the India region shift
+   *  keeps Regular hours (ordinaryDayCode). */
   const defaultFor = useMemo(() => {
-    const cellFor = (team: string): Cell => {
-      const code = teamDefaultShift?.[team] ?? teamDefaultShift?.[team.toLowerCase()];
-      const sh = code ? shifts.get(code) : undefined;
+    const cellFor = (team: string, isLead: boolean): Cell | undefined => {
+      if (teamsWithoutDefault?.has(team) || teamsWithoutDefault?.has(team.toLowerCase())) return undefined;
+      const own = teamDefaultShift?.[team] ?? teamDefaultShift?.[team.toLowerCase()];
+      const code = own ? ordinaryDayCode(own, isLead) : undefined;
+      const sh = code && code !== REGULAR_HOURS_CODE ? shifts.get(code) : undefined;
       return sh
         ? { code: sh.shortCode, token: sh.colourToken, title: `Working day (${sh.shortCode})`, isRotation: false, isDefault: true }
         : WORKING_DAY;
     };
     return (
-      row: { teamKey: string; isMember: boolean; movedDays: ReadonlySet<string>; homeTeam?: string; homeMember: boolean },
+      row: {
+        teamKey: string;
+        isMember: boolean;
+        isLead: boolean;
+        movedDays: ReadonlySet<string>;
+        homeTeam?: string;
+        homeMember: boolean;
+      },
       iso: string,
     ): Cell | undefined => {
       if (row.movedDays.size > 0) {
-        if (row.movedDays.has(iso)) return cellFor(row.teamKey);
-        return row.homeTeam && row.homeMember ? cellFor(row.homeTeam) : undefined;
+        if (row.movedDays.has(iso)) return cellFor(row.teamKey, row.isLead);
+        return row.homeTeam && row.homeMember ? cellFor(row.homeTeam, row.isLead) : undefined;
       }
-      return row.isMember ? cellFor(row.teamKey) : undefined;
+      return row.isMember ? cellFor(row.teamKey, row.isLead) : undefined;
     };
-  }, [teamDefaultShift, shifts]);
+  }, [teamDefaultShift, teamsWithoutDefault, shifts]);
 
   /** Whether this reader may change this cell -- the same rule the server
    *  applies, so a cell never looks editable and then refuses the save:
@@ -671,6 +778,102 @@ export default function MonthRoster({
       return own.has(row.teamKey.toLowerCase()) && row.isMember;
     };
   }, [leadTeams, onEditCell, editing]);
+
+  /** The legend: one line per code on screen, in the order a reader meets
+   *  them -- turns, hours, leave, allocations -- plus every leave, allocation
+   *  and move tag a rota marker can add on this rota, on screen or not. The
+   *  labels only: the grid's own marks (a struck-through turn, the dot of an
+   *  empty day) say what they are in their tooltips. */
+  const legendItems = useMemo((): LegendItem[] => {
+    const out = new Map<string, LegendItem>();
+    const put = (it: LegendItem): void => {
+      if (!out.has(it.key)) out.set(it.key, it);
+    };
+    const fromCell = (c: Cell): void => {
+      if (c.quiet) return;
+      const kind = c.absenceKindCode ? kindByCode.get(c.absenceKindCode) : undefined;
+      // A move drawn as the other team's hours reads as those hours.
+      if (kind && !c.asHours) {
+        // A retired kind (Sick leave, the customer allocations) is not
+        // explained: the legend lists what can be marked, and the old days
+        // still carrying one keep its name in their own tooltip.
+        if (kind.retired) return;
+        put({
+          key: `k|${kind.code}`,
+          group: kind.bucket === "LEAVE" ? "Leave" : "Allocations",
+          code: kind.shortCode,
+          token: kind.colourToken,
+          label: kind.label,
+        });
+        return;
+      }
+      if (c.tier) {
+        put({ key: `t|${c.tier}`, group: "Rota", code: c.tier, token: c.token, label: `${c.tier} escalation tier` });
+        return;
+      }
+      put({
+        key: `s|${c.code}|${c.token}|${c.onCall ? "oc" : ""}`,
+        group: c.isRotation ? "Rota" : "Hours",
+        code: c.code,
+        token: c.token,
+        label: c.isDefault ? `${c.title.replace(/^Working day.*/, "Working day")} (nothing else marked)` : c.title,
+        onCall: c.onCall,
+      });
+    };
+    for (const row of rows) {
+      for (const m of [row.days, row.zoned, row.allocs, row.zonedBase]) for (const c of m.values()) fromCell(c);
+    }
+    // What an unmarked weekday reads as on each team in view (LK, or NLK on
+    // the Americas team), so the most common chip on the grid is explained.
+    for (const row of rows) {
+      for (const d of days) {
+        if (d.getDay() === 0 || d.getDay() === 6) continue;
+        const iso = toIsoDate(d);
+        if (row.days.has(iso)) continue;
+        const dflt = defaultFor(row, iso);
+        if (dflt) {
+          fromCell(dflt);
+          break;
+        }
+      }
+    }
+    // Every tag a rota marker can add here is listed whether or not anybody
+    // carries it in view: a lead looking for how to mark something finds it
+    // here. The same tags as the picker (leave, allocations, moves to another
+    // team), with the ones on screen, in catalogue order.
+    const tags = new Map<string, ScheduleAbsenceKind>();
+    for (const key of [...out.keys()]) {
+      if (!key.startsWith("k|")) continue;
+      const kind = kindByCode.get(key.slice(2));
+      if (kind) tags.set(kind.code, kind);
+      out.delete(key);
+    }
+    for (const kind of [...kindsOfferedOn(absenceKinds, family), ...movesOfferedOn(absenceKinds, family)]) {
+      tags.set(kind.code, kind);
+    }
+    for (const kind of [...tags.values()].sort((a, b) => a.sortOrder - b.sortOrder)) {
+      put({
+        key: `k|${kind.code}`,
+        group: kind.bucket === "LEAVE" ? "Leave" : "Allocations",
+        code: kind.shortCode,
+        token: kind.colourToken,
+        label: kind.label,
+      });
+    }
+    // A move worked as that team's hours (the Brazil rotation, picked as
+    // "Move to Americas Team") is drawn as those hours, so it reads as them.
+    for (const kind of absenceKinds) {
+      if (!kind.movesToTeamKey || !kind.worksRotaThere || !kind.showsAsShiftCode || kind.retired) continue;
+      if (kind.family && kind.family !== family) continue;
+      // Only this rota's windows: the picker offers no other family's hours.
+      const sh = shifts.get(kind.showsAsShiftCode);
+      if (sh && sh.family === family) put({ key: `s|${sh.shortCode}|${sh.colourToken}|`, group: "Hours", code: sh.shortCode, token: sh.colourToken, label: sh.label });
+    }
+    // Only when a marker is on a row in view: the legend explains what is
+    // drawn, and the marker is not a code a lead can mark.
+    if (rows.some((r) => (engByPerson.get(r.userId)?.size ?? 0) > 0)) put(ENGAGEMENT_MARK_LEGEND_ITEM);
+    return [...out.values()];
+  }, [rows, days, kindByCode, defaultFor, absenceKinds, family, shifts, engByPerson]);
 
   /** Turn a click on any roster cell into the slot the page should open the
    *  picker on. Shared by the plain grid and by SRE's zone-split one, which
@@ -715,6 +918,108 @@ export default function MonthRoster({
     });
     return { mark: true, note: ` — changed by ${hit.actor} on ${when}` };
   };
+
+  /** A chip as the grid draws it: dashed when the window is on-call, and
+   *  marked when it is only what an unmarked weekday means. */
+  const chipOf = (c: Cell, extra = ""): JSX.Element =>
+    c.quiet ? (
+      <span className="none">·</span>
+    ) : (
+      <span className={`chip sm ${c.token}${c.isDefault ? " dflt" : ""}${c.onCall ? " oc" : ""}${extra}`}>{c.code}</span>
+    );
+  /** The strip under a day on which the engineer is on a customer
+   *  engagement, or nothing. Absolutely placed in the cell (see the css), so
+   *  it moves nothing. A day split by zone draws it in every sub-column, so
+   *  the strip runs the width of the day, but only the first is named: the
+   *  rest are hidden from assistive technology, so the day is announced once.
+   *  The title is on all of them so the tooltip shows wherever the pointer
+   *  is along the strip. */
+  const engMark = (userId: string, iso: string, named = true): JSX.Element | null => {
+    const list = engByPerson.get(userId)?.get(iso);
+    if (!list || list.length === 0) return null;
+    return named ? (
+      <span className="engmk" role="img" aria-label={dayMarkerAriaLabel(list)} title={dayMarkerTitle(list)} />
+    ) : (
+      <span className="engmk" aria-hidden="true" title={dayMarkerTitle(list)} />
+    );
+  };
+  /** Said on a day that is leave but still holds a turn. */
+  const clashNote = (turns: Cell[] | undefined): string =>
+    turns && turns.length > 0
+      ? ` — still rostered for ${turns.map((t) => (t.tier ? `${t.tier} · ${t.title}` : t.title)).join(" and ")}: needs cover`
+      : "";
+  /** Leave, and the turn it leaves uncovered struck through under it. */
+  const clashPair = (leave: Cell, turns: Cell[]): JSX.Element => (
+    <span className="duo clash">
+      {chipOf(leave)}
+      {chipOf(turns[0], " gone")}
+    </span>
+  );
+  /** Why a row cannot be changed, for a lead in edit mode: the row is there
+   *  to read, and saying whose it is beats a click that does nothing. */
+  const notYours = (row: { teamKey: string }): string =>
+    editing && onEditCell
+      ? ` — only ${teamNameOf(row.teamKey)}'s lead or a ${family} rota admin can change this`
+      : "";
+
+  /** Arrow keys between the cells a lead may change, Enter or Space to open
+   *  one. One cell is in the Tab order at a time (the last one used), so the
+   *  grid is a single stop rather than a thousand. */
+  const [activeCell, setActiveCell] = useState<string | null>(null);
+  const onGridKey = (e: ReactKeyboardEvent<HTMLTableElement>): void => {
+    const td = (e.target as HTMLElement).closest<HTMLTableCellElement>("td.editable");
+    if (!td) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      td.click();
+      return;
+    }
+    const tr = td.parentElement as HTMLTableRowElement;
+    const inRow = (r: Element | null): HTMLElement[] =>
+      r ? [...r.querySelectorAll<HTMLElement>("td.editable")] : [];
+    const centre = (el: HTMLElement): number => {
+      const b = el.getBoundingClientRect();
+      return b.left + b.width / 2;
+    };
+    /** The editable cell in another row that sits under this one. */
+    const across = (r: Element | null): HTMLElement | undefined => {
+      const x = centre(td);
+      const cells = inRow(r);
+      return (
+        cells.find((c) => {
+          const b = c.getBoundingClientRect();
+          return x >= b.left && x <= b.right;
+        }) ?? cells.sort((a, b) => Math.abs(centre(a) - x) - Math.abs(centre(b) - x))[0]
+      );
+    };
+    /** The next row in a direction that has anything this lead may change. */
+    const rowFrom = (r: Element | null, up: boolean): Element | null => {
+      let at = r ? (up ? r.previousElementSibling : r.nextElementSibling) : null;
+      while (at && inRow(at).length === 0) at = up ? at.previousElementSibling : at.nextElementSibling;
+      return at;
+    };
+    const mine = inRow(tr);
+    const i = mine.indexOf(td);
+    const next: HTMLElement | undefined =
+      e.key === "ArrowRight" ? mine[i + 1]
+      : e.key === "ArrowLeft" ? mine[i - 1]
+      : e.key === "Home" ? mine[0]
+      : e.key === "End" ? mine[mine.length - 1]
+      : e.key === "ArrowDown" ? across(rowFrom(tr, false))
+      : e.key === "ArrowUp" ? across(rowFrom(tr, true))
+      : undefined;
+    if (!["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    if (!next) return;
+    next.focus();
+    next.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  };
+  /** The props that put an editable cell in the keyboard path. */
+  const keyable = (key: string, firstOfGrid: boolean) => ({
+    tabIndex: activeCell === key || (activeCell === null && firstOfGrid) ? 0 : -1,
+    onFocus: () => setActiveCell(key),
+    "aria-haspopup": "dialog" as const,
+  });
 
   const meRow = useRef<HTMLTableRowElement | null>(null);
   const scrolled = useRef(false);
@@ -766,6 +1071,211 @@ export default function MonthRoster({
     const t = window.setTimeout(go, 120);
     return () => window.clearTimeout(t);
   }, [monthIso, selectedIso, focusRequest]);
+
+  /** A team's rows, in one table body: the night cover sits between the teams
+   *  that share it and the rest, so the rows are drawn by part. */
+  /** The first editable cell on the grid takes the Tab stop until a lead
+   *  has used one -- counted across both groups of team rows. */
+  let tabStopGiven = false;
+  const firstStop = (): boolean => {
+    if (tabStopGiven) return false;
+    tabStopGiven = true;
+    return true;
+  };
+  const teamRowsOf = (list: typeof rows): JSX.Element[] =>
+    list.map((row, i) => {
+      // The first row of each team earns a rule above it: sorted by team
+      // with nothing between them, a hundred and twenty rows read as one
+      // undifferentiated block.
+      const opensTeam = i > 0 && list[i - 1].teamKey !== row.teamKey;
+      // Case-insensitive and trimmed: an identity provider is free to
+      // hand back Jane.Doe@Example.com for the address seeded as
+      // jane.doe@example.com, and an exact compare would silently
+      // never match.
+      const isMe = Boolean(me) && row.email.trim().toLowerCase() === me;
+      // In edit mode, a row this lead cannot change reads as such.
+      const readOnly = editing && Boolean(onEditCell) && !days.some((d) => canEdit(row, toIsoDate(d)));
+      return (
+      <tr
+        key={`${row.userId}|${row.teamKey}`}
+        ref={isMe ? meRow : undefined}
+        // Every other row banded, so one engineer's month reads across
+        // the grid without a hover to follow it.
+        // Tinted in the team's own colour, faintly, so where one team
+        // ends and the next begins reads at a glance. --rc carries it.
+        className={`tinted${isMe ? " me" : ""}${opensTeam ? " teamtop" : ""}${i % 2 === 1 ? " alt" : ""}${readOnly ? " ro" : ""}`}
+        style={{ "--rc": teamColourOf(row.teamKey) } as CSSProperties}
+        aria-current={isMe ? "true" : undefined}
+      >
+        <th className="lab">
+          <span className="nm">
+            <span className="av" style={{ background: teamColourOf(row.teamKey) }}>
+              {initialsOf(row.name)}
+            </span>
+            <span className="who">{row.name}</span>
+            {isMe ? <i className="youtag">You</i> : null}
+            {row.isLead ? <i className="leadtag">Lead</i> : null}
+            <span className="team">{teamNameOf(row.teamKey)}</span>
+          </span>
+        </th>
+        {days.map((d) => {
+          const iso = toIsoDate(d);
+          const cell = row.days.get(iso);
+          const weekend = d.getDay() === 0 || d.getDay() === 6;
+          const marks = `${weekend ? "wknd" : ""} ${iso === todayIso ? "today" : ""} ${
+            iso === selectedIso ? "sel" : ""
+          } ${d.getDay() === 1 ? "wkstart" : ""}${opensMonth(d) ? " mstart" : ""}${weekMarks(iso)}${
+            changedCells?.has(`${row.userId}|${iso}`) ? " changed" : ""
+          }`;
+          const faded = (c: Cell | undefined) =>
+            rotationsOnly && c && !c.isRotation ? "muted" : "";
+
+          const alloc = row.allocs.get(iso);
+          /** A turn and the allocation beside it, as one thing to
+           *  open: the picker shows the turn as held and offers to
+           *  remove the allocation. */
+          const withAlloc = (c: Cell | undefined): Cell | undefined =>
+            alloc
+              ? {
+                  ...(c ?? alloc),
+                  absenceKindCode: alloc.absenceKindCode,
+                  absence: alloc.absence,
+                  title: c ? `${c.title} · also ${alloc.title}` : alloc.title,
+                }
+              : c;
+
+          if (!split) {
+            const editable = canEdit(row, iso);
+            const touched = changedBy(row.userId, iso);
+            // An unmarked weekday is a working day; a weekend is not.
+            const shown = cell ?? alloc ?? (weekend ? undefined : defaultFor(row, iso));
+            const clash = cell?.absenceKindCode ? row.clash.get(iso) : undefined;
+            const key = `${row.userId}|${row.teamKey}|${iso}`;
+            return (
+              <td
+                key={iso}
+                className={`${marks} ${faded(shown)}${editable ? " c editable" : ""}${
+                  touched.mark ? " touched" : ""
+                }${clash ? " clash" : ""}`}
+                title={
+                  editable
+                    ? `${row.name} · ${shown ? (withAlloc(cell)?.title ?? shown.title) : "nothing rostered"}${clashNote(clash)}${touched.note} — click to change`
+                    : shown || touched.mark || clash
+                      ? `${row.name} · ${shown ? shown.title : "nothing rostered"}${clashNote(clash)}${touched.note}${notYours(row)}`
+                      : notYours(row)
+                        ? `${row.name}${notYours(row)}`
+                        : undefined
+                }
+                onClick={editable ? (e) => openCell(e, row, iso, withAlloc(cell)) : undefined}
+                {...(editable ? keyable(key, firstStop()) : {})}
+              >
+                {clash && cell ? (
+                  clashPair(cell, clash)
+                ) : cell && alloc ? (
+                  <span className="duo">
+                    {chipOf(cell)}
+                    {chipOf(alloc)}
+                  </span>
+                ) : shown ? (
+                  chipOf(shown)
+                ) : (
+                  <span className="none">·</span>
+                )}
+                {engMark(row.userId, iso)}
+              </td>
+            );
+          }
+
+          const zones = zonesOn(weekend);
+
+          // Leave belongs to the day, not to a zone: somebody away is
+          // away from all of them, so it spans rather than picking one
+          // arbitrarily. So does an unmarked weekday -- a working day,
+          // in no zone yet -- which reads as one LK, not three blanks.
+          const unmarked =
+            !cell && !alloc && !weekend && zones.every((z) => !row.zoned.has(`${iso}|${z}`));
+          const whole = cell ?? (unmarked ? defaultFor(row, iso) : undefined);
+          if (whole) {
+            const editable = canEdit(row, iso);
+            const clash = cell?.absenceKindCode ? row.clash.get(iso) : undefined;
+            return (
+              <td
+                key={iso}
+                colSpan={zones.length}
+                className={`c zwhole ${marks} ${faded(whole)}${
+                  editable ? " editable" : ""
+                }${clash ? " clash" : ""}`}
+                title={
+                  editable
+                    ? `${row.name} · ${whole.title}${clashNote(clash)} — click to change`
+                    : `${row.name} · ${whole.title}${clashNote(clash)}${notYours(row)}`
+                }
+                onClick={editable ? (e) => openCell(e, row, iso, cell) : undefined}
+                {...(editable ? keyable(`${row.userId}|${row.teamKey}|${iso}`, firstStop()) : {})}
+              >
+                {clash ? clashPair(whole, clash) : chipOf(whole)}
+                {engMark(row.userId, iso)}
+              </td>
+            );
+          }
+
+          const editable = canEdit(row, iso);
+          return zones.map((z, i) => {
+            // A zone the engineer holds a turn in shows the turn; the
+            // rest of the day shows the allocation that fills it.
+            const turn = row.zoned.get(`${iso}|${z}`);
+            const zc = turn ?? alloc;
+            // Under a turn: the allocation the rest of the day is
+            // given to, else the zone's regular hours.
+            const under = turn && turn.isRotation ? (alloc ?? row.zonedBase.get(`${iso}|${z}`)) : alloc;
+            return (
+              <td
+                key={`${iso}|${z}`}
+                // A day split across zone columns still has one left
+                // edge and one right edge. The month rule and the
+                // week band's opening edge belong to the first
+                // sub-column and its closing edge to the last;
+                // repeating them on each zone would rule the inside
+                // of the day as heavily as its boundary.
+                className={`c z ${i === 0 ? "zfirst" : ""}${i === zones.length - 1 ? " zlast" : ""} ${
+                  zoneMarks(marks, i, zones.length)
+                } ${faded(zc)}${editable ? " editable" : ""}`}
+                title={
+                  editable
+                    ? `${row.name} · ${z} · ${zc ? (withAlloc(row.zoned.get(`${iso}|${z}`))?.title ?? zc.title) : "nothing rostered"} — click to change`
+                    : zc
+                      ? `${row.name} · ${z} · ${zc.title}${notYours(row)}`
+                      : notYours(row)
+                        ? `${row.name}${notYours(row)}`
+                        : undefined
+                }
+                onClick={editable ? (e) => openCell(e, row, iso, withAlloc(row.zoned.get(`${iso}|${z}`)), zoneCodeFor?.(row.teamKey, z) ?? z) : undefined}
+                {...(editable ? keyable(`${row.userId}|${row.teamKey}|${iso}|${z}`, firstStop()) : {})}
+              >
+                {/* A night held by somebody not on the TZ3 crew stays
+                    here, on their own row: the Night cover group lists
+                    the crew alone, so nobody is shown twice. */}
+                {turn && under ? (
+                  // The zone's turn and what it sits on, stacked: L1
+                  // in TZ1 on an RnD day, or on TZ1's regular hours --
+                  // the cell says both.
+                  <span className="duo">
+                    {chipOf(turn)}
+                    {chipOf(under)}
+                  </span>
+                ) : zc ? (
+                  chipOf(zc)
+                ) : (
+                  <span className="zempty" />
+                )}
+                {engMark(row.userId, iso, i === 0)}
+              </td>
+            );
+          });
+        })}
+      </tr>
+      );
+    });
 
   return (
     <>
@@ -868,11 +1378,24 @@ export default function MonthRoster({
         </div>
       </div>
 
+      <RosterLegend items={legendItems} />
+      {engagementsFailed ? (
+        <div className="engnote" role="status">
+          {ENGAGEMENTS_FAILED_NOTE}
+        </div>
+      ) : null}
+
       {/* The card's one scroller. Both axes live here, which is what lets the
           date row and the engineer column stay pinned to the grid they label
-          instead of to the page. */}
-      <div className="twwrap rostwrap" ref={wrapRef} onScroll={() => (touched.current = true)}>
-        <table className={`tw roster${split ? " split" : ""}`}>
+          instead of to the page. SRE's is the exception (rostflow): its list
+          is not scrolled inside the card, only across it, so the page alone
+          scrolls down to the last engineer. */}
+      <div
+        className={`twwrap rostwrap${family === "SRE" ? " rostflow" : ""}`}
+        ref={wrapRef}
+        onScroll={() => (touched.current = true)}
+      >
+        <table className={`tw roster${split ? " split" : ""}`} onKeyDown={editing ? onGridKey : undefined}>
           <thead>
             <tr>
               {/* Spans the zone row too on a split day, so the heading sits in
@@ -931,181 +1454,7 @@ export default function MonthRoster({
               </tr>
             ) : null}
           </thead>
-          <tbody>
-            {rows.map((row, i) => {
-              // The first row of each team earns a rule above it: sorted by team
-              // with nothing between them, a hundred and twenty rows read as one
-              // undifferentiated block.
-              const opensTeam = i > 0 && rows[i - 1].teamKey !== row.teamKey;
-              // Case-insensitive and trimmed: an identity provider is free to
-              // hand back Jane.Doe@Example.com for the address seeded as
-              // jane.doe@example.com, and an exact compare would silently
-              // never match.
-              const isMe = Boolean(me) && row.email.trim().toLowerCase() === me;
-              return (
-              <tr
-                key={`${row.userId}|${row.teamKey}`}
-                ref={isMe ? meRow : undefined}
-                // Every other row banded, so one engineer's month reads across
-                // the grid without a hover to follow it.
-                // Tinted in the team's own colour, faintly, so where one team
-                // ends and the next begins reads at a glance. --rc carries it.
-                className={`tinted${isMe ? " me" : ""}${opensTeam ? " teamtop" : ""}${i % 2 === 1 ? " alt" : ""}`}
-                style={{ "--rc": teamColourOf(row.teamKey) } as CSSProperties}
-                aria-current={isMe ? "true" : undefined}
-              >
-                <th className="lab">
-                  <span className="nm">
-                    <span className="av" style={{ background: teamColourOf(row.teamKey) }}>
-                      {initialsOf(row.name)}
-                    </span>
-                    <span className="who">{row.name}</span>
-                    {isMe ? <i className="youtag">You</i> : null}
-                    {row.isLead ? <i className="leadtag">Lead</i> : null}
-                    <span className="team">{teamNameOf(row.teamKey)}</span>
-                  </span>
-                </th>
-                {days.map((d) => {
-                  const iso = toIsoDate(d);
-                  const cell = row.days.get(iso);
-                  const weekend = d.getDay() === 0 || d.getDay() === 6;
-                  const marks = `${weekend ? "wknd" : ""} ${iso === todayIso ? "today" : ""} ${
-                    iso === selectedIso ? "sel" : ""
-                  } ${d.getDay() === 1 ? "wkstart" : ""}${opensMonth(d) ? " mstart" : ""}${weekMarks(iso)}${
-                    changedCells?.has(`${row.userId}|${iso}`) ? " changed" : ""
-                  }`;
-                  const faded = (c: Cell | undefined) =>
-                    rotationsOnly && c && !c.isRotation ? "muted" : "";
-
-                  const alloc = row.allocs.get(iso);
-                  /** A turn and the allocation beside it, as one thing to
-                   *  open: the picker shows the turn as held and offers to
-                   *  remove the allocation. */
-                  const withAlloc = (c: Cell | undefined): Cell | undefined =>
-                    alloc
-                      ? {
-                          ...(c ?? alloc),
-                          absenceKindCode: alloc.absenceKindCode,
-                          absence: alloc.absence,
-                          title: c ? `${c.title} · also ${alloc.title}` : alloc.title,
-                        }
-                      : c;
-
-                  if (!split) {
-                    const editable = canEdit(row, iso);
-                    const touched = changedBy(row.userId, iso);
-                    // An unmarked weekday is a working day; a weekend is not.
-                    const shown = cell ?? alloc ?? (weekend ? undefined : defaultFor(row, iso));
-                    return (
-                      <td
-                        key={iso}
-                        className={`${marks} ${faded(shown)}${editable ? " c editable" : ""}${
-                          touched.mark ? " touched" : ""
-                        }`}
-                        title={
-                          editable
-                            ? `${row.name} · ${shown ? (withAlloc(cell)?.title ?? shown.title) : "nothing rostered"}${touched.note} — click to change`
-                            : shown || touched.mark
-                              ? `${row.name} · ${shown ? shown.title : "nothing rostered"}${touched.note}`
-                              : undefined
-                        }
-                        onClick={editable ? (e) => openCell(e, row, iso, withAlloc(cell)) : undefined}
-                      >
-                        {cell && alloc ? (
-                          <span className="duo">
-                            <span className={`chip sm ${cell.token}`}>{cell.code}</span>
-                            <span className={`chip sm ${alloc.token}`}>{alloc.code}</span>
-                          </span>
-                        ) : shown ? (
-                          <span className={`chip sm ${shown.token}${shown.isDefault ? " dflt" : ""}`}>{shown.code}</span>
-                        ) : (
-                          <span className="none">·</span>
-                        )}
-                      </td>
-                    );
-                  }
-
-                  const zones = zonesOn(weekend);
-
-                  // Leave belongs to the day, not to a zone: somebody away is
-                  // away from all of them, so it spans rather than picking one
-                  // arbitrarily. So does an unmarked weekday -- a working day,
-                  // in no zone yet -- which reads as one LK, not three blanks.
-                  const unmarked =
-                    !cell && !alloc && !weekend && zones.every((z) => !row.zoned.has(`${iso}|${z}`));
-                  const whole = cell ?? (unmarked ? defaultFor(row, iso) : undefined);
-                  if (whole) {
-                    const editable = canEdit(row, iso);
-                    return (
-                      <td
-                        key={iso}
-                        colSpan={zones.length}
-                        className={`c zwhole ${marks} ${faded(whole)}${
-                          editable ? " editable" : ""
-                        }`}
-                        title={
-                          editable
-                            ? `${row.name} · ${whole.title} — click to change`
-                            : `${row.name} · ${whole.title}`
-                        }
-                        onClick={editable ? (e) => openCell(e, row, iso, cell) : undefined}
-                      >
-                        <span className={`chip sm ${whole.token}${whole.isDefault ? " dflt" : ""}`}>{whole.code}</span>
-                      </td>
-                    );
-                  }
-
-                  const editable = canEdit(row, iso);
-                  return zones.map((z, i) => {
-                    // A zone the engineer holds a turn in shows the turn; the
-                    // rest of the day shows the allocation that fills it.
-                    const turn = row.zoned.get(`${iso}|${z}`);
-                    const zc = turn ?? alloc;
-                    // Under a turn: the allocation the rest of the day is
-                    // given to, else the zone's regular hours.
-                    const under = turn && turn.isRotation ? (alloc ?? row.zonedBase.get(`${iso}|${z}`)) : alloc;
-                    return (
-                      <td
-                        key={`${iso}|${z}`}
-                        // A day split across zone columns still has one left
-                        // edge and one right edge. The month rule and the
-                        // week band's opening edge belong to the first
-                        // sub-column and its closing edge to the last;
-                        // repeating them on each zone would rule the inside
-                        // of the day as heavily as its boundary.
-                        className={`c z ${i === 0 ? "zfirst" : ""}${i === zones.length - 1 ? " zlast" : ""} ${
-                          zoneMarks(marks, i, zones.length)
-                        } ${faded(zc)}${editable ? " editable" : ""}`}
-                        title={
-                          editable
-                            ? `${row.name} · ${z} · ${zc ? (withAlloc(row.zoned.get(`${iso}|${z}`))?.title ?? zc.title) : "nothing rostered"} — click to change`
-                            : zc
-                              ? `${row.name} · ${z} · ${zc.title}`
-                              : undefined
-                        }
-                        onClick={editable ? (e) => openCell(e, row, iso, withAlloc(row.zoned.get(`${iso}|${z}`)), zoneCodeFor?.(row.teamKey, z) ?? z) : undefined}
-                      >
-                        {turn && under ? (
-                          // The zone's turn and what it sits on, stacked: L1
-                          // in TZ1 on an RnD day, or on TZ1's regular hours --
-                          // the cell says both.
-                          <span className="duo">
-                            <span className={`chip sm ${turn.token}`}>{turn.code}</span>
-                            <span className={`chip sm ${under.token}`}>{under.code}</span>
-                          </span>
-                        ) : zc ? (
-                          <span className={`chip sm ${zc.token}`}>{zc.code}</span>
-                        ) : (
-                          <span className="zempty" />
-                        )}
-                      </td>
-                    );
-                  });
-                })}
-              </tr>
-              );
-            })}
-          </tbody>
+          <tbody>{teamRowsOf(rows)}</tbody>
         </table>
       </div>
 

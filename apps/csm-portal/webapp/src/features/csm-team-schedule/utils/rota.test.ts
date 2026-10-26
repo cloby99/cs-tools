@@ -19,7 +19,7 @@
 import { describe, expect, it } from "vitest";
 import type { ScheduleAssignment, ScheduleShift } from "../types";
 import { MOE_DAY, MOE_NIGHT, TZ1, TZ1_L1, TZ1_WE, TZ2, TZ2_WE, TZ3, REGULAR } from "../test/fixtures";
-import { escalationGrid, kindsOfferedOn, monthPieces, moveKindFor, movesOfferedOn, readerFamily, rosterRange, rotaZoneName, zoneColumnOf, zoneDisplayName, zoneLabelOn } from "./rota";
+import { escalationGrid, familiesRun, kindsOfferedOn, monthPieces, moveKindFor, movesOfferedOn, narrowsToOneRota, readerFamily, rotasForReader, rosterRange, rotaZoneName, todayClockOptions, utcOffsetMinutes, zoneColumnOf, zoneDisplayName, zoneLabelOn } from "./rota";
 import {
   dayLabel,
   zoneAbbreviation,
@@ -434,5 +434,118 @@ describe("a tag worked as another team's normal hours", () => {
     // Regular hours is everybody's: Migration, which is not rota work there,
     // is never picked by choosing it.
     expect(moveKindFor([BR, MIG], "CRE_REGULAR", "vega")).toBeUndefined();
+  });
+});
+
+describe("rotasForReader", () => {
+  const SRE = ["SRE_SAAS", "SRE_IAAS"];
+  const reader = (over: Partial<Parameters<typeof rotasForReader>[0]>) =>
+    rotasForReader({ familyRotas: SRE, crosses: false, ownTeamKnown: true, editRotas: [], ...over });
+
+  it("shows a SaaS engineer SaaS alone, and an IaaS engineer IaaS alone", () => {
+    expect(reader({ ownRota: "SRE_SAAS" })).toEqual(["SRE_SAAS"]);
+    expect(reader({ ownRota: "SRE_IAAS" })).toEqual(["SRE_IAAS"]);
+  });
+
+  it("adds any rota the reader edits: an SRE rota admin gets both", () => {
+    expect(reader({ ownTeamKnown: false, editRotas: ["SRE_SAAS", "SRE_IAAS"] })).toEqual(SRE);
+    expect(reader({ ownRota: "SRE_SAAS", editRotas: ["SRE_IAAS"] })).toEqual(SRE);
+  });
+
+  it("finds an IaaS lead's rota from what they edit when their profile names no team", () => {
+    expect(reader({ ownTeamKnown: false, editRotas: ["SRE_IAAS"] })).toEqual(["SRE_IAAS"]);
+  });
+
+  it("gives every rota where the reader may cross them: Today, a manager", () => {
+    expect(reader({ ownRota: "SRE_SAAS", crosses: true })).toEqual(SRE);
+  });
+
+  it("shows a team on no rota yet (PaaS) none, not another sub-team's", () => {
+    expect(reader({ ownRota: undefined })).toEqual([]);
+  });
+
+  it("keeps every rota for a reader it cannot place, as before", () => {
+    expect(reader({ ownRota: undefined, ownTeamKnown: false })).toEqual(SRE);
+  });
+});
+
+describe("narrowsToOneRota", () => {
+  it("narrows SRE once it runs more than one rota, whose columns differ", () => {
+    expect(narrowsToOneRota("SRE", 2)).toBe(true);
+    expect(narrowsToOneRota("SRE", 1)).toBe(false);
+  });
+
+  it("never narrows SME: every rotation is a Day and a Night, on one grid", () => {
+    expect(narrowsToOneRota("SME", 7)).toBe(false);
+    expect(narrowsToOneRota("SME", 1)).toBe(false);
+  });
+
+  it("narrows CRE only if it ever runs more than one rota", () => {
+    expect(narrowsToOneRota("CRE", 1)).toBe(false);
+    expect(narrowsToOneRota("CRE", 2)).toBe(true);
+  });
+});
+
+describe("familiesRun", () => {
+  const teams = [
+    { key: "atlas", family: "CRE" as const },
+    { key: "vega", family: "CRE" as const },
+    { key: "apollo", family: "SRE" as const },
+    { key: "u2", family: "SME" as const },
+  ];
+  it("gives each group the reader runs a team in, once", () => {
+    expect(familiesRun(teams, ["atlas", "vega"])).toEqual(["CRE"]);
+    expect(familiesRun(teams, ["Atlas", "apollo", "u2"])).toEqual(["CRE", "SRE", "SME"]);
+  });
+  it("ignores teams the catalogue does not list, and runs nothing for nobody", () => {
+    expect(familiesRun(teams, ["paas", "apollo"])).toEqual(["SRE"]);
+    expect(familiesRun(teams, [])).toEqual([]);
+  });
+});
+
+describe("todayClockOptions", () => {
+  // The US on summer time (PDT) and on winter time (PST).
+  const SUMMER = new Date("2026-10-21T12:00:00Z");
+  const WINTER = new Date("2026-12-01T12:00:00Z");
+  const values = (o: { options: readonly { value: string }[] }) => o.options.map((x) => x.value);
+
+  it("reads a zone's offset from UTC at the instant", () => {
+    expect(utcOffsetMinutes("Asia/Colombo", SUMMER)).toBe(330);
+    expect(utcOffsetMinutes("Etc/GMT+7", WINTER)).toBe(-420);
+    expect(utcOffsetMinutes("America/Los_Angeles", SUMMER)).toBe(-420);
+    expect(utcOffsetMinutes("America/Los_Angeles", WINTER)).toBe(-480);
+  });
+
+  it("opens on IST or PDT themselves, with no extra entry", () => {
+    for (const tz of ["Asia/Colombo", "Etc/GMT+7"]) {
+      const o = todayClockOptions(tz, SUMMER);
+      expect(o.initial).toBe(tz);
+      expect(values(o)).toEqual(["Asia/Colombo", "Etc/GMT+7"]);
+    }
+  });
+
+  it("opens a profile on the same clock as IST on IST", () => {
+    const o = todayClockOptions("Asia/Kolkata", WINTER);
+    expect(o.initial).toBe("Asia/Colombo");
+    expect(values(o)).toEqual(["Asia/Colombo", "Etc/GMT+7"]);
+  });
+
+  it("opens a Pacific profile on PDT while the US is on summer time", () => {
+    const o = todayClockOptions("America/Los_Angeles", SUMMER);
+    expect(o.initial).toBe("Etc/GMT+7");
+    expect(values(o)).toEqual(["Asia/Colombo", "Etc/GMT+7"]);
+  });
+
+  it("keeps a Pacific profile's own clock in winter, first and selected", () => {
+    const o = todayClockOptions("America/Los_Angeles", WINTER);
+    expect(o.initial).toBe("America/Los_Angeles");
+    expect(o.options[0]).toEqual({ value: "America/Los_Angeles", label: "PST (your profile)" });
+    expect(values(o)).toEqual(["America/Los_Angeles", "Asia/Colombo", "Etc/GMT+7"]);
+  });
+
+  it("keeps any other profile zone as its own option", () => {
+    const o = todayClockOptions("Europe/London", SUMMER);
+    expect(o.initial).toBe("Europe/London");
+    expect(values(o)).toEqual(["Europe/London", "Asia/Colombo", "Etc/GMT+7"]);
   });
 });

@@ -18,6 +18,7 @@ package paging
 
 import (
 	"context"
+	"strings"
 	"time"
 )
 
@@ -112,6 +113,8 @@ type RoutingContext struct {
 	// AssignedCRETeam is the CS team on the incident; empty when unassigned,
 	// which rules R3 and R4 route on (and section 12.0 also flags).
 	AssignedCRETeam string
+	// SRETeam is a customer case's account SRE team, which its SRE ladder pages; empty on an incident, whose SRE team is AssignedCRETeam.
+	SRETeam string `json:",omitempty"`
 	// RuleID is which row of the escalation table this incident routed by,
 	// stamped by BuildPlan once the resolver has matched it. Reported on every
 	// call, both endings and the work note, so a reader can check what the
@@ -135,6 +138,25 @@ type RoutingContext struct {
 	// SRE. Set by the engine from a LadderClassifier before the plan is
 	// built; see sre.go.
 	Ladder Ladder
+	// Rota is the SRE rota (SRE_SAAS, SRE_IAAS) an SRE ladder pages: the
+	// incident's own SRE team's, or sre.teams.defaultRota for one with no SRE
+	// team. Empty when the catalogue names no rotas, which reads every SRE
+	// window as before. Stamped by the engine; see SRERotaResolver.
+	Rota string `json:",omitempty"`
+	// SMETeam is the Special Ops team an SME page reaches (LadderSME only).
+	SMETeam string `json:",omitempty"`
+	// CallOnLeave is the ladder's onLeave: true rings someone on leave who
+	// holds a rung (after anyone available on the same tier); false leaves
+	// them out. Stamped by the engine from the file.
+	CallOnLeave bool `json:",omitempty"`
+}
+
+// sreTeam is the team the SRE ladder pages for: a case's account SRE team, else the assignment group.
+func (rc RoutingContext) sreTeam() string {
+	if strings.TrimSpace(rc.SRETeam) != "" {
+		return rc.SRETeam
+	}
+	return rc.AssignedCRETeam
 }
 
 // HasNotificationLevel reports whether LEVEL_0 exists for this incident.
@@ -160,7 +182,8 @@ type RoutingContext struct {
 func (rc RoutingContext) HasNotificationLevel() bool {
 	// The SRE ladder's LEVEL_0 is L1 support, the first responder on every
 	// shift, not a rotation-only notification level.
-	if rc.Ladder == LadderSRE {
+	if rc.Ladder == LadderSRE || rc.Ladder == LadderSME {
+		// The SME ladder's LEVEL_0 is the L1 of the SME team's window.
 		return true
 	}
 	if !rc.Shift.IsRotation() {
@@ -236,6 +259,9 @@ func (rc RoutingContext) Rule() string {
 	if rc.RuleID != "" {
 		return rc.RuleID
 	}
+	if rc.Ladder == LadderSME {
+		return "SME_HANDOFF"
+	}
 	// Section 5.0's table is the CRE ladder's. An SRE incident routes by
 	// on-call tier, which has one path and so one name.
 	if rc.Ladder == LadderSRE {
@@ -306,6 +332,18 @@ func (rc RoutingContext) Rule() string {
 type Recipient struct {
 	Email string
 	Name  string
+	// UserID is the person's CSM user id, when the Team Schedule gave one
+	// (on-duty assignments and team members do; heads and leads named in
+	// configuration do not). Log lines name a recipient by it -- see LogID --
+	// never by name or email. Optional: a ladder stored before this existed
+	// decodes with it empty.
+	UserID string
+	// PhoneFixed marks a Phone that must not be replaced: one from
+	// INCIDENT_ESCALATION_TEST_CALL_TO, which sends every call to one number
+	// (a test environment's tester). Any other Phone -- the phone book, a
+	// number in paging-alert.yaml, the roster -- is a fallback that a valid
+	// CSM profile number replaces (ProfilePhoneResolver).
+	PhoneFixed bool
 	// Phone is empty when the user profile has no mobile number. The
 	// specification's execution summary logs that case as
 	// [LEVEL_n][ERROR][NO_NUMBER][email] and carries on — a missing number
@@ -353,4 +391,11 @@ type Resolver interface {
 type LeadPoolResolver interface {
 	Resolver
 	LeadPool(ctx context.Context) ([]Recipient, error)
+}
+
+// TeamLeadResolver is a Resolver that can name one team's lead regardless of
+// shift, for the rung email's L1 (rung_email.go). A resolver that cannot is
+// simply not asked: L1 then reaches whoever the call's LEVEL_1 reaches.
+type TeamLeadResolver interface {
+	TeamLead(ctx context.Context, team string) ([]Recipient, error)
 }

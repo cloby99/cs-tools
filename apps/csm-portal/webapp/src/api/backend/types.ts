@@ -360,6 +360,10 @@ export interface BeCaseView {
   type?: BeCaseType | null;
   /** Engagement type; only meaningful for `engagement` cases. Null otherwise. */
   engagementType?: string | null;
+  /** Engagement payment type as the data source's display label (e.g. "Paid",
+   * "FOC"), not the {@link BeEngagementPaymentType} code; only meaningful for
+   * `engagement` cases. Not populated by every data source. */
+  engagementPaymentType?: string | null;
   state?: BeCaseState;
   /** Work sub-state; only meaningful while `state` is `work_in_progress`. */
   workState?: BeCaseWorkState | null;
@@ -431,6 +435,13 @@ export interface BeCaseView {
   cause?: BeCaseCause | null;
   /** Free-text resolution/close notes from a prior close/propose-solution. Populated for resolved/closed cases; null otherwise. */
   resolutionNotes?: string | null;
+  /**
+   * Close notes from a prior close. Populated for closed cases; null
+   * otherwise. Some data sources return the close notes here and leave
+   * `resolutionNotes` null, so readers should prefer this and fall back to
+   * `resolutionNotes`.
+   */
+  closeNotes?: string | null;
   /**
    * Service-request cases whose parent points to this case. Populated on every
    * case detail response, not just high-severity cases.
@@ -539,6 +550,15 @@ export interface BeCaseCreatePayload {
   relatedCaseId?: string;
   /** Optional supporting files (raw base64), like the customer portal. */
   attachments?: BeCaseAttachmentPayload[];
+  /**
+   * People to notify about the case, as emails. Send emails for every entry
+   * (works for contacts with no linked user); every entry must be an email or
+   * every entry a user id, never mixed. Registered project contacts are always
+   * eligible, and an internal-user caller may also add internal users; any
+   * ineligible entry rejects the whole create with a 400. Omit (or send empty)
+   * for no watchers.
+   */
+  watchList?: string[];
 }
 
 /** A single answered catalog-item variable in a service-request create. */
@@ -1040,6 +1060,7 @@ export type BeCaseFieldFilterField =
   | "createdOn"
   | "updatedOn"
   | "closedOn"
+  | "resolvedOn"
   | "product"
   | "projectOnboardingStatus"
   | "projectType"
@@ -1051,7 +1072,13 @@ export type BeCaseFieldFilterField =
   | "escalationLevel"
   | "escalation"
   | "number"
-  | "internalId";
+  | "internalId"
+  /** `eq` `"true"`/`"false"`: at least one SLA of the case has breached. */
+  | "slaBreached"
+  /** `eq` `"true"`/`"false"`: the case's account has an active escalation.
+   * Only the ServiceNow data source can answer it; a Postgres-backed
+   * entity-service rejects the request, so the cases list never offers it. */
+  | "accountEscalationActive";
 
 /**
  * `op` enum accepted by {@link BeCaseFieldFilter}, independent of `field` —
@@ -1951,7 +1978,20 @@ export interface BeProjectContact {
   email?: string;
   registrationState?: string;
   notificationsEnabled?: boolean;
+  /**
+   * Project roles this membership's groups grant: PORTAL_USER,
+   * SECURITY_CONTACT, LEAD_USER, ADMIN, BUSINESS_CONTACT.
+   */
   roles?: string[];
+  /**
+   * Account-level roles of the linked user (external, customer, partner,
+   * customer_admin, partner_admin). Separate from `roles`. The contacts
+   * list does not draw chips from this list; Admin comes from the project
+   * role ADMIN. Empty when no user is linked.
+   */
+  accountRoles?: string[];
+  /** True when the linked user is an integration account that never signs in. */
+  isCsIntegrationUser?: boolean;
   /**
    * Whether a contact record is linked to this row at all. False is the same
    * fault an absent `id` signals, restated as an explicit boolean.
@@ -2455,7 +2495,7 @@ export interface BeCreateCaseGithubIssuePayload {
   hotFixRequired?: boolean;
   /** Issue-type label to apply on GitHub (e.g. "Type/Patch", "Type/Incident"). */
   issueTypeLabel?: string;
-  /** Priority label, applied when the type is Discussion. */
+  /** Priority label for Discussion: Priority/Critical(P1), Priority/High(P2), or Priority/Medium(P3). */
   priorityLevel?: string;
   /** Project onboarding status is In-Progress. Adds Onboarding/affected. */
   onboardingInProgress?: boolean;
@@ -2835,8 +2875,19 @@ export interface BeChangeRequestDetail extends BeChangeRequestSearchView {
   customerProposal?: BeChangeRequestCustomerProposal | null;
   /** On hold: a change that is on hold cannot change state, Accept proposed time included. */
   onHold?: boolean | null;
+  /** Why it is on hold; `null` while it is not. */
+  onHoldReason?: string | null;
   /** `read_only` in the ServiceNow dictionary — inherently read-only. */
   labels?: string[];
+  /**
+   * The tags attached to the change request — the same shape as a case's
+   * {@link BeCaseView.tags}, and managed through the same case tag routes
+   * (`POST /cases/{id}/tags`, `DELETE /cases/{id}/tags/{tagId}`, which take a
+   * work item id; `useAddCaseTag` / `useRemoveCaseTag` with this detail's
+   * query key). An array (empty when none) on the PostgreSQL data source;
+   * null/absent when the backend did not load them (another data source).
+   */
+  tags?: BeTag[] | null;
   deployments?: BeEntityRef[];
 
   /** System-maintained, `read_only` in the ServiceNow dictionary. */
@@ -3217,6 +3268,44 @@ export interface BeTeamSearchPayload {
   pagination?: BePagination;
 }
 
+/** One row of `GET /teams/{id}/members` — the team's real CRE/SRE roster
+ * (role "lead"/"member"), not the registry entry `BeTeam` above describes. */
+export interface BeTeamMember {
+  name: string;
+  email: string;
+  role: string;
+}
+
+/** `GET`/`PATCH /teams/{id}` response — the team's own id/name/type plus its
+ * configured Google Chat space link, `null` when unset. A single generic
+ * team resource (mirroring `BeSnUserDetail`/`GET /users/{id}`) rather than a
+ * dedicated `/teams/{id}/chat-webhook` shape — `chatWebhookUrl` is the only
+ * settable field today. */
+export interface BeTeamDetail {
+  id: string;
+  name: string;
+  type: string;
+  chatWebhookUrl: string | null;
+}
+
+/** `PATCH /teams/{id}` request body. `chatWebhookUrl` is the only settable
+ * field today and is required. */
+export interface BeUpdateTeamPayload {
+  chatWebhookUrl: string;
+}
+
+export interface BeAssignTeamLeadPayload {
+  userId: string;
+}
+
+/** `PATCH /users/{id}` request body — both fields optional, at least one
+ * required. See `apps/csm-portal/backend`'s own CLAUDE.md: restricted to
+ * cs_engineer/admin, for updating someone else's profile by id. */
+export interface BeUpdateUserPayload {
+  timeZone?: string;
+  phone?: string;
+}
+
 export interface BeTeamSearchResponse {
   teams: BeTeam[];
   total: number;
@@ -3297,6 +3386,29 @@ export interface BeConfigurationItemSearchResponse {
  * UI starts sending it, after checking it against the published contract.
  */
 export interface BePatchChangeRequestPayload {
+  /** The subject. */
+  title?: string;
+  /** Rich-text description; `""` clears it. */
+  description?: string;
+  /** Rich-text justification; `""` clears it. */
+  justification?: string;
+  /** Rich-text "Risk and impact analysis" (read back as `impactDescription`); `""` clears it. */
+  impactDescription?: string;
+  impact?: BeChangeRequestImpact;
+  priority?: BeChangeRequestPriority;
+  /**
+   * The change type. It decides the approval flow, so the backend accepts a
+   * change only while the change request is New (a resend of the stored type is
+   * accepted in every state). Re-typing into `emergency` must turn both customer
+   * boxes off in the same request.
+   */
+  type?: BeChangeRequestType;
+  /**
+   * An internal work note, appended to the journal (never blank). The one thing
+   * that can still be added once the change request has been approved: every
+   * field is read-only then (400 `change_request_approved_read_only`).
+   */
+  workNote?: string;
   plannedStartOn?: string;
   plannedEndOn?: string;
   assignedTeamId?: string;
@@ -3337,7 +3449,8 @@ export interface BePatchChangeRequestPayload {
   //     for the 4 SN priority choices) — left for a follow-up.
   //   - `comment`/`workNote` append journal entries; the existing CR comments
   //     feature (`useCsmChangeRequestComments`, `/change-requests/{id}/comments`)
-  //     already covers that surface — the edit dialog does not duplicate it.
+  //     already covers that surface for one change request — the edit dialog
+  //     does not duplicate it (the list's bulk edit does send them).
   //   - `durationInput` only succeeds when it exactly matches the effective
   //     planned window in whole seconds (see `CHANGES-cr-field-parity.md`
   //     §"durationInput"); building that validation is deferred rather than
@@ -3368,6 +3481,26 @@ export interface BePatchChangeRequestPayload {
   /** Customer Review checkbox. The backend refuses (400) a change once the CR
    * has reached `customer_review`, `closed`, `rollback` or `canceled`. */
   customerReviewRequired?: boolean;
+  /** The IT service and its offering (portal UUIDs: the incident form's pickers). */
+  serviceId?: string;
+  serviceOfferingId?: string;
+  /** "Service outage / downtime" and "Communication plan" (plain text). */
+  serviceOutage?: string;
+  communicationPlan?: string;
+  /**
+   * Puts the change request on hold (`true`) or takes it off (`false`). While a
+   * change request is on hold its state can't change, unless the same request
+   * takes it off hold. `true` replaces the hold reason with `onHoldReason` (or
+   * clears it when that is not sent); `false` always clears it.
+   */
+  onHold?: boolean;
+  /** Why it is on hold; sent alone it edits the reason of an existing hold. */
+  onHoldReason?: string;
+  /**
+   * A customer-visible "Additional comments" journal entry (never blank). Like
+   * `workNote` it can still be added once the change request has been approved.
+   */
+  comment?: string;
   /**
    * ACCEPT the customer's proposed time (WSO2's answer, the previous system's "Agree"):
    * the proposal is applied to the planned window (the planned length kept) and the
@@ -3407,12 +3540,21 @@ export interface BePatchChangeRequestResponse {
 export type BeChangeRequestFieldFilterField =
   | "createdOn"
   | "assignmentGroupId"
-  | "approval";
+  | "approval"
+  | "assignedUserId"
+  /** Tag names, `in` (carries any) or `notIn` (carries none); staff only. */
+  | "tag"
+  /** PostgreSQL only, `gte`/`lte`. */
+  | "updatedOn"
+  | "plannedStartOn"
+  | "plannedEndOn"
+  /** PostgreSQL only, `in`: change types (standard, normal, ...). */
+  | "type";
 
 /** `op` enum accepted by a change-request search's generic `filters` array
  * — mirrors `changeRequestFilterOpSet` in `change_request_filters.go`.
  * Field/op compatibility is enforced only on the backend. */
-export type BeChangeRequestFieldFilterOp = "gte" | "lte" | "in" | "eq";
+export type BeChangeRequestFieldFilterOp = "gte" | "lte" | "in" | "eq" | "notIn";
 
 /** One entry in a change-request search's generic `filters` array. */
 export interface BeChangeRequestFieldFilter {
@@ -3442,9 +3584,12 @@ export interface BeChangeRequestSearchPayload {
      * populates this today.
      */
     filters?: BeChangeRequestFieldFilter[];
+    /** OR groups (PostgreSQL only): each branch's filters ANDed, branches OR'd. */
+    anyOf?: Array<{ filters: Array<{ field: string; op: "in"; values: string[] }> }>;
   };
   sortBy?: {
-    field?: "createdOn" | "updatedOn";
+    /** `plannedStartOn` / `plannedEndOn`: PostgreSQL only. */
+    field?: "createdOn" | "updatedOn" | "plannedStartOn" | "plannedEndOn";
     order?: "asc" | "desc";
   };
   pagination?: BePagination;
@@ -3719,6 +3864,8 @@ export interface BeUpdateIncidentPayload {
   problemId?: string | null;
   causedById?: string | null;
   environment?: string | null;
+  /** The incident report (HTML); replaces what is stored. Write-only: the detail does not read it back. */
+  incidentReport?: string;
 }
 
 /** `PATCH /incidents/{id}` response — the full updated incident. */
@@ -3730,10 +3877,8 @@ export interface BePatchIncidentResponse {
 /**
  * `field` enum accepted by an incident search's generic `filters` array —
  * mirrors the entity-service's `incidentFilterFieldSet` (see
- * `incident_filters.go`) exactly. This portal currently builds controls for
- * `assignmentGroupId` (SRE Team), `slaViolated`, `createdOn`, and
- * `productName` — the remaining values (`state`, `businessServiceId`,
- * `madeSla`) are included for completeness/future controls, not dead code.
+ * `incident_filters.go`) exactly. The Incidents filter bar builds controls for
+ * all of them except `madeSla`.
  */
 export type BeIncidentFieldFilterField =
   | "state"
@@ -3742,7 +3887,12 @@ export type BeIncidentFieldFilterField =
   | "createdOn"
   | "slaViolated"
   | "madeSla"
-  | "productName";
+  | "productName"
+  | "assignedUserId"
+  /** PostgreSQL only: incident category labels, `in`. */
+  | "category"
+  /** PostgreSQL only: last update, `gte`/`lte`. */
+  | "updatedOn";
 
 /**
  * `op` enum accepted by an incident search's generic `filters` array,
@@ -3784,6 +3934,8 @@ export interface BeIncidentSearchPayload {
      * above remain flat — only those four.
      */
     filters?: BeIncidentFieldFilter[];
+    /** OR groups (PostgreSQL only): each branch's filters ANDed, branches OR'd. */
+    anyOf?: Array<{ filters: Array<{ field: string; op: "in"; values: string[] }> }>;
   };
   sortBy?: {
     field?: "createdOn" | "updatedOn" | "openedOn";
@@ -4157,6 +4309,32 @@ export interface BeSearchProductVulnerabilitiesResponse {
   offset: number;
 }
 
+/**
+ * Generic `{id, label}` pair entity-service uses for reference/choice-list
+ * metadata (e.g. `GetVulnerabilityMeta`'s severities). `id` here is a
+ * string-encoded integer (the upstream's own severity id scheme), not a
+ * `BeVulnerabilityPriority` enum value — see `vulnerabilityMetaToPriority`
+ * in `csm-security-center/utils/vulnerabilities.ts` for the mapping.
+ */
+export interface BeChoiceListItem {
+  id: string;
+  label: string;
+}
+
+/** Response of `GET /products/vulnerabilities/meta`. */
+export interface BeVulnerabilityMetaResponse {
+  severities: BeChoiceListItem[];
+  /** Distinct products with their distinct versions; names and versions are
+   *  the exact stored strings, sorted, so they match the search's exact
+   *  `productName` / `productVersion` filters. `versions` may be empty. */
+  products?: BeVulnerabilityMetaProduct[];
+}
+
+export interface BeVulnerabilityMetaProduct {
+  name: string;
+  versions: string[];
+}
+
 export type BeTimeCardState =
   | "pending"
   | "submitted"
@@ -4388,8 +4566,11 @@ export type BeWidgetResourceType =
  * resolve the same way `count` does, just once per slice — see
  * {@link BeDashboardWidget.slices} — differing only in how the frontend
  * renders the resolved data (wedges vs. bars), not in how it's fetched.
+ * `line` is its own fixed resolution path — see {@link BeDashboardWidget.days}
+ * and `useCaseVolumeTrendData` — always two named series (Opened/Closed),
+ * never slice/groupBy configured.
  */
-export type BeWidgetShape = "count" | "list" | "pie" | "bar";
+export type BeWidgetShape = "count" | "list" | "pie" | "bar" | "line";
 
 /** Palette key a dashboard config can use to color a pie slice — the same
  * vocabulary `WidgetResourceConfig.iconColor` already uses elsewhere in this
@@ -4440,6 +4621,20 @@ export type BeCaseFeedbackBucket =
   | "reasons_satisfied"
   | "reasons_very_satisfied";
 
+/** Only for shape "count" on resourceType "case": show the number of distinct
+ * values of `field` among the widget's matching records instead of the record
+ * total. Resolved by `useWidgetData` via one `POST /cases/aggregate` call whose
+ * returned group count is the displayed number. Mutually exclusive with
+ * `groupBy`/`slices` (backend-enforced at config-load time). */
+export interface BeDashboardDistinctByConfig {
+  /** What to count distinct values of (`account`, `state`, `severity` or
+   * `type`) — forwarded as the aggregate request's `groupBy`. */
+  field: string;
+  /** Forwarded as the aggregate request's `maxGroups`. Always present on a
+   * dashboard response (the backend fills in its default at load time). */
+  maxGroups: number;
+}
+
 /** Alternative to {@link BeDashboardPieSlice}[] for shapes "pie"/"bar":
  * one server-side `POST /{resourceType}/aggregate` call instead of one
  * `search` per hand-authored slice. Mutually exclusive with `slices` —
@@ -4469,6 +4664,26 @@ export interface BeDashboardGroupByConfig {
    * `othersCount`. Defaults to `"Others"` when omitted. Meaningless when
    * `bucket` is set, same as `maxGroups`. */
   othersLabel?: string;
+  /** Opts this widget into sending each bucket's click-through to THIS
+   * other resourceType's own detail page (by the bucket's own `key` — e.g.
+   * an account UUID for `field: "account"`) instead of the widget's own
+   * `resourceType`'s list page filtered to that bucket. The one case this
+   * exists for today: "cases grouped by account" linking each bar to that
+   * account's own page rather than a cases list filtered by it. Backend-
+   * enforced at config-load time to only ever accompany `field`, never
+   * `bucket` (a case-feedback date/rating bucket has no detail page to link
+   * to). Omitted is a no-op — every existing groupBy widget keeps its
+   * original list-page click-through unchanged. */
+  linkResourceType?: BeWidgetResourceType;
+  /** Drops the synthetic "everything else" bucket entirely instead of
+   * rendering it as an extra, non-navigable bar/wedge — for a widget where
+   * the long tail beyond `maxGroups` isn't meaningful on its own (e.g. "Top
+   * customers by open cases", where an "Others" column mixing together every
+   * account past the top N adds noise rather than information). Defaults to
+   * `false` (the pre-existing behavior: show it) when omitted, so every
+   * existing widget config is unaffected. Meaningless when `bucket` is set,
+   * same as `maxGroups`/`othersLabel`. */
+  hideOthers?: boolean;
 }
 
 /** One bucket of a `POST /{resourceType}/aggregate` response. */
@@ -4627,6 +4842,10 @@ export interface BeDashboardWidget {
    * slice. Mutually exclusive with `slices` — the backend enforces
    * exactly one of the two for those shapes (never both, never neither). */
   groupBy?: BeDashboardGroupByConfig;
+  /** Only meaningful for shape "count" (resourceType "case"): the widget
+   * shows the number of distinct values of `distinctBy.field` instead of the
+   * record total. Absent when unset — see {@link BeDashboardDistinctByConfig}. */
+  distinctBy?: BeDashboardDistinctByConfig;
   /** Only meaningful for shapes "pie"/"bar": one search per slice, each
    * read via its own `total`. Mutually exclusive with `groupBy`. */
   slices?: BeDashboardPieSlice[];
@@ -4666,6 +4885,35 @@ export interface BeDashboardWidget {
    * a no-op — every existing pie widget's donut+legend rendering is
    * unchanged. See `DashboardPieChart`'s own `inlineLabels` prop. */
   inlineLabels?: boolean;
+  /** Only meaningful for shape "line": how many trailing days (ending
+   * today, UTC) the two-series Opened/Closed trend covers. Defaults to 30
+   * on the backend when omitted; the backend's own `/cases/volume-trend`
+   * endpoint caps this at 90 — a widget configured above that cap fails
+   * dashboard-config validation at load time, not at render time. */
+  days?: number;
+}
+
+/** One day's point in a `shape: "line"` widget's resolved trend — see
+ * {@link BeCaseVolumeTrendResponse}. */
+export interface BeCaseVolumeTrendPoint {
+  /** `YYYY-MM-DD`, UTC. */
+  date: string;
+  count: number;
+}
+
+/** One of the two fixed series ("Opened"/"Closed") in a `shape: "line"`
+ * widget's resolved trend. */
+export interface BeCaseVolumeTrendSeries {
+  label: string;
+  points: BeCaseVolumeTrendPoint[];
+}
+
+/** Response of `POST /cases/volume-trend` — the sole data source for a
+ * `shape: "line"` widget. Always exactly two series, in a fixed order
+ * (Opened, then Closed); every series carries the same set of dates. */
+export interface BeCaseVolumeTrendResponse {
+  days: number;
+  series: BeCaseVolumeTrendSeries[];
 }
 
 /**
@@ -5151,5 +5399,11 @@ export interface BeSpecialistHandoffSummary {
     stateLabel?: string | null;
   };
   githubIssueUrl: string | null;
+  /**
+   * Whether this incident's product files a GitHub issue on a handoff at all:
+   * `true` only for a product with a repository (Choreo, Asgardeo). A missing
+   * issue is flagged only then.
+   */
+  githubIssueExpected?: boolean;
 }
 

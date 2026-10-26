@@ -105,4 +105,16 @@ const (
 	// (POST /groups/search with supportGroupsOnly) shows the current ones. A
 	// value that is not a UUID is a plain 400 with no code.
 	CodeIncidentAssignmentGroupNotAllowed = "incident_assignment_group_not_allowed"
+
+	// CodeIncidentHandoffNeedsAssignee is the 409 for a specialist handoff
+	// ("Escalate to Special Ops") on an incident nobody is assigned to: the
+	// assignee is the person responsible for the page to the SME on duty.
+	CodeIncidentHandoffNeedsAssignee = "incident_handoff_needs_assignee"
+
+	// CodeChangeRequestApprovedReadOnly is the 400 for a PATCH /change-requests/{id}
+	// that changes a field of a change request that has been approved (CAB approval
+	// received; a Standard change once scheduled): what was approved is what gets
+	// implemented, so its fields are read-only. Work notes can still be added and the
+	// lifecycle still moves. Nothing was written.
+	CodeChangeRequestApprovedReadOnly = "change_request_approved_read_only"
 )

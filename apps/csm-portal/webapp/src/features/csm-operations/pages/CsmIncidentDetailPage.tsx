@@ -14,10 +14,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, Button, Card, Chip, Skeleton, Tab, Tabs, Typography } from "@wso2/oxygen-ui";
+import { Box, Button, Card, Chip, Skeleton, Tab, Tabs, Tooltip, Typography } from "@wso2/oxygen-ui";
 import {
   Activity,
   ArrowLeft,
+  Clock,
   Eye,
   FileText,
   GitBranch,
@@ -39,6 +40,7 @@ import {
   useState,
 } from "react";
 import { useLocation } from "react-router";
+import { incidentPriorityBadge } from "@features/csm-operations/utils/incidentPriorityMatrix";
 import { formatBackendTimestampForDisplay } from "@utils/dateTime";
 import { BackendApiError } from "@api/backend/client";
 import ExportPdfButton from "@components/ExportPdfButton";
@@ -62,7 +64,9 @@ import {
 import { useGetCsmIncidentActivities } from "@features/csm-operations/api/useCsmIncidentActivities";
 import EditIncidentDialog from "@features/csm-operations/components/EditIncidentDialog";
 import EntityRefLink from "@features/csm-operations/components/EntityRefLink";
+import { WorkItemSlaTable } from "@features/csm-sla/components/WorkItemSlaTable";
 import IncidentTasksWidget from "@features/csm-operations/components/IncidentTasksWidget";
+import IncidentRunbookSection from "@features/csm-operations/components/IncidentRunbookSection";
 import IncidentActionBar from "@features/csm-operations/components/IncidentActionBar";
 import IncidentCreateMenu from "@features/csm-operations/components/IncidentCreateMenu";
 import IncidentResolutionDialog from "@features/csm-operations/components/IncidentResolutionDialog";
@@ -111,6 +115,7 @@ import type { CreateIncidentFromIncidentNavState } from "@features/csm-operation
 import type { CreateProblemFromIncidentNavState } from "@features/csm-operations/utils/problems";
 import { looksLikeHtml, sanitizeStructuredHtml } from "@utils/sanitizeHtml";
 import { linkifyBareUrls } from "@features/csm-cases/utils/commentContent";
+import { withRenderedIncidentNotes } from "@features/csm-operations/utils/incidentNoteHtml";
 
 const OPERATIONS_INCIDENTS_PATH = "/operations/incidents";
 
@@ -217,12 +222,19 @@ function RefText({ value }: { value?: BeEntityRef | null }): JSX.Element {
   return <Typography variant="body2">{value?.name || "—"}</Typography>;
 }
 
-type IncidentTabId = "activities" | "details" | "related" | "watchers" | "attachments";
+type IncidentTabId =
+  | "activities"
+  | "details"
+  | "related"
+  | "sla"
+  | "watchers"
+  | "attachments";
 
 const TAB_DEFS: Array<{ id: IncidentTabId; label: string; icon: JSX.Element }> = [
   { id: "activities", label: "Activities", icon: <Activity size={16} /> },
   { id: "details", label: "Details", icon: <FileText size={16} /> },
   { id: "related", label: "Related", icon: <LinkIcon size={16} /> },
+  { id: "sla", label: "SLA", icon: <Clock size={16} /> },
   { id: "watchers", label: "Watchers", icon: <Eye size={16} /> },
   { id: "attachments", label: "Attachments", icon: <Paperclip size={16} /> },
 ];
@@ -239,6 +251,13 @@ const INCIDENT_TAB_IDS: readonly IncidentTabId[] = TAB_DEFS.map((t) => t.id);
  * code/notes for those two (see `checkSilentlyDroppedNotes`'s doc comment
  * for the related, already-handled `additionalComments`/`workNotes` quirk).
  */
+/** Why "Escalate to specialist team" is disabled on an incident nobody is
+ * assigned to. The assignee is responsible for the page to the SME on duty,
+ * so the escalation needs one; the backend refuses it too (409
+ * incident_handoff_needs_assignee). */
+export const HANDOFF_NEEDS_ASSIGNEE_REASON =
+  "Assign the incident to an engineer first: the assignee is responsible for the page to the SME on duty.";
+
 export default function CsmIncidentDetailPage(): JSX.Element {
   // Real router hooks — called unconditionally regardless of `routeOverride`
   // below (rules of hooks), but their VALUES are only actually used when
@@ -304,6 +323,7 @@ export default function CsmIncidentDetailPage(): JSX.Element {
     isLoading: isCommentsLoading,
     isError: isCommentsError,
   } = useGetCsmIncidentComments(id);
+  const renderedComments = useMemo(() => withRenderedIncidentNotes(comments ?? []), [comments]);
   const patchComment = usePatchComment();
   const deleteComment = useDeleteComment();
   const onEditComment = useCallback(
@@ -588,7 +608,7 @@ export default function CsmIncidentDetailPage(): JSX.Element {
       const { generateIncidentReportPdf } = await import(
         "@features/csm-operations/utils/incidentReportPdf"
       );
-      generateIncidentReportPdf(incident, comments ?? [], activityAudit ?? [], attachmentList);
+      generateIncidentReportPdf(incident, renderedComments, activityAudit ?? [], attachmentList);
     } catch (err) {
       showError("Could not export this incident as a PDF. Please try again.", err);
     }
@@ -662,14 +682,24 @@ export default function CsmIncidentDetailPage(): JSX.Element {
                   label={incidentStateLabel(incident.state)}
                 />
               )}
-              {incident.priority && (
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  color={incidentPriorityColor(incident.priority)}
-                  label={incidentPriorityLabel(incident.priority)}
-                />
-              )}
+              {incident.priority &&
+                (() => {
+                  const badge = incidentPriorityBadge(incident.priority);
+                  return badge ? (
+                    <Chip
+                      size="small"
+                      label={`${badge.label} (${badge.code})`}
+                      sx={{ bgcolor: badge.bg, color: badge.fg, fontWeight: 600 }}
+                    />
+                  ) : (
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      color={incidentPriorityColor(incident.priority)}
+                      label={incidentPriorityLabel(incident.priority)}
+                    />
+                  );
+                })()}
             </Box>
           </Box>
           <Box sx={{ flexShrink: 0, alignSelf: { xs: "stretch", md: "flex-start" } }}>
@@ -683,19 +713,41 @@ export default function CsmIncidentDetailPage(): JSX.Element {
                   ServiceNow shows "Escalate to Special Ops" only when
                   canEscalateToSpecialOps holds. An absent flag (ServiceNow
                   data source) keeps the button. */}
-              {incident.canHandOffToSpecialist !== false && (
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<UserCog size={14} />}
-                  onClick={() => {
-                    setHandoffResult(null);
-                    setHandoffOpen(true);
-                  }}
-                >
-                  Escalate to specialist team
-                </Button>
-              )}
+              {incident.canHandOffToSpecialist !== false &&
+                (incident.assignedTo ? (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<UserCog size={14} />}
+                    onClick={() => {
+                      setHandoffResult(null);
+                      setHandoffOpen(true);
+                    }}
+                  >
+                    Escalate to specialist team
+                  </Button>
+                ) : (
+                  <Tooltip title={HANDOFF_NEEDS_ASSIGNEE_REASON}>
+                    {/* A disabled button is not focusable, so this labelled
+                        wrapper is what exposes the reason to the keyboard
+                        and to assistive tech. */}
+                    <Box
+                      component="span"
+                      tabIndex={0}
+                      aria-label={`Escalate to specialist team: ${HANDOFF_NEEDS_ASSIGNEE_REASON}`}
+                      sx={{ flexShrink: 0 }}
+                    >
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<UserCog size={14} />}
+                        disabled
+                      >
+                        Escalate to specialist team
+                      </Button>
+                    </Box>
+                  </Tooltip>
+                ))}
               <IncidentCreateMenu
                 items={[
                   {
@@ -833,6 +885,7 @@ export default function CsmIncidentDetailPage(): JSX.Element {
             </MetaCell>
           ))}
         </Box>
+        <IncidentRunbookSection subject={incident.subject ?? ""} />
       </Card>
 
       <Box className="csm-print-hide" sx={{ borderBottom: 1, borderColor: "divider" }}>
@@ -920,7 +973,7 @@ export default function CsmIncidentDetailPage(): JSX.Element {
             </Button>
           )}
           <CaseActivitiesFeed
-            comments={comments ?? []}
+            comments={renderedComments}
             audit={activityAudit ?? []}
             attachments={attachmentList}
             onDownloadAttachment={
@@ -1003,7 +1056,7 @@ export default function CsmIncidentDetailPage(): JSX.Element {
               gap: 2,
               gridTemplateColumns: {
                 xs: "1fr",
-                md: "repeat(2, minmax(0, 1fr))",
+                md: hasLinkedServiceRequests ? "repeat(2, minmax(0, 1fr))" : "1fr",
               },
               alignItems: "start",
             }}
@@ -1043,7 +1096,6 @@ export default function CsmIncidentDetailPage(): JSX.Element {
               </Card>
             )}
 
-
             {hasLinkedServiceRequests && (
               <Card sx={{ p: 2.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
                 <Typography variant="subtitle2">Linked service requests</Typography>
@@ -1064,6 +1116,13 @@ export default function CsmIncidentDetailPage(): JSX.Element {
             )}
           </Box>
         </Box>
+      )}
+
+      {activeTab === "sla" && (
+        // Mounted only while this tab is active, so the SLA fetch is lazy.
+        // Not gated by role: the backend decides, and a refusal shows in the
+        // table's own error state.
+        <WorkItemSlaTable workItemId={incident.id as string} workItemLabel="incident" />
       )}
 
       {activeTab === "watchers" && (

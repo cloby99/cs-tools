@@ -142,6 +142,18 @@ vi.mock("@features/csm-cases/components/CaseDetailWidgets", () => ({
     </div>
   ),
 }));
+vi.mock("@features/csm-sla/components/WorkItemSlaTable", () => ({
+  WorkItemSlaTable: ({
+    workItemId,
+    workItemLabel,
+  }: {
+    workItemId: string;
+    workItemLabel: string;
+  }) => (
+    <div data-testid="work-item-sla-table" data-id={workItemId} data-label={workItemLabel} />
+  ),
+}));
+
 vi.mock("@api/useSearchUsersByName", () => ({
   useSearchUsersByName: () => ({ data: [], isFetching: false, isError: false }),
   useSearchInternalUsersByName: () => ({ data: [], isFetching: false, isError: false }),
@@ -149,7 +161,9 @@ vi.mock("@api/useSearchUsersByName", () => ({
 
 // Imported after the mocks above so the module picks them up.
 import { BackendApiError } from "@api/backend/client";
-import CsmIncidentDetailPage from "@features/csm-operations/pages/CsmIncidentDetailPage";
+import CsmIncidentDetailPage, {
+  HANDOFF_NEEDS_ASSIGNEE_REASON,
+} from "@features/csm-operations/pages/CsmIncidentDetailPage";
 
 const WATCHER_ID = "00000000-0000-0000-0000-000000000001";
 const NEW_WATCHER_ID = "00000000-0000-0000-0000-000000000002";
@@ -390,6 +404,23 @@ describe("CsmIncidentDetailPage — tabs", () => {
     expect(screen.getByRole("tab", { name: /related/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /watchers/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /attachments/i })).toBeInTheDocument();
+  });
+
+  it("shows the work item's SLA records on an SLA tab, only once that tab is opened", () => {
+    mockQueryResult({ data: BASE_INCIDENT });
+    renderPage();
+
+    expect(screen.queryByTestId("work-item-sla-table")).toBeNull();
+    goToTab(/^sla$/i);
+    const table = screen.getByTestId("work-item-sla-table");
+    expect(table).toHaveAttribute("data-id", "inc-1");
+    expect(table).toHaveAttribute("data-label", "incident");
+  });
+
+  it("opens the SLA tab straight from ?tab=sla", () => {
+    mockQueryResult({ data: BASE_INCIDENT });
+    renderPage("/operations/incidents/inc-1?tab=sla");
+    expect(screen.getByTestId("work-item-sla-table")).toBeInTheDocument();
   });
 
   it("gates AttachmentsWidget's onDownload the same way as the feed's, not unconditionally", () => {
@@ -704,9 +735,15 @@ describe("CsmIncidentDetailPage — Escalate to specialist team", () => {
     screen.queryByRole("button", { name: /escalate to specialist team/i });
 
   it("is offered when the backend says the incident can be handed off", () => {
-    mockQueryResult({ data: { ...BASE_INCIDENT, canHandOffToSpecialist: true } });
+    mockQueryResult({
+      data: {
+        ...BASE_INCIDENT,
+        canHandOffToSpecialist: true,
+        assignedTo: { id: "u-1", name: "Jane Doe" },
+      },
+    });
     renderPage();
-    expect(button()).toBeInTheDocument();
+    expect(button()).toBeEnabled();
   });
 
   it("is hidden when the backend says it cannot (not In Progress, unrouted service, or already with Special Ops)", () => {
@@ -719,6 +756,15 @@ describe("CsmIncidentDetailPage — Escalate to specialist team", () => {
     mockQueryResult({ data: BASE_INCIDENT });
     renderPage();
     expect(button()).toBeInTheDocument();
+  });
+
+  it("is disabled, saying why, while nobody is assigned: the assignee answers for the SME page", () => {
+    mockQueryResult({ data: { ...BASE_INCIDENT, canHandOffToSpecialist: true, assignedTo: null } });
+    renderPage();
+    expect(button()).toBeDisabled();
+    expect(
+      screen.getByLabelText(`Escalate to specialist team: ${HANDOFF_NEEDS_ASSIGNEE_REASON}`),
+    ).toBeInTheDocument();
   });
 });
 

@@ -19,6 +19,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/wso2-open-operations/cs-tools/entity-service/internal/apierror"
@@ -81,8 +82,24 @@ func (h *ScheduleHandler) SearchScheduleAbsences(w http.ResponseWriter, r *http.
 	writeScheduleJSON(w, http.StatusOK, resp)
 }
 
-// GetScheduleOnDuty handles GET /team-schedule/on-duty[?at=RFC3339] -- who is
-// responsible right now, or at the instant asked for.
+// SearchScheduleEngagementAllocations handles
+// POST /team-schedule/engagement-allocations/search.
+func (h *ScheduleHandler) SearchScheduleEngagementAllocations(w http.ResponseWriter, r *http.Request) {
+	var req domain.SearchScheduleEngagementAllocationsRequest
+	if !decodeRequest(w, r, &req) {
+		return
+	}
+	resp, err := h.svc.SearchEngagementAllocations(r.Context(), req)
+	if err != nil {
+		writeServiceError(w, r, err)
+		return
+	}
+	writeScheduleJSON(w, http.StatusOK, resp)
+}
+
+// GetScheduleOnDuty handles GET /team-schedule/on-duty[?at=RFC3339][&includeOnLeave=true]
+// -- who is responsible right now, or at the instant asked for; with
+// includeOnLeave, people away that day too, marked onLeave.
 func (h *ScheduleHandler) GetScheduleOnDuty(w http.ResponseWriter, r *http.Request) {
 	var at *time.Time
 	if raw := r.URL.Query().Get("at"); raw != "" {
@@ -93,7 +110,16 @@ func (h *ScheduleHandler) GetScheduleOnDuty(w http.ResponseWriter, r *http.Reque
 		}
 		at = &parsed
 	}
-	resp, err := h.svc.OnDuty(r.Context(), at)
+	includeOnLeave := false
+	if raw := r.URL.Query().Get("includeOnLeave"); raw != "" {
+		v, err := strconv.ParseBool(raw)
+		if err != nil {
+			writeServiceError(w, r, &apierror.ValidationError{Msg: "includeOnLeave must be true or false"})
+			return
+		}
+		includeOnLeave = v
+	}
+	resp, err := h.svc.OnDuty(r.Context(), at, includeOnLeave)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -199,7 +225,7 @@ func (h *ScheduleHandler) GetMyLeadTeams(w http.ResponseWriter, r *http.Request)
 		writeServiceError(w, r, err)
 		return
 	}
-	writeScheduleJSON(w, http.StatusOK, map[string]any{"teamKeys": teams})
+	writeScheduleJSON(w, http.StatusOK, teams)
 }
 
 // ApplyScheduleRange handles POST /team-schedule/assignments/apply.
@@ -228,6 +254,33 @@ func (h *ScheduleHandler) ApplyScheduleAbsence(w http.ResponseWriter, r *http.Re
 		return
 	}
 	writeScheduleJSON(w, http.StatusOK, res)
+}
+
+// ImportRota handles POST /team-schedule/rotas/{code}/import?dryRun=true|false.
+func (h *ScheduleHandler) ImportRota(w http.ResponseWriter, r *http.Request) {
+	dryRun := false
+	if raw := r.URL.Query().Get("dryRun"); raw != "" {
+		v, err := strconv.ParseBool(raw)
+		if err != nil {
+			apierror.WriteJSON(w, http.StatusBadRequest, "dryRun must be true or false")
+			return
+		}
+		dryRun = v
+	}
+	var req domain.ImportRotaRequest
+	if !decodeRequest(w, r, &req) {
+		return
+	}
+	res, err := h.svc.ImportRota(r.Context(), r.PathValue("code"), req, dryRun)
+	if err != nil {
+		writeServiceError(w, r, err)
+		return
+	}
+	status := http.StatusCreated
+	if dryRun {
+		status = http.StatusOK
+	}
+	writeScheduleJSON(w, status, res)
 }
 
 // GetScheduleEditMarkers handles GET /team-schedule/edit-markers.

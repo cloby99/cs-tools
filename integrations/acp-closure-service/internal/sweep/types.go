@@ -68,12 +68,11 @@ type project struct {
 	// (see EndDateClosureState's doc comment).
 	ClosureState *string `json:"closureState"`
 	// EndDateClosureState is the specific per-dimension state this
-	// component's suspend() writes ("Suspended") and later reads back to
-	// decide whether suspend already happened. Confirmed via a real
-	// suspended project (Postman, project acac149b-eba1-4714-fcf5-f5dabad0cdb1)
-	// that this can progress past "Suspended" to "Closed" via a process
-	// outside this component — suspend()'s guard treats any non-"Open"
-	// value as already handled, not just an exact "Suspended" match.
+	// component's suspend() writes ("Closed", legacy's end-date suspension
+	// value) and later reads back to decide whether suspend already happened.
+	// Projects suspended by earlier builds hold "Suspended" instead, so
+	// suspend()'s guard treats any non-"Open" value as already handled, not
+	// one exact value.
 	EndDateClosureState *string `json:"endDateClosureState"`
 	// InvoiceDueDateClosureState is the invoice cascade's own per-dimension
 	// state, mirroring EndDateClosureState exactly but for the invoice
@@ -322,12 +321,15 @@ type ProjectFailure struct {
 	Err       error
 }
 
-// projectUpdater is the minimal write surface processProject needs.
-// Satisfied by *entity.Client for real writes; a dry-run implementation
-// (logs instead of calling UpdateProject) is injected instead when
-// DRY_RUN is set — processProject itself never branches on a dry-run flag.
+// projectUpdater is the minimal write surface processProject needs:
+// UpdateProject writes the CSM project by its CSM id, and SuspendInSalesforce
+// sets the Salesforce project's State__c to Suspended by its Salesforce id.
+// Satisfied by *Writer for real writes; DryRunProjectUpdater (writes
+// nothing) is injected instead when DRY_RUN is set — processProject itself
+// never branches on a dry-run flag.
 type projectUpdater interface {
 	UpdateProject(ctx context.Context, id string, body []byte) ([]byte, error)
+	SuspendInSalesforce(ctx context.Context, sfID string) error
 }
 
 // notifier is the minimal send surface processProject needs. Satisfied by

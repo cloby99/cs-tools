@@ -83,6 +83,15 @@ const (
 	ShapeList  Shape = "list"  // top-N matching records
 	ShapePie   Shape = "pie"   // one search per Slices entry (or one server-side aggregation via GroupBy), each resolved via its own total — see PieSlice and GroupByConfig
 	ShapeBar   Shape = "bar"   // same resolution as ShapePie; differs only in how the frontend renders the resolved data
+	// ShapeLine is a fixed, two-series day-bucketed trend chart ("Opened" vs
+	// "Closed" case counts per day) -- deliberately narrow, unlike pie/bar's
+	// open-ended Slices/GroupBy config: it backs exactly one chart, the Case
+	// Summary dashboard's case-volume trend, not a platform. Only meaningful
+	// for ResourceCase; the frontend resolves it with one call to
+	// POST /cases/volume-trend (Query as the base filters, Days as the
+	// window size), not the generic per-ResourceType /search endpoint every
+	// other shape uses.
+	ShapeLine Shape = "line"
 )
 
 // GroupByConfig configures a Shape "pie"/"bar" widget to resolve via a single
@@ -126,6 +135,58 @@ type GroupByConfig struct {
 	// remainder bucket. Omitted uses "Others". Meaningless when Bucket is
 	// set, same as MaxGroups.
 	OthersLabel string `json:"othersLabel,omitempty"`
+	// LinkResourceType opts a Field-grouped (never Bucket-grouped — see the
+	// registry's own validation) widget into sending each bucket's
+	// click-through to that OTHER ResourceType's own detail page (by the
+	// bucket's own key, e.g. an account UUID for Field "account") instead of
+	// the widget's own ResourceType's list page — the one case this exists
+	// for today is "cases grouped by account" linking to the account's own
+	// page rather than a cases list filtered by that account. Omitted is a
+	// no-op: every existing groupBy widget keeps navigating to its own
+	// ResourceType's list, exactly as before this field existed. Resolved
+	// entirely client-side, same as the rest of this type. Must equal Field
+	// itself (checked at load time) — a bucket's key is only a real id of
+	// LinkResourceType when the field being grouped on IS that resource
+	// (Field "account" groups by an account id); any other pairing (e.g.
+	// Field "state" + LinkResourceType "account") would hand the frontend a
+	// value like "open" as if it were an account id, building a broken link.
+	LinkResourceType ResourceType `json:"linkResourceType,omitempty"`
+}
+
+// DefaultDistinctByMaxGroups is the maxGroups a Shape "count" widget's
+// DistinctBy gets when the config omits it (filled in at load time, so the
+// frontend always sees an explicit value). It is deliberately far above the
+// aggregate endpoint's own default (10): DistinctBy needs EVERY group, since
+// the count is len(groups) and anything folded into othersCount is an
+// under-count. The endpoint applies no ceiling of its own, and 1000 covers
+// every realistic distinct-account cardinality for a single filtered widget
+// while keeping the response a bounded few tens of KB.
+const DefaultDistinctByMaxGroups = 1000
+
+// MaxDistinctByMaxGroups is the largest DistinctBy.MaxGroups the registry
+// accepts. The aggregate endpoint has no ceiling, so this is a BFF-side
+// guard against a config typo requesting an unbounded response on every
+// dashboard load.
+const MaxDistinctByMaxGroups = 10000
+
+// DistinctByConfig makes a Shape "count" widget show the number of DISTINCT
+// values of Field among the records matching Query, instead of the record
+// total. Resolved entirely client-side, same philosophy as GroupByConfig: the
+// frontend calls POST /cases/aggregate once (filters = the widget's Query,
+// groupBy = Field, maxGroups = MaxGroups) and shows len(groups). If the
+// response's othersCount is greater than zero the number would be an
+// under-count, so the frontend must render an error state, not the number.
+// This layer never calls the endpoint; it only validates and forwards the
+// config. Only valid on resourceType "case", and mutually exclusive with
+// GroupBy/Slices (checked at load time).
+type DistinctByConfig struct {
+	// Field is what to count distinct values of. Must be one of
+	// validDistinctByFields (the aggregate endpoint's groupBy allowlist).
+	Field string `json:"field"`
+	// MaxGroups is the maxGroups sent to the aggregate call. Omitted/zero is
+	// replaced with DefaultDistinctByMaxGroups at load time; the registry
+	// rejects values above MaxDistinctByMaxGroups or below zero.
+	MaxGroups int `json:"maxGroups,omitempty"`
 }
 
 // PieSlice is one wedge of a Shape "pie" widget. The caller resolves its
@@ -223,6 +284,9 @@ type WidgetTemplate struct {
 	// are meaningless for count/list.
 	Slices  []PieSlice     `json:"slices,omitempty"`
 	GroupBy *GroupByConfig `json:"groupBy,omitempty"`
+	// DistinctBy is only meaningful for Shape count (resourceType "case"):
+	// absent is today's behaviour (the record total). See DistinctByConfig.
+	DistinctBy *DistinctByConfig `json:"distinctBy,omitempty"`
 	// Section groups widgets sharing the same (non-empty) value under a
 	// titled sub-section within the dashboard, in the order that value
 	// first appears among the dashboard's widgets — e.g. a handful of
@@ -261,6 +325,12 @@ type WidgetTemplate struct {
 	// no-op -- this backend only passes it through, exactly like
 	// InlineDrilldown.
 	InlineLabels bool `json:"inlineLabels,omitempty"`
+	// Days is only meaningful for Shape line: the trailing window size (in
+	// days, ending today) POST /cases/volume-trend should return. Omitted/
+	// zero defers to that endpoint's own default (30); the registry rejects
+	// a value outside 1-90 at load time, the same range the endpoint itself
+	// enforces.
+	Days int `json:"days,omitempty"`
 
 	// legacyFilters holds a pre-rename config's "filters" key so
 	// migrateLegacyWidgetKeys can move it into Query. Unexported so it can
@@ -745,4 +815,14 @@ func resolveDashboardFilterPresets(d *Dashboard, sharedPresets map[string]map[st
 		}
 	}
 	return nil
+}
+
+// applyDistinctByDefaults fills in DistinctBy.MaxGroups when omitted, so the
+// widget view the frontend receives always carries an explicit value.
+func applyDistinctByDefaults(d *Dashboard) {
+	for i := range d.Widgets {
+		if db := d.Widgets[i].DistinctBy; db != nil && db.MaxGroups == 0 {
+			db.MaxGroups = DefaultDistinctByMaxGroups
+		}
+	}
 }
