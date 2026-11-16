@@ -100,6 +100,8 @@ import CsmDashboardBuilderEditorPage from "@features/csm-admin/dashboards/pages/
 import CsmDashboardSharedConfigPage from "@features/csm-admin/dashboards/pages/CsmDashboardSharedConfigPage";
 import CsmBannersRouteGuard from "@features/csm-admin/banners/CsmBannersRouteGuard";
 import CsmBannersPage from "@features/csm-admin/banners/CsmBannersPage";
+import CsmProductsRouteGuard from "@features/csm-admin/products/CsmProductsRouteGuard";
+import CsmProductsPage from "@features/csm-admin/products/CsmProductsPage";
 import CsmSlaEngineRouteGuard from "@features/csm-admin/sla-engine/CsmSlaEngineRouteGuard";
 import CsmSlaEnginePage from "@features/csm-admin/sla-engine/CsmSlaEnginePage";
 import CsmCustomersLayout from "@features/csm-customers/pages/CsmCustomersLayout";
@@ -406,6 +408,9 @@ export default function App(): JSX.Element {
                     </Route>
                     <Route path="banners" element={<CsmBannersRouteGuard />}>
                       <Route index element={<CsmBannersPage />} />
+                    </Route>
+                    <Route path="products" element={<CsmProductsRouteGuard />}>
+                      <Route index element={<CsmProductsPage />} />
                     </Route>
                     <Route path="sla-engine" element={<CsmSlaEngineRouteGuard />}>
                       <Route index element={<CsmSlaEnginePage />} />

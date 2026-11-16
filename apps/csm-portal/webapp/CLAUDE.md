@@ -1000,3 +1000,11 @@ everything past the cap rolls into a response `othersCount`).
   widget with an uncaught "`XAxis` export is not defined on the mock" error, not a normal assertion
   failure, so it's easy to miss if a future edit to this component imports a new named export from that
   package without checking this mock first.
+
+## Settings > Products (`features/csm-admin/products`)
+
+Admin-only tab (`/admin/products`, `requires: "isAdmin"`, same three gates as Banners: nav item, `CsmAdminLayout` tab filter, `CsmProductsRouteGuard`). It adds products, adds and edits the versions of a **software** product, and retires or restores either. "Delete" is a soft delete: the backend's `active` flag, so the entry leaves the pickers but nothing already using it changes and it can be restored; it asks for confirmation first.
+
+- It talks only to `/product-catalog/*` (PermAdmin), whose searches include retired rows; the pickers keep using `/products/search` and never see them. "Show retired" filters client-side.
+- `productCatalogForm.ts` holds the pure parts (drafts, validation, request bodies). A version edit sends only the fields that changed; `""` clears the deployment profile or a date, an omitted field is untouched. The Save button stays disabled until something changed.
+- A product's class cannot be changed after it is created (the dialog says so), and a retired product cannot get new versions.

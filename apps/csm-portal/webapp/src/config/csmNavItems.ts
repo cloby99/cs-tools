@@ -38,6 +38,7 @@ import {
   LayoutDashboard,
   LifeBuoy,
   Megaphone,
+  Package,
   RefreshCw,
   ScrollText,
   Settings,
@@ -492,6 +493,15 @@ export const CSM_NAV_ITEMS: CsmNavSection[] = [
         label: "Banners",
         href: "/admin/banners",
         icon: Megaphone,
+        requires: "isAdmin",
+      },
+      // Admin only: adds and retires the products and versions every picker
+      // offers (writes go through PermAdmin routes on the backend).
+      {
+        id: "admin.products",
+        label: "Products",
+        href: "/admin/products",
+        icon: Package,
         requires: "isAdmin",
       },
       // Admin only, same reasoning as Banners above: recalculating SLA
