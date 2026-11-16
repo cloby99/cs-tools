@@ -18,9 +18,11 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/wso2-open-operations/cs-tools/entity-service/internal/apierror"
 	"github.com/wso2-open-operations/cs-tools/entity-service/internal/domain"
@@ -43,6 +45,10 @@ type ProductRepository interface {
 	// CreateProduct inserts a product and returns it. A product with the same
 	// name (ignoring case), class and unit already stored is a *apierror.ConflictError.
 	CreateProduct(ctx context.Context, p domain.NewProduct, actor string) (domain.Product, error)
+
+	// SetProductActive retires (false) or restores (true) a product. An unknown
+	// id is a *apierror.NotFoundError. Setting the state it already has succeeds.
+	SetProductActive(ctx context.Context, id string, active bool, actor string) (domain.Product, error)
 }
 
 type productRepo struct {
@@ -60,6 +66,9 @@ func (r *productRepo) SearchProducts(ctx context.Context, req domain.SearchProdu
 	argIdx := 1
 
 	where := "WHERE 1=1"
+	if !req.IncludeInactive {
+		where += " AND is_active"
+	}
 
 	if req.SearchQuery != "" {
 		escaped := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(req.SearchQuery)
@@ -78,7 +87,7 @@ func (r *productRepo) SearchProducts(ctx context.Context, req domain.SearchProdu
 	countQuery := "SELECT COUNT(*) FROM product " + where
 
 	dataQuery := fmt.Sprintf(
-		`SELECT id, name, category, created_on, updated_on
+		`SELECT id, name, category, is_active, created_on, updated_on
 		 FROM product %s
 		 ORDER BY created_on DESC, id
 		 LIMIT $%d OFFSET $%d`,
@@ -109,7 +118,7 @@ func (r *productRepo) SearchProducts(ctx context.Context, req domain.SearchProdu
 		for rows.Next() {
 			var p domain.Product
 			var category string
-			if err := rows.Scan(&p.ID, &p.Name, &category, &p.CreatedOn, &p.UpdatedOn); err != nil {
+			if err := rows.Scan(&p.ID, &p.Name, &category, &p.Active, &p.CreatedOn, &p.UpdatedOn); err != nil {
 				return fmt.Errorf("scan product: %w", err)
 			}
 			p.Class = domain.ProductClass(strings.ToLower(category))
@@ -166,9 +175,9 @@ func (r *productRepo) CreateProduct(ctx context.Context, p domain.NewProduct, ac
 	err = tx.QueryRow(ctx,
 		`INSERT INTO product (id, created_on, updated_on, created_by, updated_by, name, category, unit, description)
 		 VALUES (uuidv7(), now(), now(), $1, $1, $2, $3::product_category_enum, $4::product_unit_enum, $5)
-		 RETURNING id, name, category, created_on, updated_on`,
+		 RETURNING id, name, category, is_active, created_on, updated_on`,
 		actor, p.Name, category, p.Unit, p.Description,
-	).Scan(&created.ID, &created.Name, &storedCategory, &created.CreatedOn, &created.UpdatedOn)
+	).Scan(&created.ID, &created.Name, &storedCategory, &created.Active, &created.CreatedOn, &created.UpdatedOn)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return domain.Product{}, &apierror.ConflictError{Msg: "a product with this name, class and unit already exists"}
@@ -181,4 +190,23 @@ func (r *productRepo) CreateProduct(ctx context.Context, p domain.NewProduct, ac
 		return domain.Product{}, fmt.Errorf("commit create product: %w", err)
 	}
 	return created, nil
+}
+
+// SetProductActive implements ProductRepository.
+func (r *productRepo) SetProductActive(ctx context.Context, id string, active bool, actor string) (domain.Product, error) {
+	var p domain.Product
+	var category string
+	err := r.db.QueryRow(ctx,
+		`UPDATE product SET is_active = $2, updated_on = now(), updated_by = $3
+		  WHERE id = $1
+		  RETURNING id, name, category, is_active, created_on, updated_on`,
+		id, active, actor).Scan(&p.ID, &p.Name, &category, &p.Active, &p.CreatedOn, &p.UpdatedOn)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Product{}, &apierror.NotFoundError{Msg: "product not found"}
+	}
+	if err != nil {
+		return domain.Product{}, fmt.Errorf("set product active: %w", err)
+	}
+	p.Class = domain.ProductClass(strings.ToLower(category))
+	return p, nil
 }

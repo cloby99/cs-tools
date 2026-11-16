@@ -53,7 +53,7 @@ type ProductVersionRepository interface {
 
 const productVersionColumns = `id, product_id, version, current_support_status,
 	release_date, support_eol_date, earliest_possible_support_eol_date,
-	deployment_profile, created_on, updated_on`
+	deployment_profile, is_active, created_on, updated_on`
 
 const errProductVersionExists = "this product already has that version with the same deployment profile"
 
@@ -72,6 +72,9 @@ func (r *productVersionRepo) SearchProductVersions(ctx context.Context, req doma
 	argIdx := 1
 
 	where := "WHERE 1=1"
+	if !req.IncludeInactive {
+		where += " AND is_active"
+	}
 
 	if req.ProductID != "" {
 		where += fmt.Sprintf(" AND product_id = $%d", argIdx)
@@ -99,7 +102,7 @@ func (r *productVersionRepo) SearchProductVersions(ctx context.Context, req doma
 	dataQuery := fmt.Sprintf(
 		`SELECT id, product_id, version, current_support_status,
 		        release_date, support_eol_date, earliest_possible_support_eol_date,
-		        deployment_profile, created_on, updated_on
+		        deployment_profile, is_active, created_on, updated_on
 		 FROM product_version %s
 		 ORDER BY release_date DESC, id
 		 LIMIT $%d OFFSET $%d`,
@@ -132,7 +135,7 @@ func (r *productVersionRepo) SearchProductVersions(ctx context.Context, req doma
 			if err := rows.Scan(
 				&pv.ID, &pv.ProductID, &pv.Version, &pv.CurrentSupportStatus,
 				&pv.ReleaseDate, &pv.SupportEOLDate, &pv.EarliestPossibleSupportEOLDate,
-				&pv.DeploymentProfile, &pv.CreatedOn, &pv.UpdatedOn,
+				&pv.DeploymentProfile, &pv.Active, &pv.CreatedOn, &pv.UpdatedOn,
 			); err != nil {
 				return fmt.Errorf("scan product_version: %w", err)
 			}
@@ -157,7 +160,7 @@ func scanProductVersion(row pgx.Row) (domain.ProductVersion, error) {
 	err := row.Scan(
 		&pv.ID, &pv.ProductID, &pv.Version, &pv.CurrentSupportStatus,
 		&pv.ReleaseDate, &pv.SupportEOLDate, &pv.EarliestPossibleSupportEOLDate,
-		&pv.DeploymentProfile, &pv.CreatedOn, &pv.UpdatedOn,
+		&pv.DeploymentProfile, &pv.Active, &pv.CreatedOn, &pv.UpdatedOn,
 	)
 	return pv, err
 }
@@ -279,6 +282,9 @@ func (r *productVersionRepo) UpdateProductVersion(ctx context.Context, productID
 	add := func(column, cast string, value any) {
 		args = append(args, value)
 		sets = append(sets, fmt.Sprintf("%s = $%d%s", column, len(args), cast))
+	}
+	if patch.Active != nil {
+		add("is_active", "", *patch.Active)
 	}
 	if patch.Version != nil {
 		add("version", "", *patch.Version)

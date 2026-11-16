@@ -181,12 +181,13 @@ Code: `internal/holidays` (the two clients), `service/public_holiday_service.go`
 
 ## Product catalog writes
 
-`POST /products`, `POST /products/{id}/versions` and `PATCH /products/{id}/versions/{versionId}` back the CSM portal's Settings > Products admin screen. Before them `product` and `product_version` were read-only here (rows came from the ServiceNow sync).
+`POST /products`, `PATCH /products/{id}`, `POST /products/{id}/versions` and `PATCH /products/{id}/versions/{versionId}` back the CSM portal's Settings > Products admin screen. Before them `product` and `product_version` were read-only here (rows came from the ServiceNow sync).
 
 - **Registered only for `DATA_SOURCE=postgres`.** Under dual-write a deployed product is created in ServiceNow first, by a product id ServiceNow knows, so a product added only to Postgres could never be deployed; under `servicenow` the catalog is not ours. The routes are absent there (404), not refused.
 - **`internalOnly` at the route; who counts as an admin is the CSM portal BFF's decision** (same split as portal banners). Do not add a second role list here.
 - **Duplicates are checked in code, not left to the unique keys.** `product (name, category, unit)` and `product_version (product_id, version, deployment_profile)` treat two NULLs as different, so a unit-less product or a profile-less version would be accepted twice. Name, version and profile compare ignoring case. A product add takes an advisory lock on the lowercased name; a version add or rename locks the product row `FOR NO KEY UPDATE` (which does not block the FK check of other inserts).
-- **Only a software product has versions** (400 otherwise). A product's class cannot be changed after creation; there is no product PATCH or DELETE yet.
+- **Delete is a soft delete** (`is_active`, migration 0296, default TRUE): `PATCH {active:false}` on a product or version retires it, `{active:true}` restores it; nothing is removed, so deployed products, cases and change requests keep their links. Both searches return only active rows unless `includeInactive` is true (the admin screen). Retiring a product does not touch its versions, and restoring it does not restore them. A retired row still counts for the duplicate check. Not enforced here: creating a deployed product against a retired product or version (the pickers never offer one).
+- **Only a software product has versions** (400 otherwise). A product's class cannot be changed after creation; there is no hard delete and no way to rename a product yet.
 - **PATCH clearing:** an omitted field is left alone; `""` clears `deploymentProfile` and the three dates. Version string and status cannot be cleared. Dates are `YYYY-MM-DD`; status defaults to `available` on create and is accepted in any case.
 - Ids come from `uuidv7()` (these tables have no column default); `created_by`/`updated_by` is the caller's email, else the service client id. The tables are not in `audit_config`.
 

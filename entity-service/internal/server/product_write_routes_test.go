@@ -31,6 +31,7 @@ func TestProductWriteRoutesAreInternalOnly(t *testing.T) {
 	id := "3f1e8d6a-3b4c-4d5e-8f90-123456789abc"
 	for _, tc := range []struct{ name, method, path string }{
 		{"create product", http.MethodPost, "/products"},
+		{"retire product", http.MethodPatch, "/products/" + id},
 		{"create version", http.MethodPost, "/products/" + id + "/versions"},
 		{"patch version", http.MethodPatch, "/products/" + id + "/versions/" + id},
 	} {

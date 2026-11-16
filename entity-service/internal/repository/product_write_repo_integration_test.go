@@ -189,3 +189,78 @@ func TestProductWrite_Versions(t *testing.T) {
 		t.Fatalf("self rename: %v", err)
 	}
 }
+
+func TestProductWrite_SoftDelete(t *testing.T) {
+	ctx := context.Background()
+	pool := pwPool(t)
+	products := repository.NewProductRepository(pool)
+	versions := repository.NewProductVersionRepository(pool)
+
+	p, err := products.CreateProduct(ctx, domain.NewProduct{Name: "PW Retire", Class: domain.ProductClassSoftware}, pwActor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !p.Active {
+		t.Fatal("a new product must be active")
+	}
+	v, err := versions.CreateProductVersion(ctx, p.ID, domain.NewProductVersion{Version: "1.0.0", CurrentSupportStatus: domain.SupportStatusAvailable}, pwActor)
+	if err != nil || !v.Active {
+		t.Fatalf("new version: %+v, %v", v, err)
+	}
+
+	searchP := func(include bool) int {
+		_, total, err := products.SearchProducts(ctx, domain.SearchProductsRequest{
+			Pagination: domain.Pagination{Limit: 50}, SearchQuery: "PW Retire", IncludeInactive: include})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return total
+	}
+	searchV := func(include bool) int {
+		_, total, err := versions.SearchProductVersions(ctx, domain.SearchProductVersionsRequest{
+			Pagination: domain.Pagination{Limit: 50}, ProductID: p.ID, IncludeInactive: include})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return total
+	}
+	if searchP(false) != 1 || searchV(false) != 1 {
+		t.Fatal("active rows should be found by default")
+	}
+
+	// Retiring hides the row from the default search but keeps it for the admin one.
+	if got, err := products.SetProductActive(ctx, p.ID, false, pwActor); err != nil || got.Active {
+		t.Fatalf("retire product: %+v, %v", got, err)
+	}
+	inactive := false
+	if got, err := versions.UpdateProductVersion(ctx, p.ID, v.ID, domain.ProductVersionPatch{Active: &inactive}, pwActor); err != nil || got.Active {
+		t.Fatalf("retire version: %+v, %v", got, err)
+	}
+	if searchP(false) != 0 || searchP(true) != 1 || searchV(false) != 0 || searchV(true) != 1 {
+		t.Fatal("retired rows must be hidden by default and returned with includeInactive")
+	}
+
+	// Retiring is repeatable, reversible, and leaves the version alone.
+	if _, err := products.SetProductActive(ctx, p.ID, false, pwActor); err != nil {
+		t.Fatalf("retire twice: %v", err)
+	}
+	if got, err := products.SetProductActive(ctx, p.ID, true, pwActor); err != nil || !got.Active {
+		t.Fatalf("restore: %+v, %v", got, err)
+	}
+	if searchP(false) != 1 || searchV(false) != 0 {
+		t.Fatal("restoring a product must not restore its retired version")
+	}
+
+	var nf *apierror.NotFoundError
+	if _, err := products.SetProductActive(ctx, "00000000-0000-4000-8000-000000000000", false, pwActor); !errors.As(err, &nf) {
+		t.Fatalf("unknown product = %v, want NotFoundError", err)
+	}
+	// A retired product still blocks a duplicate name, so it cannot be silently re-created.
+	if _, err := products.SetProductActive(ctx, p.ID, false, pwActor); err != nil {
+		t.Fatal(err)
+	}
+	var ce *apierror.ConflictError
+	if _, err := products.CreateProduct(ctx, domain.NewProduct{Name: "PW Retire", Class: domain.ProductClassSoftware}, pwActor); !errors.As(err, &ce) {
+		t.Fatalf("duplicate of retired = %v, want ConflictError", err)
+	}
+}

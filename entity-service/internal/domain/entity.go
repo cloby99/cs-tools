@@ -2245,11 +2245,14 @@ const (
 
 // Product represents a WSO2 product entry as stored in the database.
 type Product struct {
-	ID        string       `json:"id"`
-	Name      string       `json:"name"`
-	Class     ProductClass `json:"class"`
-	CreatedOn time.Time    `json:"createdOn"`
-	UpdatedOn time.Time    `json:"updatedOn"`
+	ID    string       `json:"id"`
+	Name  string       `json:"name"`
+	Class ProductClass `json:"class"`
+	// Active is false once an admin has retired the product (a soft delete);
+	// search leaves such products out unless asked for them.
+	Active    bool      `json:"active"`
+	CreatedOn time.Time `json:"createdOn"`
+	UpdatedOn time.Time `json:"updatedOn"`
 }
 
 // SearchProductsRequest is the input for a product search operation.
@@ -2261,6 +2264,9 @@ type SearchProductsRequest struct {
 	Pagination  Pagination `json:"pagination"`
 	SearchQuery string     `json:"searchQuery"`
 	Class       string     `json:"class"`
+	// IncludeInactive also returns retired products (the admin catalog screen).
+	// Postgres data source only.
+	IncludeInactive bool `json:"includeInactive,omitempty"`
 }
 
 // SearchProductsResponse is the paginated result of a product search.
@@ -2336,9 +2342,12 @@ type ProductVersion struct {
 	EarliestPossibleSupportEOLDate *time.Time     `json:"earliestPossibleSupportEolDate"`
 	// DeploymentProfile is product_version.deployment_profile (e.g. "All In
 	// One"); null when the version has none.
-	DeploymentProfile *string   `json:"deploymentProfile"`
-	CreatedOn         time.Time `json:"createdOn"`
-	UpdatedOn         time.Time `json:"updatedOn"`
+	DeploymentProfile *string `json:"deploymentProfile"`
+	// Active is false once an admin has retired the version (a soft delete);
+	// search leaves such versions out unless asked for them.
+	Active    bool      `json:"active"`
+	CreatedOn time.Time `json:"createdOn"`
+	UpdatedOn time.Time `json:"updatedOn"`
 }
 
 // SearchProductVersionsRequest is the input for a product version search operation.
@@ -2353,6 +2362,8 @@ type SearchProductVersionsRequest struct {
 	// Omitted (or empty) applies no profile filter and returns every profile.
 	// Postgres data source only.
 	DeploymentProfile *string `json:"deploymentProfile,omitempty"`
+	// IncludeInactive also returns retired versions (the admin catalog screen).
+	IncludeInactive bool `json:"includeInactive,omitempty"`
 }
 
 // SearchProductVersionsResponse is the paginated result of a product version search.
@@ -2385,6 +2396,13 @@ type NewProduct struct {
 	Description *string
 }
 
+// UpdateProductRequest is the body of PATCH /products/{id}. Active false retires
+// the product (soft delete: nothing is removed, and its versions, deployed
+// products and cases keep pointing at it), true brings it back.
+type UpdateProductRequest struct {
+	Active *bool `json:"active,omitempty"`
+}
+
 // CreateProductVersionRequest is the body of POST /products/{id}/versions.
 // Dates are plain "YYYY-MM-DD". CurrentSupportStatus defaults to "available".
 type CreateProductVersionRequest struct {
@@ -2401,6 +2419,8 @@ type CreateProductVersionRequest struct {
 // every nullable field (profile and the three dates) an empty string clears it.
 // The status and the version string cannot be cleared.
 type UpdateProductVersionRequest struct {
+	// Active false retires the version (soft delete), true brings it back.
+	Active                         *bool   `json:"active,omitempty"`
 	Version                        *string `json:"version,omitempty"`
 	DeploymentProfile              *string `json:"deploymentProfile,omitempty"`
 	CurrentSupportStatus           *string `json:"currentSupportStatus,omitempty"`
@@ -2428,6 +2448,7 @@ type NewProductVersion struct {
 
 // ProductVersionPatch is a validated UpdateProductVersionRequest.
 type ProductVersionPatch struct {
+	Active                         *bool
 	Version                        *string
 	DeploymentProfile              FieldPatch[string]
 	CurrentSupportStatus           *SupportStatus

@@ -27,14 +27,20 @@ import (
 // assert on what the service layer forwards to the repository, without a
 // live Postgres connection.
 type fakeProductRepo struct {
-	gotReq  domain.SearchProductsRequest
-	created *domain.NewProduct
-	actor   string
+	gotReq    domain.SearchProductsRequest
+	created   *domain.NewProduct
+	setActive *bool
+	actor     string
 }
 
 func (f *fakeProductRepo) CreateProduct(_ context.Context, p domain.NewProduct, actor string) (domain.Product, error) {
 	f.created, f.actor = &p, actor
 	return domain.Product{ID: "p1", Name: p.Name, Class: p.Class}, nil
+}
+
+func (f *fakeProductRepo) SetProductActive(_ context.Context, id string, active bool, actor string) (domain.Product, error) {
+	f.setActive, f.actor = &active, actor
+	return domain.Product{ID: id, Active: active}, nil
 }
 
 func (f *fakeProductRepo) SearchProducts(_ context.Context, req domain.SearchProductsRequest) ([]domain.Product, int, error) {

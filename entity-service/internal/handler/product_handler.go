@@ -66,6 +66,21 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
+// PatchProduct handles PATCH /products/{id}.
+func (h *ProductHandler) PatchProduct(w http.ResponseWriter, r *http.Request) {
+	var req domain.UpdateProductRequest
+	if !decodeRequest(w, r, &req) {
+		return
+	}
+	resp, err := h.svc.SetProductActive(r.Context(), r.PathValue("id"), req)
+	if err != nil {
+		writeServiceError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
 // SNProductHandler handles HTTP requests for product operations backed by ServiceNow.
 type SNProductHandler struct {
 	svc service.SNProductService

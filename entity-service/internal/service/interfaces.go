@@ -741,6 +741,9 @@ type ProductService interface {
 	// input and a ConflictError when the name, class and unit already exist.
 	// Access is the route's job (internalOnly), not this method's.
 	CreateProduct(ctx context.Context, req domain.CreateProductRequest) (domain.Product, error)
+	// SetProductActive retires or restores a product (soft delete). A
+	// ValidationError when req names nothing, a NotFoundError for an unknown id.
+	SetProductActive(ctx context.Context, id string, req domain.UpdateProductRequest) (domain.Product, error)
 }
 
 // SNProductService defines the product operations backed by the ServiceNow data source.

@@ -2547,6 +2547,7 @@ func NewRouter(db *pgxpool.Pool, cfg *config.Config) (http.Handler, func()) {
 	// its staff is an admin (as for portal banners), this only keeps customers out.
 	if cfg.DataSource == config.DataSourcePostgres && productVersionHandler != nil {
 		mux.HandleFunc("POST /products", internalOnly(accessSvc, productHandler.CreateProduct))
+		mux.HandleFunc("PATCH /products/{id}", internalOnly(accessSvc, productHandler.PatchProduct))
 		mux.HandleFunc("POST /products/{id}/versions", internalOnly(accessSvc, productVersionHandler.CreateProductVersion))
 		mux.HandleFunc("PATCH /products/{id}/versions/{versionId}", internalOnly(accessSvc, productVersionHandler.PatchProductVersion))
 	}

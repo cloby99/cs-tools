@@ -198,3 +198,44 @@ func TestProductVersionService_Update_Rejects(t *testing.T) {
 		})
 	}
 }
+
+func TestProductService_SetProductActive(t *testing.T) {
+	repo := &fakeProductRepo{}
+	svc := NewProductService(repo)
+
+	if _, err := svc.SetProductActive(context.Background(), pwProductID, domain.UpdateProductRequest{Active: pwPtr(false)}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.setActive == nil || *repo.setActive {
+		t.Fatalf("active = %v, want false forwarded", repo.setActive)
+	}
+
+	for name, tc := range map[string]struct {
+		id  string
+		req domain.UpdateProductRequest
+	}{
+		"nothing to change": {pwProductID, domain.UpdateProductRequest{}},
+		"bad id":            {"nope", domain.UpdateProductRequest{Active: pwPtr(true)}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			repo := &fakeProductRepo{}
+			if _, err := NewProductService(repo).SetProductActive(context.Background(), tc.id, tc.req); !pwIsValidation(err) {
+				t.Fatalf("err = %v, want ValidationError", err)
+			}
+			if repo.setActive != nil {
+				t.Error("repository was reached for an invalid request")
+			}
+		})
+	}
+}
+
+func TestProductVersionService_Update_ActiveAloneIsAChange(t *testing.T) {
+	repo := &stubProductVersionRepo{}
+	if _, err := NewProductVersionService(repo).UpdateProductVersion(context.Background(), pwProductID, pwVersionID,
+		domain.UpdateProductVersionRequest{Active: pwPtr(false)}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.patched == nil || repo.patched.Active == nil || *repo.patched.Active {
+		t.Fatalf("patch = %+v, want active=false", repo.patched)
+	}
+}

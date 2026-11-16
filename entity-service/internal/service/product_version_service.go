@@ -167,7 +167,7 @@ func (s *productVersionService) UpdateProductVersion(ctx context.Context, produc
 	if req == (domain.UpdateProductVersionRequest{}) {
 		return domain.ProductVersion{}, &apierror.ValidationError{Msg: "no fields to update"}
 	}
-	var patch domain.ProductVersionPatch
+	patch := domain.ProductVersionPatch{Active: req.Active}
 	var err error
 	if req.Version != nil {
 		v, err := validateVersionString(*req.Version)

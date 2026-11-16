@@ -138,3 +138,14 @@ func (s *productService) CreateProduct(ctx context.Context, req domain.CreatePro
 
 	return s.repo.CreateProduct(ctx, domain.NewProduct{Name: name, Class: class, Unit: unit, Description: description}, writeActor(ctx))
 }
+
+// SetProductActive implements ProductService.
+func (s *productService) SetProductActive(ctx context.Context, id string, req domain.UpdateProductRequest) (domain.Product, error) {
+	if err := validateUUIDs("id", []string{id}); err != nil {
+		return domain.Product{}, err
+	}
+	if req.Active == nil {
+		return domain.Product{}, &apierror.ValidationError{Msg: "no fields to update"}
+	}
+	return s.repo.SetProductActive(ctx, id, *req.Active, writeActor(ctx))
+}
