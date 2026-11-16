@@ -25,7 +25,19 @@ import (
 )
 
 type stubProductVersionRepo struct {
-	got domain.SearchProductVersionsRequest
+	got     domain.SearchProductVersionsRequest
+	created *domain.NewProductVersion
+	patched *domain.ProductVersionPatch
+}
+
+func (r *stubProductVersionRepo) CreateProductVersion(_ context.Context, _ string, v domain.NewProductVersion, _ string) (domain.ProductVersion, error) {
+	r.created = &v
+	return domain.ProductVersion{ID: "v1", Version: v.Version}, nil
+}
+
+func (r *stubProductVersionRepo) UpdateProductVersion(_ context.Context, _, _ string, p domain.ProductVersionPatch, _ string) (domain.ProductVersion, error) {
+	r.patched = &p
+	return domain.ProductVersion{ID: "v1"}, nil
 }
 
 func (r *stubProductVersionRepo) SearchProductVersions(_ context.Context, req domain.SearchProductVersionsRequest) ([]domain.ProductVersion, int, error) {

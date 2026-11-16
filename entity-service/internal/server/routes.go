@@ -2540,6 +2540,16 @@ func NewRouter(db *pgxpool.Pool, cfg *config.Config) (http.Handler, func()) {
 	} else if productVersionHandler != nil {
 		mux.HandleFunc("POST /products/{id}/versions/search", productVersionHandler.SearchProductVersions)
 	}
+	// The catalog is writable only where Postgres is the sole copy of it. Under
+	// dual-write a deployed product is created in ServiceNow first, by a product
+	// id ServiceNow knows, so a product added only here could never be deployed.
+	// internalOnly: the catalog is WSO2's own; the CSM portal BFF decides who of
+	// its staff is an admin (as for portal banners), this only keeps customers out.
+	if cfg.DataSource == config.DataSourcePostgres && productVersionHandler != nil {
+		mux.HandleFunc("POST /products", internalOnly(accessSvc, productHandler.CreateProduct))
+		mux.HandleFunc("POST /products/{id}/versions", internalOnly(accessSvc, productVersionHandler.CreateProductVersion))
+		mux.HandleFunc("PATCH /products/{id}/versions/{versionId}", internalOnly(accessSvc, productVersionHandler.PatchProductVersion))
+	}
 	// Always Postgres, including when products themselves are read from
 	// ServiceNow. The literal path does not collide with /products/{id}.
 	if db != nil {

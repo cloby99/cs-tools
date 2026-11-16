@@ -179,6 +179,19 @@ Code: `internal/holidays` (the two clients), `service/public_holiday_service.go`
     leads and rota managers; `PUT .../reminders/{teamKey}/{date}/{stage}` records one
     (`team_schedule_holiday_reminder_sent`). A stage whose day passed unsent is not caught up.
 
+## Product catalog writes
+
+`POST /products`, `POST /products/{id}/versions` and `PATCH /products/{id}/versions/{versionId}` back the CSM portal's Settings > Products admin screen. Before them `product` and `product_version` were read-only here (rows came from the ServiceNow sync).
+
+- **Registered only for `DATA_SOURCE=postgres`.** Under dual-write a deployed product is created in ServiceNow first, by a product id ServiceNow knows, so a product added only to Postgres could never be deployed; under `servicenow` the catalog is not ours. The routes are absent there (404), not refused.
+- **`internalOnly` at the route; who counts as an admin is the CSM portal BFF's decision** (same split as portal banners). Do not add a second role list here.
+- **Duplicates are checked in code, not left to the unique keys.** `product (name, category, unit)` and `product_version (product_id, version, deployment_profile)` treat two NULLs as different, so a unit-less product or a profile-less version would be accepted twice. Name, version and profile compare ignoring case. A product add takes an advisory lock on the lowercased name; a version add or rename locks the product row `FOR NO KEY UPDATE` (which does not block the FK check of other inserts).
+- **Only a software product has versions** (400 otherwise). A product's class cannot be changed after creation; there is no product PATCH or DELETE yet.
+- **PATCH clearing:** an omitted field is left alone; `""` clears `deploymentProfile` and the three dates. Version string and status cannot be cleared. Dates are `YYYY-MM-DD`; status defaults to `available` on create and is accepted in any case.
+- Ids come from `uuidv7()` (these tables have no column default); `created_by`/`updated_by` is the caller's email, else the service client id. The tables are not in `audit_config`.
+
+Tests: `product_write_test.go` (service), `product_write_routes_test.go` (gate), `product_write_repo_integration_test.go` (real Postgres 18, skipped without `ENTITY_TEST_DATABASE_URL`).
+
 ## Health probes
 
 The process runs **two** HTTP listeners, and the split is a security boundary, not a

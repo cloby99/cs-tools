@@ -2365,6 +2365,77 @@ type SearchProductVersionsResponse struct {
 	HasMore         bool             `json:"hasMore"`
 }
 
+// CreateProductRequest is the body of POST /products. Class is required and
+// cannot be changed afterwards: versions and deployed products hang off it.
+// Unit is one of the product_unit_enum labels (case-insensitive); omitted
+// leaves it unset.
+type CreateProductRequest struct {
+	Name        string  `json:"name"`
+	Class       string  `json:"class"`
+	Unit        *string `json:"unit,omitempty"`
+	Description *string `json:"description,omitempty"`
+}
+
+// NewProduct is a validated CreateProductRequest: Name trimmed, Class and Unit
+// normalized to the stored labels.
+type NewProduct struct {
+	Name        string
+	Class       ProductClass
+	Unit        *string
+	Description *string
+}
+
+// CreateProductVersionRequest is the body of POST /products/{id}/versions.
+// Dates are plain "YYYY-MM-DD". CurrentSupportStatus defaults to "available".
+type CreateProductVersionRequest struct {
+	Version                        string  `json:"version"`
+	DeploymentProfile              *string `json:"deploymentProfile,omitempty"`
+	CurrentSupportStatus           *string `json:"currentSupportStatus,omitempty"`
+	ReleaseDate                    *string `json:"releaseDate,omitempty"`
+	SupportEOLDate                 *string `json:"supportEolDate,omitempty"`
+	EarliestPossibleSupportEOLDate *string `json:"earliestPossibleSupportEolDate,omitempty"`
+}
+
+// UpdateProductVersionRequest is the body of PATCH
+// /products/{id}/versions/{versionId}. An omitted field is left alone; for
+// every nullable field (profile and the three dates) an empty string clears it.
+// The status and the version string cannot be cleared.
+type UpdateProductVersionRequest struct {
+	Version                        *string `json:"version,omitempty"`
+	DeploymentProfile              *string `json:"deploymentProfile,omitempty"`
+	CurrentSupportStatus           *string `json:"currentSupportStatus,omitempty"`
+	ReleaseDate                    *string `json:"releaseDate,omitempty"`
+	SupportEOLDate                 *string `json:"supportEolDate,omitempty"`
+	EarliestPossibleSupportEOLDate *string `json:"earliestPossibleSupportEolDate,omitempty"`
+}
+
+// FieldPatch is one optional column of a PATCH: Set says whether the caller
+// named it, Value is the new value (nil clears a nullable column).
+type FieldPatch[T any] struct {
+	Set   bool
+	Value *T
+}
+
+// NewProductVersion is a validated CreateProductVersionRequest.
+type NewProductVersion struct {
+	Version                        string
+	DeploymentProfile              *string
+	CurrentSupportStatus           SupportStatus
+	ReleaseDate                    *time.Time
+	SupportEOLDate                 *time.Time
+	EarliestPossibleSupportEOLDate *time.Time
+}
+
+// ProductVersionPatch is a validated UpdateProductVersionRequest.
+type ProductVersionPatch struct {
+	Version                        *string
+	DeploymentProfile              FieldPatch[string]
+	CurrentSupportStatus           *SupportStatus
+	ReleaseDate                    FieldPatch[time.Time]
+	SupportEOLDate                 FieldPatch[time.Time]
+	EarliestPossibleSupportEOLDate FieldPatch[time.Time]
+}
+
 // DeploymentType classifies the environment role of a deployment.
 type DeploymentType string
 

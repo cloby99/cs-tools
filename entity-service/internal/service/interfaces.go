@@ -737,6 +737,10 @@ type ProductService interface {
 	// in req. A ValidationError is returned for invalid input; any other error
 	// indicates an infrastructure failure.
 	SearchProducts(ctx context.Context, req domain.SearchProductsRequest) (domain.SearchProductsResponse, error)
+	// CreateProduct adds a product. A ValidationError is returned for invalid
+	// input and a ConflictError when the name, class and unit already exist.
+	// Access is the route's job (internalOnly), not this method's.
+	CreateProduct(ctx context.Context, req domain.CreateProductRequest) (domain.Product, error)
 }
 
 // SNProductService defines the product operations backed by the ServiceNow data source.
@@ -752,6 +756,14 @@ type ProductVersionService interface {
 	// by product_id and optionally by version string. A ValidationError is returned
 	// for invalid input; any other error indicates an infrastructure failure.
 	SearchProductVersions(ctx context.Context, req domain.SearchProductVersionsRequest) (domain.SearchProductVersionsResponse, error)
+	// CreateProductVersion adds a version to a software product: ValidationError
+	// for bad input or a non-software product, NotFoundError for an unknown
+	// product, ConflictError for a duplicate version/profile.
+	CreateProductVersion(ctx context.Context, productID string, req domain.CreateProductVersionRequest) (domain.ProductVersion, error)
+	// UpdateProductVersion changes the named fields of one of the product's
+	// versions; same errors as CreateProductVersion, NotFoundError when the
+	// version is not the product's.
+	UpdateProductVersion(ctx context.Context, productID, versionID string, req domain.UpdateProductVersionRequest) (domain.ProductVersion, error)
 }
 
 // SNProductVersionService is the ServiceNow-backed variant of ProductVersionService.

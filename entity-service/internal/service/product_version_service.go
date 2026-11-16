@@ -19,6 +19,8 @@ package service
 
 import (
 	"context"
+	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/wso2-open-operations/cs-tools/entity-service/internal/apierror"
@@ -27,7 +29,18 @@ import (
 )
 
 // maxDeploymentProfileLen matches product_version.deployment_profile's VARCHAR(255).
-const maxDeploymentProfileLen = 255
+const (
+	maxDeploymentProfileLen = 255
+	maxProductVersionLen    = 20 // product_version.version is VARCHAR(20)
+	productVersionDateForm  = "2006-01-02"
+)
+
+var validSupportStatus = map[domain.SupportStatus]bool{
+	domain.SupportStatusAvailable:    true,
+	domain.SupportStatusExtended:     true,
+	domain.SupportStatusDeprecated:   true,
+	domain.SupportStatusDiscontinued: true,
+}
 
 type productVersionService struct {
 	repo repository.ProductVersionRepository
@@ -62,4 +75,129 @@ func (s *productVersionService) SearchProductVersions(ctx context.Context, req d
 		Offset:          req.Pagination.Offset,
 		HasMore:         req.Pagination.Offset+len(versions) < total,
 	}, nil
+}
+
+func validateVersionString(v string) (string, error) {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return "", &apierror.ValidationError{Msg: "version is required"}
+	}
+	if utf8.RuneCountInString(v) > maxProductVersionLen {
+		return "", &apierror.ValidationError{Msg: "version cannot exceed 20 characters"}
+	}
+	return v, nil
+}
+
+func validateDeploymentProfile(v *string) (*string, error) {
+	v = optionalText(v)
+	if v != nil && utf8.RuneCountInString(*v) > maxDeploymentProfileLen {
+		return nil, &apierror.ValidationError{Msg: "deploymentProfile cannot exceed 255 characters"}
+	}
+	return v, nil
+}
+
+func parseSupportStatus(v string) (domain.SupportStatus, error) {
+	st := domain.SupportStatus(strings.ToLower(strings.TrimSpace(v)))
+	if !validSupportStatus[st] {
+		return "", &apierror.ValidationError{Msg: "currentSupportStatus must be one of: available, extended, deprecated, discontinued"}
+	}
+	return st, nil
+}
+
+// parseVersionDate reads a "YYYY-MM-DD" date; an empty value is nil.
+func parseVersionDate(field string, v *string) (*time.Time, error) {
+	v = optionalText(v)
+	if v == nil {
+		return nil, nil
+	}
+	t, err := time.Parse(productVersionDateForm, *v)
+	if err != nil {
+		return nil, &apierror.ValidationError{Msg: field + " must be a date in YYYY-MM-DD format"}
+	}
+	return &t, nil
+}
+
+// patchVersionDate is parseVersionDate for a PATCH field: omitted leaves the
+// column alone, an empty string clears it.
+func patchVersionDate(field string, v *string) (domain.FieldPatch[time.Time], error) {
+	if v == nil {
+		return domain.FieldPatch[time.Time]{}, nil
+	}
+	t, err := parseVersionDate(field, v)
+	return domain.FieldPatch[time.Time]{Set: true, Value: t}, err
+}
+
+// CreateProductVersion implements ProductVersionService.
+func (s *productVersionService) CreateProductVersion(ctx context.Context, productID string, req domain.CreateProductVersionRequest) (domain.ProductVersion, error) {
+	if err := validateUUIDs("productId", []string{productID}); err != nil {
+		return domain.ProductVersion{}, err
+	}
+	version, err := validateVersionString(req.Version)
+	if err != nil {
+		return domain.ProductVersion{}, err
+	}
+	profile, err := validateDeploymentProfile(req.DeploymentProfile)
+	if err != nil {
+		return domain.ProductVersion{}, err
+	}
+	status := domain.SupportStatusAvailable
+	if req.CurrentSupportStatus != nil {
+		if status, err = parseSupportStatus(*req.CurrentSupportStatus); err != nil {
+			return domain.ProductVersion{}, err
+		}
+	}
+	nv := domain.NewProductVersion{Version: version, DeploymentProfile: profile, CurrentSupportStatus: status}
+	if nv.ReleaseDate, err = parseVersionDate("releaseDate", req.ReleaseDate); err != nil {
+		return domain.ProductVersion{}, err
+	}
+	if nv.SupportEOLDate, err = parseVersionDate("supportEolDate", req.SupportEOLDate); err != nil {
+		return domain.ProductVersion{}, err
+	}
+	if nv.EarliestPossibleSupportEOLDate, err = parseVersionDate("earliestPossibleSupportEolDate", req.EarliestPossibleSupportEOLDate); err != nil {
+		return domain.ProductVersion{}, err
+	}
+	return s.repo.CreateProductVersion(ctx, productID, nv, writeActor(ctx))
+}
+
+// UpdateProductVersion implements ProductVersionService.
+func (s *productVersionService) UpdateProductVersion(ctx context.Context, productID, versionID string, req domain.UpdateProductVersionRequest) (domain.ProductVersion, error) {
+	if err := validateUUIDs("id", []string{productID, versionID}); err != nil {
+		return domain.ProductVersion{}, err
+	}
+	if req == (domain.UpdateProductVersionRequest{}) {
+		return domain.ProductVersion{}, &apierror.ValidationError{Msg: "no fields to update"}
+	}
+	var patch domain.ProductVersionPatch
+	var err error
+	if req.Version != nil {
+		v, err := validateVersionString(*req.Version)
+		if err != nil {
+			return domain.ProductVersion{}, err
+		}
+		patch.Version = &v
+	}
+	if req.DeploymentProfile != nil {
+		profile, err := validateDeploymentProfile(req.DeploymentProfile)
+		if err != nil {
+			return domain.ProductVersion{}, err
+		}
+		patch.DeploymentProfile = domain.FieldPatch[string]{Set: true, Value: profile}
+	}
+	if req.CurrentSupportStatus != nil {
+		st, err := parseSupportStatus(*req.CurrentSupportStatus)
+		if err != nil {
+			return domain.ProductVersion{}, err
+		}
+		patch.CurrentSupportStatus = &st
+	}
+	if patch.ReleaseDate, err = patchVersionDate("releaseDate", req.ReleaseDate); err != nil {
+		return domain.ProductVersion{}, err
+	}
+	if patch.SupportEOLDate, err = patchVersionDate("supportEolDate", req.SupportEOLDate); err != nil {
+		return domain.ProductVersion{}, err
+	}
+	if patch.EarliestPossibleSupportEOLDate, err = patchVersionDate("earliestPossibleSupportEolDate", req.EarliestPossibleSupportEOLDate); err != nil {
+		return domain.ProductVersion{}, err
+	}
+	return s.repo.UpdateProductVersion(ctx, productID, versionID, patch, writeActor(ctx))
 }

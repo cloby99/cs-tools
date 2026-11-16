@@ -50,6 +50,22 @@ func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
+// CreateProduct handles POST /products.
+func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
+	var req domain.CreateProductRequest
+	if !decodeRequest(w, r, &req) {
+		return
+	}
+	resp, err := h.svc.CreateProduct(r.Context(), req)
+	if err != nil {
+		writeServiceError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
 // SNProductHandler handles HTTP requests for product operations backed by ServiceNow.
 type SNProductHandler struct {
 	svc service.SNProductService

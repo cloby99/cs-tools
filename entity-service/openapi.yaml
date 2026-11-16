@@ -6848,6 +6848,177 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /products:
+    post:
+      summary: Add a product to the catalog.
+      description: >
+        Internal callers only (the CSM portal BFF decides which staff are admins).
+        Postgres data source only: where ServiceNow is the catalog the route is not
+        registered. The class cannot be changed afterwards. A product with the same
+        name (ignoring case), class and unit is a 409.
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductRequest'
+      responses:
+        "201":
+          description: The created product.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        "400":
+          description: Invalid input.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The caller is not internal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: The product already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /products/{id}/versions:
+    post:
+      summary: Add a version to a software product.
+      description: >
+        Internal callers only; Postgres data source only. Only a software product
+        has versions (400 otherwise). A version with the same version string and
+        deployment profile (both ignoring case) already on the product is a 409.
+      operationId: createProductVersion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Product UUID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductVersionRequest'
+      responses:
+        "201":
+          description: The created version.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductVersion'
+        "400":
+          description: Invalid input, or the product is not software.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The caller is not internal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Product not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: The version already exists for this product.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /products/{id}/versions/{versionId}:
+    patch:
+      summary: Update a version of a product.
+      description: >
+        Internal callers only; Postgres data source only. A field left out is not
+        changed; an empty string clears deploymentProfile and the three dates.
+        The version string and the status cannot be cleared.
+      operationId: updateProductVersion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Product UUID.
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Product version UUID; it must belong to the product.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProductVersionRequest'
+      responses:
+        "200":
+          description: The updated version.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductVersion'
+        "400":
+          description: Invalid input, or no field to update.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The caller is not internal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: The product has no such version.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: The change would duplicate another version of this product.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /products/github-repo:
     get:
       summary: Get the GitHub repository mapped to a product.
@@ -23852,6 +24023,78 @@ components:
             (one row per distinct product); "software_model" or
             "service_model" can be requested explicitly to get version-level
             rows instead.
+
+    CreateProductRequest:
+      type: object
+      required: [name, class]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        class:
+          type: string
+          enum: [software, service]
+        unit:
+          type: string
+          nullable: true
+          enum: [INTEGRATION, IOT, IAM, CHOREO, ASGARDEO, APIM, ANALYTICS, DEVANT, BIJIRA]
+          description: Case-insensitive on input. Omitted leaves it unset.
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+
+    CreateProductVersionRequest:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: string
+          maxLength: 20
+        deploymentProfile:
+          type: string
+          maxLength: 255
+          nullable: true
+        currentSupportStatus:
+          type: string
+          enum: [available, extended, deprecated, discontinued]
+          description: Defaults to available.
+        releaseDate:
+          type: string
+          format: date
+          nullable: true
+        supportEolDate:
+          type: string
+          format: date
+          nullable: true
+        earliestPossibleSupportEolDate:
+          type: string
+          format: date
+          nullable: true
+
+    UpdateProductVersionRequest:
+      type: object
+      minProperties: 1
+      description: Every field is optional. An empty string clears deploymentProfile and the three dates.
+      properties:
+        version:
+          type: string
+          maxLength: 20
+        deploymentProfile:
+          type: string
+          maxLength: 255
+        currentSupportStatus:
+          type: string
+          enum: [available, extended, deprecated, discontinued]
+        releaseDate:
+          type: string
+          description: YYYY-MM-DD, or "" to clear.
+        supportEolDate:
+          type: string
+          description: YYYY-MM-DD, or "" to clear.
+        earliestPossibleSupportEolDate:
+          type: string
+          description: YYYY-MM-DD, or "" to clear.
 
     Product:
       type: object
