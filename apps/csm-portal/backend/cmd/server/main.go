@@ -176,6 +176,7 @@ func main() {
 	announcementRequestHandler := handler.NewAnnouncementRequestHandler(customerEntityClient, announcementExcludedProjectKeys)
 	announcementRegistryHandler := handler.NewAnnouncementRegistryHandler(customerEntityClient)
 	productHandler := handler.NewProductHandler(customerEntityClient)
+	productCatalogHandler := handler.NewProductCatalogHandler(customerEntityClient)
 	deploymentHandler := handler.NewDeploymentHandler(customerEntityClient)
 	kbArticleHandler := handler.NewKBArticleHandler(customerEntityClient)
 	kbAdminHandler := handler.NewKBAdminHandler(customerEntityClient)
@@ -674,6 +675,14 @@ func main() {
 	route("POST /products/search", handler.PermView, productHandler.SearchProducts)
 	route("GET /products/github-repo", handler.PermView, productHandler.GetProductRepoMapping)
 	route("POST /products/{id}/versions/search", handler.PermView, productHandler.SearchProductVersions)
+	// Settings > Products: admin only. Its own prefix, so a retired entry shows
+	// up here (and nowhere a picker reads) and no pattern overlaps the ones above.
+	route("POST /product-catalog/products/search", handler.PermAdmin, productCatalogHandler.SearchProducts)
+	route("POST /product-catalog/products", handler.PermAdmin, productCatalogHandler.CreateProduct)
+	route("PATCH /product-catalog/products/{id}", handler.PermAdmin, productCatalogHandler.SetProductActive)
+	route("POST /product-catalog/products/{id}/versions/search", handler.PermAdmin, productCatalogHandler.SearchProductVersions)
+	route("POST /product-catalog/products/{id}/versions", handler.PermAdmin, productCatalogHandler.CreateProductVersion)
+	route("PATCH /product-catalog/products/{id}/versions/{versionId}", handler.PermAdmin, productCatalogHandler.UpdateProductVersion)
 	route("POST /deployments", handler.PermWrite, deploymentHandler.PostDeployment)
 	route("POST /kb-articles", handler.PermWrite, kbArticleHandler.CreateKBArticle)
 	route("GET /kb-articles/{id}", handler.PermView, kbArticleHandler.GetKBArticle)

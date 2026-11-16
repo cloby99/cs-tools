@@ -73,7 +73,7 @@ func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 
 	// TODO: Decode into a typed SearchProductsRequest and validate fields before forwarding.
 
-	result, err := h.entity.SearchProducts(r.Context(), body)
+	result, err := h.entity.SearchProducts(r.Context(), setIncludeInactive(body, false))
 	if err != nil {
 		slog.ErrorContext(r.Context(), "entity SearchProducts failed", "userID", user.UserID, "err", err)
 		mapUpstreamErrorGeneric(w, err, "Failed to search products.")
@@ -117,7 +117,7 @@ func (h *ProductHandler) SearchProductVersions(w http.ResponseWriter, r *http.Re
 
 	// TODO: Decode into a typed SearchProductVersionsRequest and validate fields before forwarding.
 
-	result, err := h.entity.SearchProductVersions(r.Context(), productID, body)
+	result, err := h.entity.SearchProductVersions(r.Context(), productID, setIncludeInactive(body, false))
 	if err != nil {
 		slog.ErrorContext(r.Context(), "entity SearchProductVersions failed", "userID", user.UserID, "err", err)
 		mapUpstreamErrorGeneric(w, err, "Failed to search product versions.")

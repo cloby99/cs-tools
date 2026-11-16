@@ -1174,3 +1174,11 @@ Follow these steps in order:
 - `withUser()` injects a test user into the request context
 - `decodeJSON[T]()` decodes response bodies in assertions
 - Use real UUIDs (e.g. `"11111111-1111-1111-1111-111111111111"`) for UUID path param test values — not fake slugs like `"case-1"`
+
+## Product catalog admin (`/product-catalog/*`)
+
+`ProductCatalogHandler` (`internal/handler/product_catalog.go`) backs Settings > Products: add a product or a version, retire or restore either (soft delete), list with retired entries. All six routes are `PermAdmin` and pass the body to entity-service's `POST /products`, `PATCH /products/{id}`, `POST /products/{id}/versions` and `PATCH /products/{id}/versions/{versionId}`, which validate it (the catalog is writable only where entity-service runs `DATA_SOURCE=postgres`; elsewhere those calls 404).
+
+- **Own prefix on purpose.** The pickers keep using `POST /products/search` and `/products/{id}/versions/search` (`PermView`); the admin searches live under `/product-catalog/...` and force `includeInactive: true`.
+- **`includeInactive` is stripped from the picker searches** (`setIncludeInactive(body, false)`, any key spelling, since the entity decoder is case-insensitive), so a viewer cannot list retired products. Bytes are forwarded untouched when the key is absent.
+- **Create and PATCH use `mapUpstreamError`** so an admin sees the 409 "already exists" and 400 reasons; the searches use the generic mapper.
